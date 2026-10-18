@@ -82,8 +82,8 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	rec, ok := h.cache.Get(slug)
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]string{"detail": "Recipe not found"})
 		return
 	}

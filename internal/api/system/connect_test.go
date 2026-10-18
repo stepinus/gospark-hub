@@ -139,7 +139,7 @@ func TestComputeConnectInfoExternalOrigin(t *testing.T) {
 	if !strings.Contains(info.Commands.Install, "--key sah-test-key") {
 		t.Fatalf("install command should include api key: %q", info.Commands.Install)
 	}
-	if info.Commands.SetKey == nil || *info.Commands.SetKey != "sah-test-key" {
+	if info.Commands.SetKey == nil || *info.Commands.SetKey != "sah set-key sah-test-key" {
 		t.Fatal("set_key should contain api key")
 	}
 	foundOrigin := false

@@ -551,6 +551,9 @@ func (d *DB) TopModels(userID *int64, limit int) ([]ModelUsage, error) {
 		}
 		out = append(out, m)
 	}
+	if out == nil {
+		out = []ModelUsage{} // upstream serialises an empty list, never null
+	}
 	return out, rows.Err()
 }
 

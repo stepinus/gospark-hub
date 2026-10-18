@@ -1,6 +1,7 @@
 package system
 
 import (
+	"gospark-hub/internal/auth"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -161,7 +162,9 @@ func computeConnectInfo(port int, apiKey, origin, callerIP string, agents []sah.
 	}
 	setKey := (*string)(nil)
 	if apiKey != "" {
-		setKey = &apiKey
+		// The page shows a ready-to-paste line, not a bare key.
+		line := fmt.Sprintf("sah set-key %s", apiKey)
+		setKey = &line
 	}
 
 	return connectInfo{
@@ -201,6 +204,11 @@ func requestSchemeFromOrigin(origin string) string {
 }
 
 func apiKeyFromRequest(r *http.Request) string {
+	// The page asks about the account it is signed in as; that account's own
+	// key is the one the install line must carry.
+	if u := auth.CurrentUser(r); u != nil && u.APIKey != "" {
+		return u.APIKey
+	}
 	if v := r.Header.Get("X-Api-Key"); v != "" {
 		return v
 	}

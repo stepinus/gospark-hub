@@ -31,11 +31,12 @@ func parseRecipe(data []byte, dir string) (Recipe, error) {
 		Icon:        stringField(raw, "icon", ""),
 		Logo:        stringField(raw, "logo", ""),
 		Cover:       parseCover(raw["cover"]),
+		// Upstream reads these from the `requirements` block, not the top level.
 		Requirements: RecipeRequirements{
-			MinMemoryGB:         intField(raw, "min_memory_gb", 8),
-			RecommendedMemoryGB: intPtrField(raw, "recommended_memory_gb"),
-			DiskGB:              intField(raw, "disk_gb", 10),
-			CudaCompute:         stringField(raw, "cuda_compute", "12.1"),
+			MinMemoryGB:         intField(nestedMap(raw, "requirements"), "min_memory_gb", 8),
+			RecommendedMemoryGB: intPtrField(nestedMap(raw, "requirements"), "recommended_memory_gb"),
+			DiskGB:              intField(nestedMap(raw, "requirements"), "disk_gb", 10),
+			CudaCompute:         stringField(nestedMap(raw, "requirements"), "cuda_compute", "12.1"),
 		},
 		UI: RecipeUI{
 			Type:        stringField(nestedMap(raw, "ui"), "type", "web"),
@@ -176,7 +177,7 @@ func parseVideoDefaults(v any) *RecipeVideoDefaults {
 		FlowShift:       floatPtrField(m, "flow_shift"),
 		ExtraParams:     anyMap(m, "extra_params"),
 		SendAspectRatio: boolField(m, "send_aspect_ratio", false),
-		AspectRatios:    stringSlice(m, "aspect_ratios"),
+		AspectRatios:    stringSliceOrNil(m, "aspect_ratios"),
 		MaxSeconds:      intPtrField(m, "max_seconds"),
 		Notes:           stringField(m, "notes", ""),
 		Source:          stringField(m, "source", ""),
@@ -343,6 +344,16 @@ func boolField(m map[string]any, key string, def bool) bool {
 		return b
 	}
 	return def
+}
+
+// stringSliceOrNil keeps "absent" distinct from "empty": upstream models this
+// field as Optional, so null and [] are different answers.
+func stringSliceOrNil(m map[string]any, key string) []string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return nil
+	}
+	return stringSlice(m, key)
 }
 
 func stringSlice(m map[string]any, key string) []string {
