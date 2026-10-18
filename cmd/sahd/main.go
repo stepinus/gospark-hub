@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -13,7 +14,9 @@ import (
 	"syscall"
 	"time"
 
+	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/config"
+	"gospark-hub/internal/registry"
 	"gospark-hub/internal/web"
 )
 
@@ -28,6 +31,13 @@ func main() {
 	srv := web.New(cfg)
 	r := web.NewRouter()
 	srv.MountStatic(r)
+
+	reg := registry.NewCache(cfg.RegistryPath)
+	system.Register(r, system.Deps{
+		Config:   cfg,
+		Logger:   slog.Default(),
+		Registry: reg,
+	})
 
 	httpSrv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),

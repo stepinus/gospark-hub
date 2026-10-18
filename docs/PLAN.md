@@ -131,5 +131,9 @@ protected-resource метаданные со ссылкой на `/mcp`.
 
 ## Вне скоупа этапа 1
 
-Перепись `sah` на Go, интеграция с llama-swap, десктоп на Wails/Fyne, RTX Spark и
-Strix Halo. Перечисленное — этап 2.
+Перепись `sah` на Go и интеграция с llama-swap. Перечисленное — этап 2.
+
+## Этап 3
+
+Десктоп на Wails/Fyne и совместимость с RTX Spark и Strix Halo. Отложено: идеи
+этапа 2 (см. `docs/IDEAS.md`) важнее.
