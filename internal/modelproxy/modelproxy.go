@@ -360,22 +360,15 @@ func usageFrom(payload map[string]any) map[string]any {
 		}
 		return nil
 	}
-	prompt := 0
-	completion := 0
-	total := 0
-	if v, ok := usage["prompt_tokens"].(float64); ok {
-		prompt = int(v)
-	} else if v, ok := usage["input_tokens"].(float64); ok {
-		prompt = int(v)
+	prompt, ok := intField(usage, "prompt_tokens")
+	if !ok {
+		prompt, _ = intField(usage, "input_tokens")
 	}
-	if v, ok := usage["completion_tokens"].(float64); ok {
-		completion = int(v)
-	} else if v, ok := usage["output_tokens"].(float64); ok {
-		completion = int(v)
+	completion, ok := intField(usage, "completion_tokens")
+	if !ok {
+		completion, _ = intField(usage, "output_tokens")
 	}
-	if v, ok := usage["total_tokens"].(float64); ok {
-		total = int(v)
-	}
+	total, _ := intField(usage, "total_tokens")
 	if total == 0 {
 		total = prompt + completion
 	}
@@ -481,4 +474,13 @@ func intValue(v any) int {
 		return int(n)
 	}
 	return 0
+}
+
+// intField returns m[key] as an int, reporting whether the key was present.
+func intField(m map[string]any, key string) (int, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	return intValue(v), true
 }

@@ -432,6 +432,58 @@ func TestAnthropicMessages_StreamTranslation(t *testing.T) {
 	}
 }
 
+func TestAnthropicMessages_StreamRecordsUsage(t *testing.T) {
+	recipes := []registry.Recipe{testRecipe("small", 4)}
+	reg := newTestRegistry(t, recipes...)
+	upstream := newUpstreamServer("test-model")
+	upstream.streamChunks = []string{
+		"data: " + jsonString(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "Hello"}}}, "object": "chat.completion.chunk"}) + "\n\n",
+		"data: " + jsonString(map[string]any{
+			"choices": []any{},
+			"model":   "test-model",
+			"object":  "chat.completion.chunk",
+			"usage":   map[string]any{"prompt_tokens": 100, "completion_tokens": 7, "total_tokens": 107},
+		}) + "\n\n",
+		"data: [DONE]\n\n",
+	}
+	srv := httptest.NewServer(upstream)
+	defer srv.Close()
+	cfg := config.Config{PublicPort: parsePort(srv.URL), Project: "test", DataDir: t.TempDir()}
+
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	user, err := db.CreateUser("u@example.com", "u", "hash", "user", "active", "key-123")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proxy := modelproxy.New(modelproxy.Deps{Config: cfg, Registry: reg, Store: db, Runner: &mockRunner{slugs: []string{"small"}}})
+	body := map[string]any{
+		"model":    "claude-3",
+		"messages": []any{map[string]any{"role": "user", "content": "hi"}},
+		"stream":   true,
+	}
+	r := httptest.NewRequest(http.MethodPost, "/v1/messages", jsonBody(body))
+	w := httptest.NewRecorder()
+	proxy.AnthropicMessages(w, r, user.ID, "api_key")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	summary, err := db.UsageSummary(&user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := summary[user.ID]
+	if got.TotalTokens != 107 || got.PromptTokens != 100 || got.CompletionTokens != 7 {
+		t.Fatalf("usage = %+v, want prompt=100 completion=7 total=107", got)
+	}
+}
+
 func TestCountTokens(t *testing.T) {
 	_, proxy, _ := setup(t, nil, &mockRunner{})
 	body := map[string]any{

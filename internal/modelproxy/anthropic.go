@@ -102,21 +102,8 @@ func (p *Proxy) streamAnthropic(w http.ResponseWriter, req *http.Request, reques
 		return
 	}
 
-	var usageSink map[string]any
-	for ev := range translateStream(resp.Body, requestedModel) {
-		if usage := usageFromEvent(ev); usage != nil {
-			if usageSink == nil {
-				usageSink = map[string]any{}
-			}
-			for k, v := range usage {
-				usageSink[k] = v
-			}
-		}
-		if evType, _ := ev["type"].(string); evType == "error" {
-			writeSSE(w, "error", ev["data"])
-			flusher.Flush()
-			return
-		}
+	usageSink := map[string]any{}
+	for ev := range translateStream(resp.Body, requestedModel, usageSink) {
 		writeSSEBytes(w, ev)
 		flusher.Flush()
 	}
@@ -580,14 +567,6 @@ func reasoning(msg map[string]any) string {
 
 func newID(prefix string) string {
 	return prefix + "_" + strings.ReplaceAll(uuid.New().String(), "-", "")[:24]
-}
-
-func usageFromEvent(ev map[string]any) map[string]any {
-	data, ok := ev["data"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	return usageFrom(data)
 }
 
 func writeSSE(w http.ResponseWriter, event string, data any) {

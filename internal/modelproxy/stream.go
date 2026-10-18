@@ -8,7 +8,7 @@ import (
 )
 
 // translateStream converts an OpenAI SSE stream into Anthropic SSE events.
-func translateStream(r io.Reader, requestedModel string) <-chan map[string]any {
+func translateStream(r io.Reader, requestedModel string, usageSink map[string]any) <-chan map[string]any {
 	out := make(chan map[string]any)
 	go func() {
 		defer close(out)
@@ -46,9 +46,17 @@ func translateStream(r io.Reader, requestedModel string) <-chan map[string]any {
 				continue
 			}
 
-			if usage, ok := ev["usage"].(map[string]any); ok {
-				if v, ok := usage["completion_tokens"].(float64); ok {
-					outputTokens = int(v)
+			// Capture the upstream usage block — including the usage-only
+			// chunk the proxy asked for via stream_options.include_usage — and
+			// hand it to the caller so the call can be billed. It is not
+			// forwarded as an Anthropic event; message_delta carries the
+			// output count.
+			if evUsage := usageFrom(ev); evUsage != nil {
+				outputTokens = intValue(evUsage["completion_tokens"])
+				if usageSink != nil {
+					for k, v := range evUsage {
+						usageSink[k] = v
+					}
 				}
 			}
 
