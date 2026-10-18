@@ -4,3 +4,4 @@ data/*
 !data/.gitkeep
 gospark-hub
 *.db
+.pi/
