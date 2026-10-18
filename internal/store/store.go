@@ -160,6 +160,21 @@ func (d *DB) InitSchema() error {
 	return err
 }
 
+// Exec runs a raw SQL statement. Prefer typed helpers in production code.
+func (d *DB) Exec(query string, args ...any) (sql.Result, error) {
+	return d.db.Exec(query, args...)
+}
+
+// Query runs a raw SQL query. Prefer typed helpers in production code.
+func (d *DB) Query(query string, args ...any) (*sql.Rows, error) {
+	return d.db.Query(query, args...)
+}
+
+// QueryRow runs a raw SQL query returning one row. Prefer typed helpers in production code.
+func (d *DB) QueryRow(query string, args ...any) *sql.Row {
+	return d.db.QueryRow(query, args...)
+}
+
 func nowISO() string { return time.Now().UTC().Format(TimeFmt) }
 
 // UserCount returns the total number of user rows.
@@ -560,4 +575,124 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// MediaRow is one row from the media table.
+type MediaRow struct {
+	Name    string
+	UserID  int64
+	Model   string
+	Seconds sql.NullFloat64
+}
+
+// RecordMedia inserts or replaces a media ownership row.
+func (d *DB) RecordMedia(name string, userID int64, model string, seconds *float64) error {
+	var sec any
+	if seconds != nil {
+		sec = *seconds
+	}
+	_, err := d.db.Exec(
+		"INSERT OR REPLACE INTO media (name, user_id, model, seconds) VALUES (?, ?, ?, ?)",
+		name, userID, model, sec,
+	)
+	return err
+}
+
+// MediaOwner returns the owner of a media file, if recorded.
+func (d *DB) MediaOwner(name string) (int64, bool, error) {
+	var owner sql.NullInt64
+	row := d.db.QueryRow("SELECT user_id FROM media WHERE name = ?", name)
+	if err := row.Scan(&owner); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	return owner.Int64, owner.Valid, nil
+}
+
+// MediaRows returns every media row keyed by name.
+func (d *DB) MediaRows() ([]MediaRow, error) {
+	rows, err := d.db.Query("SELECT name, user_id, model, seconds FROM media")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MediaRow
+	for rows.Next() {
+		var r MediaRow
+		if err := rows.Scan(&r.Name, &r.UserID, &r.Model, &r.Seconds); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// DeleteMedia removes the media row for a file.
+func (d *DB) DeleteMedia(name string) error {
+	_, err := d.db.Exec("DELETE FROM media WHERE name = ?", name)
+	return err
+}
+
+// CreateMediaLink stores a new upload/download link.
+func (d *DB) CreateMediaLink(tokenHash, kind string, userID int64, name string, expiresAt int64) error {
+	_, err := d.db.Exec(
+		"INSERT INTO media_links (token_hash, kind, user_id, name, expires_at) VALUES (?, ?, ?, ?, ?)",
+		tokenHash, kind, userID, name, expiresAt,
+	)
+	return err
+}
+
+// ClaimMediaUpload reserves an upload link. Returns true if the reservation succeeded.
+func (d *DB) ClaimMediaUpload(tokenHash string, usedAt int64) (bool, error) {
+	res, err := d.db.Exec(
+		"UPDATE media_links SET used_at = ? WHERE token_hash = ? AND kind = 'upload' AND used_at IS NULL AND expires_at > ?",
+		usedAt, tokenHash, usedAt,
+	)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n == 1, nil
+}
+
+// ReleaseMediaUpload un-reserves an upload link after a failed upload.
+func (d *DB) ReleaseMediaUpload(tokenHash string) error {
+	_, err := d.db.Exec(
+		"UPDATE media_links SET used_at = NULL WHERE token_hash = ? AND kind = 'upload'",
+		tokenHash,
+	)
+	return err
+}
+
+// MediaDownloadTarget returns the file name for a live download link.
+func (d *DB) MediaDownloadTarget(tokenHash string, now int64) (string, error) {
+	var name string
+	err := d.db.QueryRow(
+		"SELECT name FROM media_links WHERE token_hash = ? AND kind = 'download' AND expires_at > ?",
+		tokenHash, now,
+	).Scan(&name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return name, nil
+}
+
+// MediaLinkOwner resolves the active user bound to a link token.
+func (d *DB) MediaLinkOwner(tokenHash string) (*User, error) {
+	return scanUser(d.db.QueryRow(
+		`SELECT u.id, u.email, u.name, u.password_hash, u.role, u.status, u.api_key,
+		        u.created_at, u.reviewed_at, u.last_login_at
+		 FROM media_links l JOIN users u ON u.id = l.user_id
+		 WHERE l.token_hash = ? AND u.status = 'active'`, tokenHash))
+}
+
+// PurgeExpiredMediaLinks removes media_links rows whose expires_at is <= now.
+func (d *DB) PurgeExpiredMediaLinks(now int64) error {
+	_, err := d.db.Exec("DELETE FROM media_links WHERE expires_at <= ?", now)
+	return err
 }
