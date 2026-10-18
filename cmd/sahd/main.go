@@ -16,6 +16,7 @@ import (
 	"time"
 
 	authapi "gospark-hub/internal/api/auth"
+	filesapi "gospark-hub/internal/api/files"
 	recipesapi "gospark-hub/internal/api/recipes"
 	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/auth"
@@ -59,6 +60,7 @@ func main() {
 	authapi.Register(r, auth.Deps{Store: db, Config: cfg, Logger: log.Default()})
 	recipesapi.Register(r, installed{})
 	reg := registry.NewCache(cfg.RegistryPath)
+	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	system.Register(r, system.Deps{
 		Config:   cfg,
 		Logger:   slog.Default(),
