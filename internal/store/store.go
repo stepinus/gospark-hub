@@ -4,6 +4,7 @@
 package store
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -553,6 +554,57 @@ func (d *DB) AllUsers() ([]*User, error) {
 	}
 	defer rows.Close()
 	return scanUserRows(rows)
+}
+
+// InstalledRecipes returns the set of slugs recorded in installed_recipes.
+func (d *DB) InstalledRecipes(ctx context.Context) (map[string]struct{}, error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT slug FROM installed_recipes")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		out[slug] = struct{}{}
+	}
+	return out, rows.Err()
+}
+
+// InstalledSlugs returns every installed slug in ascending order.
+func (d *DB) InstalledSlugs(ctx context.Context) ([]string, error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT slug FROM installed_recipes ORDER BY slug")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		out = append(out, slug)
+	}
+	return out, rows.Err()
+}
+
+// UpsertInstalledRecipe records a successful install/launch. It mirrors the
+// upstream INSERT OR REPLACE, which refreshes installed_at each time.
+func (d *DB) UpsertInstalledRecipe(ctx context.Context, slug, composeProject string) error {
+	_, err := d.db.ExecContext(ctx,
+		"INSERT OR REPLACE INTO installed_recipes (slug, status, compose_project) VALUES (?, 'installed', ?)",
+		slug, composeProject)
+	return err
+}
+
+// DeleteInstalledRecipe removes the install marker for a slug.
+func (d *DB) DeleteInstalledRecipe(ctx context.Context, slug string) error {
+	_, err := d.db.ExecContext(ctx, "DELETE FROM installed_recipes WHERE slug = ?", slug)
+	return err
 }
 
 func truncate(s string, n int) string {
