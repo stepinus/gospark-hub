@@ -1,0 +1,67 @@
+name: "Hunyuan Hy3 295B (1-bit IQ1_M + MTP)"
+slug: llamacpp-hy3-iq1m-mtp
+version: "1.0.0"
+description: "Tencent Hunyuan Hy3 (hy_v3) 295B MoE at 1-bit (IQ1_M, ~92GB) with MTP self-speculative decoding, served via mainline llama.cpp built native for the DGX Spark (ARM64+CUDA13). OpenAI-compatible API, 65K context, thinking + tool-call parser."
+author: "Tencent / AtomicChat"
+source: "community"
+website: "https://huggingface.co/AtomicChat/Hy3-GGUF"
+upstream: "https://huggingface.co/AtomicChat/Hy3-GGUF"
+category: llm
+tags:
+  - llm
+  - moe
+  - gguf
+  - llama-cpp
+  - hunyuan
+  - hy3
+  - 1-bit
+  - iq1_m
+  - mtp
+  - reasoning
+  - tool-use
+logo: "/logos/hunyuan.png"
+requirements:
+  min_memory_gb: 108
+  recommended_memory_gb: 128
+  disk_gb: 95
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8080
+  proxy: true
+  path: "/v1/models"
+docker:
+  build: true
+  build_time_minutes: 4
+  gpu: true
+status: community-verified
+engine: "llama.cpp"
+params_b: 295
+arch: moe
+quantization: "IQ1_M"
+speculative_method: "mtp"
+artificial_analysis_index: 32
+weights_gb: 91.8
+release_date: "2026-08-19"
+tested_on:
+  dgx_os: "7.2"
+  date: "2026-08-19"
+tokens_per_second: 15.6
+tokens_per_second_editing: 15.6
+editing_workload: "code-edit"
+benchmarks:
+  prose: 14.45
+  explainer: 14.68
+  code: 18.97
+  code-edit: 15.6
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "hy3"
+  api_key: "<API_KEY>"
+  curl_example: "curl <HUB>/v1/chat/completions -H 'Authorization: Bearer <API_KEY>' -H 'Content-Type: application/json' -d '{\"model\": \"hy3\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'"
+
+cover:
+  image: tencent-towers.jpg
+  caption: "Tencent Seafront Towers in Shenzhen, Tencent's headquarters and the home of the Hunyuan team."
+  credit: "Tencent Seafront Towers, the Tencent HQ in Shenzhen (2026) - img 01.jpg · Chainwit. · CC BY 4.0"
+  source: "https://commons.wikimedia.org/wiki/File%3ATencent%20Seafront%20Towers%2C%20the%20Tencent%20HQ%20in%20Shenzhen%20%282026%29%20-%20img%2001.jpg"

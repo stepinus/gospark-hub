@@ -1,0 +1,85 @@
+services:
+  llama-server:
+    build:
+      context: .
+      secrets:
+        - hf_token
+      dockerfile_inline: |
+        FROM python:3.13-slim AS weights
+        # Model weights are part of the app artifact: they are baked into the
+        # image below, so `docker rmi` reclaims every byte this recipe added.
+        ENV HF_HUB_DISABLE_XET=1 HF_HOME=/weights
+        RUN pip install --no-cache-dir huggingface_hub
+        RUN --mount=type=secret,id=hf_token \
+            HF_TOKEN="$(cat /run/secrets/hf_token 2>/dev/null)" \
+            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('unsloth/GLM-4.7-Flash-GGUF', allow_patterns=['*GLM-4.7-Flash-Q8_0.gguf*'])"
+        FROM ghcr.io/ggml-org/llama.cpp:full-cuda13-b8953
+        COPY --from=weights /weights /root/.cache/huggingface
+    image: spark-ai-hub/llamacpp-glm47-flash-q8:full-cuda13-b8953
+    container_name: spark-ai-hub-llamacpp-glm47-flash-q8
+    entrypoint:
+      - /app/llama-server
+    command:
+      - -hf
+      - unsloth/GLM-4.7-Flash-GGUF
+      - --hf-file
+      - GLM-4.7-Flash-Q8_0.gguf
+      - -ngl
+      - "999"
+      - -c
+      - "202752"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --alias
+      - glm-4.7-flash
+      - -fa
+      - "on"
+      - -ctk
+      - q4_0
+      - -ctv
+      - q4_0
+      - --jinja
+      - --temp
+      - "1.0"
+      - --top-p
+      - "0.95"
+      - --min-p
+      - "0.01"
+      - --repeat-penalty
+      - "1.0"
+      - --no-mmap
+      - --cont-batching
+      - -np
+      - "1"
+      - -t
+      - "16"
+      - -tb
+      - "16"
+    networks:
+      - spark-ai-hub-net
+    environment:
+      - GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-1}
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+secrets:
+  hf_token:
+    environment: HF_TOKEN
+
+# Created by the Hub, shared by every app, and never torn down with any
+# single one of them -- hence external.
+networks:
+  spark-ai-hub-net:
+    external: true

@@ -1,0 +1,102 @@
+services:
+  vllm:
+    # poolside/Laguna-S-2.1-NVFP4 is a `LagunaForCausalLM` (model_type: laguna)
+    # 117.6B-A8.5B MoE. The model card states serving requires vLLM 0.25.0+, and
+    # its "DGX Spark" recipe specifically calls for "vLLM 0.25.1 with CUDA-13
+    # torch". The plain `-aarch64` tag is the CUDA-13 (cu130) build — matching the
+    # host's CUDA 13 driver — so it is pinned here (not the `-cu129` variant).
+    # The poolside_v1 tool-call and reasoning parsers ship inside vLLM 0.25.1, so
+    # no custom image build is needed (build: false).
+    build:
+      context: .
+      secrets:
+        - hf_token
+      dockerfile_inline: |
+        FROM python:3.13-slim AS weights
+        # Model weights are part of the app artifact: they are baked into the
+        # image below, so `docker rmi` reclaims every byte this recipe added.
+        ENV HF_HUB_DISABLE_XET=1 HF_HOME=/weights
+        RUN pip install --no-cache-dir huggingface_hub
+        RUN --mount=type=secret,id=hf_token \
+            HF_TOKEN="$(cat /run/secrets/hf_token 2>/dev/null)" \
+            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('poolside/Laguna-S-2.1-NVFP4'); snapshot_download('poolside/Laguna-S-2.1-DFlash-NVFP4')"
+        FROM vllm/vllm-openai:v0.25.1-aarch64
+        COPY --from=weights /weights /root/.cache/huggingface
+    image: spark-ai-hub/vllm-laguna-s-21-nvfp4:v0.25.1-aarch64
+    container_name: spark-ai-hub-vllm-laguna-s-21-nvfp4
+    networks:
+      - spark-ai-hub-net
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      # Offline-first: once install has prefetched both the NVFP4 weights and the
+      # DFlash drafter into the cache volume, launch must never hit the network.
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-1}
+    ipc: host
+    # This is poolside's DGX Spark serving recipe from the model card, verbatim
+    # except for host/port binding. The checkpoint is compressed-tensors
+    # nvfp4-pack-quantized with a baked-in FP8 KV cache (kv_cache_scheme), so vLLM
+    # auto-detects the quantization and KV dtype — no --quantization / --kv-cache-dtype
+    # needed. Both the served model and the --speculative-config drafter are given
+    # as HF repo ids so the Hub prefetches both into the cache volume at install.
+    command:
+      - --model
+      - poolside/Laguna-S-2.1-NVFP4
+      - --port
+      - "8000"
+      # The official vLLM recipe for Laguna serves with --trust-remote-code
+      # (the repo ships a custom config/tokenizer for the `laguna` arch).
+      - --trust-remote-code
+      - --speculative-config
+      - '{"model":"poolside/Laguna-S-2.1-DFlash-NVFP4","num_speculative_tokens":15}'
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - poolside_v1
+      - --reasoning-parser
+      - poolside_v1
+      # Native interleaved thinking on by default, as in the card's serve command.
+      # Required, not cosmetic: the template does `enable_thinking | default(true)`
+      # so the model always thinks, but poolside_v1 (a DeepSeekV3ReasoningParser)
+      # defaults `thinking` to False and falls back to IdentityReasoningParser,
+      # which dumps the chain-of-thought plus a stray `</think>` into `content`
+      # and leaves `reasoning` null. This flag is what separates the two fields.
+      - --default-chat-template-kwargs
+      - '{"enable_thinking": true}'
+      - --override-generation-config
+      - '{"temperature":0.7,"top_p":0.95}'
+      # Full 262144 native context does not fit on a 128GB Spark with this
+      # checkpoint + DFlash active, at any gpu-memory-utilization: weights
+      # (92.85 GiB target + 6.85 GiB draft) + the 20.32 GiB KV cache a full
+      # context window needs adds up to ~122.5 GiB total needed against
+      # ~121 GiB of unified memory that actually exists on the box. Measured,
+      # not assumed (--max-num-batched-tokens 16384 alone was not enough —
+      # tried and still failed at 20.32 GiB needed / 0.67 GiB available).
+      # Capping context to 65536 brings the KV requirement down to ~5 GiB,
+      # comfortably inside the budget with DFlash's draft weights and slot
+      # reservations still in place.
+      - --max-num-seqs
+      - "32"
+      - --max-num-batched-tokens
+      - "16384"
+      - --max-model-len
+      - "65536"
+      - --gpu-memory-utilization
+      - "0.93"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+secrets:
+  hf_token:
+    environment: HF_TOKEN
+
+# Created by the Hub, shared by every app, and never torn down with any
+# single one of them -- hence external.
+networks:
+  spark-ai-hub-net:
+    external: true

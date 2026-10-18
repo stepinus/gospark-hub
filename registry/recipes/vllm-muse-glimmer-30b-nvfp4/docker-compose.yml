@@ -1,0 +1,82 @@
+services:
+  vllm:
+    # Muse Glimmer is a new architecture (`muse_glimmer`,
+    # MuseGlimmerForConditionalGeneration) that only exists in vLLM's dedicated
+    # Muse Glimmer image. Pinned to the arm64 + CUDA 13 build by digest so the
+    # DGX Spark always gets the native aarch64 image and launch is reproducible.
+    # Tag: vllm/vllm-openai:muse-glimmer-arm64-cu130
+    build:
+      context: .
+      secrets:
+        - hf_token
+      dockerfile_inline: |
+        FROM python:3.13-slim AS weights
+        # Model weights are part of the app artifact: they are baked into the
+        # image below, so `docker rmi` reclaims every byte this recipe added.
+        ENV HF_HUB_DISABLE_XET=1 HF_HOME=/weights
+        RUN pip install --no-cache-dir huggingface_hub
+        RUN --mount=type=secret,id=hf_token \
+            HF_TOKEN="$(cat /run/secrets/hf_token 2>/dev/null)" \
+            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('RedHatAI/Muse-Glimmer-30B-NVFP4')"
+        FROM vllm/vllm-openai@sha256:ae1de325b8ea670288c328460a95d3807838cd254e8e9961ea7f6a741ce2c563
+        COPY --from=weights /weights /root/.cache/huggingface
+    image: spark-ai-hub/vllm-muse-glimmer-30b-nvfp4:ae1de325b8ea670288c328460a95d3807838cd254e8e9961ea7f6a741ce2c563
+    container_name: spark-ai-hub-vllm-muse-glimmer-30b-nvfp4
+    networks:
+      - spark-ai-hub-net
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-1}
+      # DGX Spark (GB10 Blackwell, sm_121a) NVFP4 environment.
+      - CUTE_DSL_ARCH=sm_121a
+      - FLASHINFER_DISABLE_VERSION_CHECK=1
+    ipc: host
+    # Serve command from the RedHatAI model card, plus the Spark-tuned context
+    # length and memory headroom.
+    command:
+      - --model
+      - RedHatAI/Muse-Glimmer-30B-NVFP4
+      - --port
+      - "8000"
+      # The card ships a generation_config.json with the sampling defaults the
+      # model was tuned for; `auto` makes vLLM honour it.
+      - --generation-config
+      - auto
+      - --tensor-parallel-size
+      - "1"
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - muse_glimmer
+      # Muse Glimmer is a reasoning model: chain-of-thought is split out into
+      # `reasoning` and only the answer lands in `content`. Budget a few
+      # thousand max_tokens or the visible answer comes back empty.
+      - --reasoning-parser
+      - muse_glimmer
+      # Native context is 131072 (see config.json max_position_embeddings).
+      # 39 of the 52 layers are sliding-window (2048), so only 13 global layers
+      # carry a full-length KV cache — a full 128K session costs ~1.8 GiB.
+      - --max-model-len
+      - "131072"
+      - --gpu-memory-utilization
+      # 23.4 GB of NVFP4 weights + the 1.8B ViT-G/14 vision tower. 0.25 leaves
+      # roughly 3x concurrency at the full 131072 context and frees ~96 GB.
+      - "0.25"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+secrets:
+  hf_token:
+    environment: HF_TOKEN
+
+# Created by the Hub, shared by every app, and never torn down with any
+# single one of them -- hence external.
+networks:
+  spark-ai-hub-net:
+    external: true

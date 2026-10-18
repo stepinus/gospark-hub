@@ -1,0 +1,55 @@
+name: "Qwen Image 2512"
+slug: qwen-image-2512
+version: "1.0.0"
+description: "Generate images from text prompts with Qwen-Image-2512, the updated Qwen text-to-image model with stronger human realism and finer natural detail, plus controls for aspect ratio, seed, and sampling."
+author: "Qwen"
+source: "spark-ai-hub"
+website: "https://huggingface.co/Qwen/Qwen-Image-2512"
+upstream: "https://github.com/WaxacaBytes/qwen-image-2512-spark-ai-hub"
+fork: "https://huggingface.co/Qwen/Qwen-Image-2512"
+category: image-gen
+categories:
+  - image-gen
+tags:
+  - qwen
+  - text-to-image
+  - diffusion
+  - gradio
+  - image
+icon: "\U0001F5BC\uFE0F"
+logo: "/logos/qwen.png"
+requirements:
+  min_memory_gb: 40
+  recommended_memory_gb: 72
+  disk_gb: 80
+  cuda_compute: "12.1"
+ui:
+  type: web
+  # Port inside the container. Nothing is published to the host:
+  # the app is served at /run/qwen-image-2512/ on the Hub's own port.
+  port: 7860
+  proxy: true
+  path: "/"
+docker:
+  build: true
+  build_time_minutes: 8
+  gpu: true
+status: community-verified
+release_date: "2025-12"
+# The Hub's image tools use these whenever an agent leaves them unset. Steps are
+# the Hub owner's choice for speed; the model card's quickstart only shows 50.
+# true_cfg_scale 4.0 is the card's example value and the app's own default.
+image_defaults:
+  steps: 16
+  true_cfg_scale: 4.0
+  notes: "16 steps is this Hub's speed/quality choice; the model card's example uses 50 for maximum detail."
+  source: "https://huggingface.co/Qwen/Qwen-Image-2512"
+
+cover:
+  image: real-qwen-image.jpg
+  backdrop:
+    image: hero-qwen-image.jpg
+  caption: "An image Qwen-Image 2512 generated, from Alibaba's showcase."
+  grade: false
+  credit: "Qwen-Image 2512 showcase, Alibaba"
+  source: "https://huggingface.co/Qwen/Qwen-Image-2512"

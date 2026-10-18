@@ -1,0 +1,67 @@
+name: "Qwen3.5-35B-A3B MoE GPTQ-Int4"
+slug: vllm-qwen35-35b-a3b-int4
+version: "1.0.0"
+description: "Qwen3.5-35B-A3B MoE GPTQ-Int4 with official vLLM reasoning parser and tool calling. Optimized for DGX Spark."
+author: "Alibaba Cloud"
+source: "official"
+website: "https://docs.vllm.ai/projects/recipes/en/latest/Qwen/Qwen3.5.html"
+upstream: "https://huggingface.co/Qwen/Qwen3.5-35B-A3B-GPTQ-Int4"
+category: llm
+tags:
+  - llm
+  - multimodal
+  - vision
+  - reasoning
+  - coding
+  - tool-use
+  - vllm
+  - nvidia-official
+logo: "/logos/qwen.png"
+requirements:
+  min_memory_gb: 30
+  recommended_memory_gb: 40
+  disk_gb: 30
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8000
+  proxy: true
+  path: "/v1/models"
+docker:
+  build: true
+  build_time_minutes: 5
+  gpu: true
+status: community-verified
+engine: "vLLM"
+params_b: 35
+active_params_b: 3
+arch: moe
+quantization: "INT4"
+speculative_method: "mtp"
+artificial_analysis_index: 23
+weights_gb: 24.4
+release_date: "2026-02"
+tested_on:
+  dgx_os: "7.2"
+  date: "2026-04-02"
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4"
+  api_key: "<API_KEY>"
+  curl_example: "curl <HUB>/v1/chat/completions -H 'Authorization: Bearer <API_KEY>' -H 'Content-Type: application/json' -d '{\"model\": \"Qwen/Qwen3.5-35B-A3B-GPTQ-Int4\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'"
+tokens_per_second: 55.4
+tokens_per_second_editing: 55.4
+editing_workload: "code-edit"
+benchmarks:
+  prose: 53.67
+  explainer: 55.1
+  code: 57.41
+  code-edit: 55.4
+
+cover:
+  image: qwen-35b.jpg
+  caption: "The Qwen capybara bench-pressing. Shared by Qwen models of 35B parameters."
+  fit: contain
+  grade: false
+  credit: "cfahlgren1/flux-qwen-capybara — a FLUX.1-dev LoRA recreating the Qwen capybara · FLUX.1-dev non-commercial licence"
+  source: "https://huggingface.co/cfahlgren1/flux-qwen-capybara"

@@ -1,0 +1,32 @@
+services:
+  minicpm-o:
+    image: ghcr.io/waxacabytes/minicpm-o-spark-ai-hub:latest
+    container_name: spark-ai-hub-minicpm-o
+    # No published port: the front-door proxy reaches this container
+    # by name on the shared network, so nothing can collide and the
+    # whole Hub stays behind one port.
+    networks:
+      - spark-ai-hub-net
+    environment:
+      GRADIO_ROOT_PATH: "/run/minicpm-o"
+      MINICPM_MODEL: "openbmb/MiniCPM-o-2_6"
+      HF_HOME: /app/hf-cache
+    volumes:
+      - minicpm-o-hf-cache:/app/hf-cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  minicpm-o-hf-cache:
+
+# Created by the Hub, shared by every app, and never torn down with any
+# single one of them -- hence external.
+networks:
+  spark-ai-hub-net:
+    external: true

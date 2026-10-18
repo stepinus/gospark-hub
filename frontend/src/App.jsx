@@ -1,0 +1,477 @@
+import { useEffect, useState } from 'react'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useStore } from './store'
+import { useMetrics } from './hooks/useMetrics'
+import ThemeToggle from './components/ThemeToggle'
+import RunningTray from './components/RunningTray'
+import HfTokenModal from './components/HfTokenModal'
+import HfAccessModal from './components/HfAccessModal'
+import LaunchConflictModal from './components/LaunchConflictModal'
+import { useAuth } from './auth'
+import Account, { Avatar } from './pages/Account'
+import Users from './pages/Users'
+import Files from './pages/Files'
+import Catalog from './pages/Catalog'
+import Agents, { AgentIcon } from './pages/Agents'
+import Running from './pages/Running'
+import System from './pages/System'
+import RecipeDetail from './pages/RecipeDetail'
+
+const NAV_ITEMS = [
+  { path: '/', label: 'Store', icon: StorefrontIcon },
+  { path: '/agents', label: 'Agents', icon: AgentIcon },
+  { path: '/running', label: 'Running', icon: PlayIcon },
+  { path: '/files', label: 'My files', icon: FolderIcon },
+  { path: '/about', label: 'About', icon: InfoIcon },
+]
+
+// Only an admin can reach /users; everything else is open to any active
+// account, so this is the one nav item that is conditional.
+const ADMIN_NAV_ITEM = { path: '/users', label: 'Users', icon: UsersIcon }
+
+const PAGE_TITLES = {
+  '/': 'Store',
+  '/agents': 'Agents',
+  '/running': 'Running',
+  '/system': 'System',
+  '/about': 'About',
+  '/account': 'Account',
+  '/users': 'Users',
+  '/files': 'My files',
+  '/upload': 'My files',
+}
+
+export default function App() {
+  const recipes = useStore((s) => s.recipes)
+  const fetchRecipes = useStore((s) => s.fetchRecipes)
+  const setNavigate = useStore((s) => s.setNavigate)
+  const theme = useStore((s) => s.theme)
+  const metrics = useStore((s) => s.metrics)
+  const user = useAuth((s) => s.user)
+  const [search, setSearch] = useState('')
+  const [wide, setWide] = useState(() => {
+    try { return localStorage.getItem('spark-ai-hub-sidebar') === 'wide' } catch { return false }
+  })
+  const toggleWide = () => {
+    setWide(!wide)
+    try { localStorage.setItem('spark-ai-hub-sidebar', wide ? 'narrow' : 'wide') } catch { /* kept for this visit only */ }
+  }
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const isDetail = location.pathname.startsWith('/app/')
+
+  useMetrics()
+
+  // Let store actions (selectRecipe, …) drive the router.
+  useEffect(() => {
+    setNavigate(navigate)
+  }, [navigate, setNavigate])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  // Distinct per-tab titles so multiple browser tabs stay tellable apart.
+  useEffect(() => {
+    const slug = isDetail ? decodeURIComponent(location.pathname.slice('/app/'.length)) : null
+    const name = slug ? (recipes.find((r) => r.slug === slug)?.name || slug) : PAGE_TITLES[location.pathname]
+    document.title = name ? `${name} · Spark AI Hub` : 'Spark AI Hub'
+  }, [location.pathname, isDetail, recipes])
+
+  useEffect(() => {
+    fetchRecipes()
+    const interval = setInterval(fetchRecipes, 5000)
+    return () => clearInterval(interval)
+  }, [fetchRecipes])
+
+  const navItems = user?.role === 'admin' ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS
+  const searchPlaceholder = location.pathname === '/agents' ? 'Search models...' : 'Search apps...'
+
+  // Phones get the same app with the chrome moved: the sidebar becomes a tab
+  // bar along the bottom (where a thumb reaches), and the header stacks the
+  // running tray under the title instead of beside it.
+  return (
+    <div className="bg-bg text-text flex h-[100dvh] overflow-hidden transition-colors duration-300">
+      {/* ─── Sidebar (tablet and up): icons, or icons with their names. The
+           names need a laptop-wide window (lg); on a tablet the page keeps
+           the room and the sidebar stays icons. ─── */}
+      <aside className={`hidden w-[72px] items-center ${wide ? 'lg:w-[200px] lg:items-stretch lg:px-3' : ''} shrink-0 bg-sidebar-bg md:flex flex-col py-4 border-r border-outline-dim transition-[width] duration-200`}>
+        {/* Logo */}
+        <Link
+          to="/"
+          className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#152608] to-[#0A1404] flex items-center justify-center border-none cursor-pointer shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow mb-6 p-1.5"
+          title="Spark AI Hub"
+        >
+          <img src="/brand/spark-ai-hub-mark.svg" alt="Spark AI Hub" className="w-full h-full" />
+        </Link>
+
+        {/* Nav */}
+        <nav className="flex flex-col gap-1 flex-1">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                title={item.label}
+                className={`relative h-11 rounded-xl flex items-center border-none cursor-pointer no-underline sidebar-link ${
+                  wide ? 'w-11 justify-center lg:w-auto lg:justify-start lg:gap-3 lg:px-3' : 'w-11 justify-center'
+                } ${isActive ? 'active' : 'bg-transparent text-text-dim hover:text-text'}`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                {wide && <span className="hidden lg:inline text-sm font-semibold whitespace-nowrap">{item.label}</span>}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Bottom: Account + System gauges + Theme toggle */}
+        <div className={`flex flex-col gap-3 mt-auto items-center ${wide ? 'lg:items-stretch' : ''}`}>
+          {user && (
+            <Link
+              to="/account"
+              title={`${user.name || user.email} — account & API key`}
+              className={`flex min-w-0 items-center gap-3 rounded-2xl no-underline text-text transition-shadow ${wide ? 'lg:p-1 lg:pr-3' : ''} ${
+                location.pathname === '/account'
+                  ? 'ring-2 ring-primary/60'
+                  : 'hover:ring-2 hover:ring-outline-dim'
+              }`}
+            >
+              <Avatar user={user} size={36} />
+              {wide && <span className="hidden lg:block truncate text-sm font-semibold">{user.name || user.email}</span>}
+            </Link>
+          )}
+          {metrics && (
+            <div className={`flex flex-col items-center gap-1 ${wide ? 'lg:flex-row lg:justify-between' : ''}`}>
+              <MiniGauge
+                value={metrics.gpu_utilization}
+                label="GPU"
+                color="var(--tertiary)"
+                onClick={() => navigate('/system')}
+              />
+              {/* The ring fills with what is taken; the number is what is left. */}
+              <MiniGauge
+                value={metrics.ram_total_gb > 0 ? Math.round((metrics.ram_used_gb / metrics.ram_total_gb) * 100) : 0}
+                text={`${Math.round(metrics.ram_total_gb - metrics.ram_used_gb)}G`}
+                title={`${Math.round(metrics.ram_total_gb - metrics.ram_used_gb)} GB free of ${Math.round(metrics.ram_total_gb)} GB`}
+                label="FREE"
+                color="var(--tertiary)"
+                onClick={() => navigate('/system')}
+              />
+              <MiniGauge
+                value={metrics.disk_total_gb > 0 ? Math.round((metrics.disk_used_gb / metrics.disk_total_gb) * 100) : 0}
+                label="DSK"
+                color="var(--primary)"
+                onClick={() => navigate('/system')}
+              />
+              {/* The ring fills toward the GPU's own limit, not toward 100 °C. */}
+              <MiniGauge
+                value={metrics.gpu_temp_headroom != null
+                  ? Math.round((metrics.gpu_temperature / (metrics.gpu_temperature + Math.max(metrics.gpu_temp_headroom, 0))) * 100)
+                  : Math.round(metrics.gpu_temperature)}
+                text={`${Math.round(metrics.gpu_temperature)}°`}
+                title={metrics.gpu_temp_headroom != null
+                  ? `GPU ${metrics.gpu_temperature} °C, ${metrics.gpu_temp_headroom} °C below its limit`
+                  : `GPU ${metrics.gpu_temperature} °C`}
+                label="TMP"
+                color={metrics.gpu_thermal_slowdown || (metrics.gpu_temp_headroom ?? 99) < 5
+                  ? 'var(--error)'
+                  : (metrics.gpu_temp_headroom ?? 99) < 15 ? 'var(--warning)' : '#FBBF24'}
+                onClick={() => navigate('/system')}
+              />
+            </div>
+          )}
+          <div className={`flex flex-col items-center gap-2 ${wide ? 'lg:flex-row lg:justify-between' : ''}`}>
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={toggleWide}
+              title={wide ? undefined : 'Show section names'}
+              className={`hidden lg:flex h-9 shrink-0 rounded-xl bg-surface-high items-center justify-center gap-1.5 cursor-pointer border-none text-text-dim transition-colors hover:bg-surface-highest hover:text-text ${wide ? 'px-3' : 'w-9'}`}
+            >
+              <ChevronIcon className={`w-4 h-4 transition-transform ${wide ? 'rotate-180' : ''}`} />
+              {wide && <span className="text-xs font-semibold font-label whitespace-nowrap">Collapse</span>}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ─── Main ─── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Bar */}
+        <header className="shrink-0 bg-surface-low/60 backdrop-blur-md border-b border-outline-dim">
+          <div className="flex items-center gap-3 px-4 md:px-6 py-2.5 md:py-3">
+            <Link to="/" className="flex items-center gap-2.5 shrink-0 no-underline text-text">
+              <img src="/brand/spark-ai-hub-mark.svg" alt="" className="md:hidden w-8 h-8 rounded-xl bg-gradient-to-br from-[#152608] to-[#0A1404] p-1" />
+              <span className="text-lg font-bold tracking-tight font-display">Spark AI Hub</span>
+              <span className="hidden sm:inline text-[10px] text-text-dim font-medium font-label bg-surface-high px-2 py-0.5 rounded-md">v0.1</span>
+            </Link>
+
+            {/* What is running, always in view (beside the title from tablet up). */}
+            <div className="hidden md:flex flex-1 min-w-0 mx-2">
+              <RunningTray />
+            </div>
+
+            <div className="ml-auto md:ml-0 flex shrink-0 items-center gap-2">
+              {!isDetail && (
+                <div className="relative">
+                  <svg className="absolute left-3 md:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="search"
+                    placeholder={searchPlaceholder}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-32 focus:w-44 sm:w-56 sm:focus:w-56 lg:w-72 lg:focus:w-72 py-2 pl-9 md:pl-10 pr-3 md:pr-4 bg-surface-high rounded-xl text-text text-sm outline-none border border-outline-dim focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-text-dim transition-all"
+                  />
+                </div>
+              )}
+              <div className="md:hidden"><ThemeToggle /></div>
+            </div>
+          </div>
+
+          {/* Phones: the tray gets its own scrolling row under the title. */}
+          <div className="md:hidden overflow-x-auto px-4 pb-2.5 row-scroller">
+            <RunningTray scroll />
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 md:pb-0">
+          <Routes>
+            <Route path="/" element={<div className="animate-fadeIn"><Catalog search={search} /></div>} />
+            <Route path="/agents" element={<Agents search={search} />} />
+            <Route path="/running" element={<div className="animate-fadeIn"><Running /></div>} />
+            <Route path="/system" element={<div className="animate-fadeIn"><System /></div>} />
+            <Route path="/about" element={<div className="animate-fadeIn"><About /></div>} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/files" element={<Files />} />
+            <Route path="/upload" element={<Navigate to="/files" replace />} />
+            <Route path="/app/:slug" element={<RecipeDetail />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
+
+      {/* ─── Tab bar (phones) ─── */}
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-outline-dim bg-sidebar-bg/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-1 min-w-0 flex-col items-center gap-0.5 py-2 no-underline text-[10px] font-label ${
+                isActive ? 'text-primary' : 'text-text-dim'
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          )
+        })}
+        {user && (
+          <Link
+            to="/account"
+            className={`flex flex-1 min-w-0 flex-col items-center gap-0.5 py-2 no-underline text-[10px] font-label ${
+              location.pathname === '/account' ? 'text-primary' : 'text-text-dim'
+            }`}
+          >
+            <Avatar user={user} size={20} />
+            <span className="truncate">Account</span>
+          </Link>
+        )}
+      </nav>
+      <HfTokenModal />
+      <HfAccessModal />
+      <LaunchConflictModal />
+    </div>
+  )
+}
+
+function UsersIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+/* ─── About Page ─── */
+function About() {
+  return (
+    <div className="px-6 py-6 pb-12 max-w-2xl mx-auto animate-fadeIn">
+      <div className="flex items-center gap-4 mb-8">
+        <img src="/brand/spark-ai-hub-mark.svg" alt="Spark AI Hub" className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#152608] to-[#0A1404] p-2.5" />
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight font-display m-0">Spark AI Hub</h1>
+          <p className="text-sm text-text-dim m-0 mt-1">One-click AI app launcher for NVIDIA DGX Spark</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="bg-surface rounded-2xl p-5">
+          <h3 className="font-semibold text-sm font-display m-0 mb-3">About</h3>
+          <p className="text-sm text-text-muted m-0 leading-relaxed">
+            Spark AI Hub lets you install, run, and manage GPU-accelerated AI applications on your NVIDIA DGX Spark — all from a single web interface. No terminal required.
+          </p>
+        </div>
+
+        <div className="bg-surface rounded-2xl p-5">
+          <h3 className="font-semibold text-sm font-display m-0 mb-3">Links</h3>
+          <div className="flex flex-col gap-2.5">
+            <a
+              href="https://github.com/WaxacaBytes/spark-ai-hub"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 text-sm text-text hover:text-primary transition-colors no-underline"
+            >
+              <GitHubIcon className="w-5 h-5 text-text-dim" />
+              <span>GitHub Repository</span>
+              <ExternalLinkIcon className="w-3.5 h-3.5 text-text-dim ml-auto" />
+            </a>
+            <a
+              href="https://github.com/WaxacaBytes/spark-ai-hub/issues"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 text-sm text-text hover:text-primary transition-colors no-underline"
+            >
+              <BugIcon className="w-5 h-5 text-text-dim" />
+              <span>Report an Issue</span>
+              <ExternalLinkIcon className="w-3.5 h-3.5 text-text-dim ml-auto" />
+            </a>
+          </div>
+        </div>
+
+        <div className="bg-surface rounded-2xl p-5 text-center text-sm text-text-muted">
+          Made with <span className="text-error" aria-label="love">♥</span> by{' '}
+          <a
+            href="https://github.com/WaxacaBytes"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-text hover:text-primary transition-colors no-underline"
+          >
+            WaxacaBytes
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Mini Gauge for sidebar ─── */
+function MiniGauge({ value, label, color, displayUnit = '%', text, title, onClick }) {
+  const radius = 14
+  const stroke = 3
+  const circ = 2 * Math.PI * radius
+  const pct = Math.min(Math.max(value, 0), 100)
+  const offset = circ - (pct / 100) * circ
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${title || `${label}: ${value}${displayUnit}`} — open System Monitor`}
+      className="flex flex-col items-center bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
+    >
+      <svg width="36" height="36" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r={radius} fill="none" stroke="var(--outline-dim)" strokeWidth={stroke} />
+        <circle
+          cx="18" cy="18" r={radius} fill="none"
+          stroke={color} strokeWidth={stroke}
+          strokeDasharray={circ} strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform="rotate(-90 18 18)"
+          className="gauge-ring"
+        />
+        <text x="18" y="19" textAnchor="middle" dominantBaseline="middle" fill="var(--text-muted)" fontSize="8" fontFamily="Space Grotesk" fontWeight="600">
+          {text ?? `${value}${displayUnit}`}
+        </text>
+      </svg>
+      <span className="text-[9px] text-text-dim font-label mt-0.5">{label}</span>
+    </button>
+  )
+}
+
+/* ─── Icons ─── */
+function ChevronIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  )
+}
+
+function StorefrontIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}
+
+function PlayIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  )
+}
+
+function FolderIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  )
+}
+
+function InfoIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  )
+}
+
+function GitHubIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  )
+}
+
+function BugIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2l1.88 1.88M14.12 3.88L16 2M9 7.13v-1a3 3 0 0 1 6 0v1" />
+      <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z" />
+      <path d="M6 13H2M22 13h-4M6 17H3M21 17h-3" />
+    </svg>
+  )
+}
+
+function ExternalLinkIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  )
+}

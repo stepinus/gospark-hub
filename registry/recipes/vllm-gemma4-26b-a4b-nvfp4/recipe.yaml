@@ -1,0 +1,69 @@
+name: "Gemma 4 26B-A4B NVFP4"
+slug: vllm-gemma4-26b-a4b-nvfp4
+version: "1.0.0"
+description: "Google Gemma 4 26B-A4B (MoE, 3.8B active / 25.2B total) served from NVIDIA's NVFP4-optimized checkpoint. Multimodal text+image, reasoning-enabled, and tuned for lower-memory vLLM deployment on DGX Spark."
+author: "Google"
+source: "official"
+website: "https://ai.google.dev/gemma/docs/core"
+upstream: "https://huggingface.co/nvidia/Gemma-4-26B-A4B-NVFP4"
+category: llm
+tags:
+  - llm
+  - multimodal
+  - vision
+  - moe
+  - reasoning
+  - coding
+  - tool-use
+  - vllm
+  - gemma
+  - google
+  - nvfp4
+  - nvidia-official
+logo: "/logos/google.png"
+requirements:
+  min_memory_gb: 30
+  recommended_memory_gb: 45
+  disk_gb: 35
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8000
+  proxy: true
+  path: "/v1/models"
+docker:
+  build: true
+  build_time_minutes: 10
+  gpu: true
+status: community-verified
+engine: "vLLM"
+params_b: 26
+active_params_b: 4
+arch: moe
+quantization: "NVFP4"
+speculative_method: ""
+artificial_analysis_index: 19
+weights_gb: 18.8
+release_date: "2026-05"
+tested_on:
+  dgx_os: "7.2"
+  date: "2026-05-12"
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "nvidia/Gemma-4-26B-A4B-NVFP4"
+  api_key: "<API_KEY>"
+  curl_example: "curl <HUB>/v1/chat/completions -H 'Authorization: Bearer <API_KEY>' -H 'Content-Type: application/json' -d '{\"model\": \"nvidia/Gemma-4-26B-A4B-NVFP4\", \"messages\": [{\"role\": \"user\", \"content\": \"Solve 17 x 23 step by step.\"}]}'"
+tokens_per_second: 31.4
+tokens_per_second_editing: 31.4
+editing_workload: "code-edit"
+benchmarks:
+  prose: 31.17
+  explainer: 31.35
+  code: 31.57
+  code-edit: 31.4
+
+cover:
+  image: google-bikes.jpg
+  caption: "Google's campus bicycles on Charleston Road, Mountain View."
+  credit: "Mountain View (CA, USA), Charleston Road, Google-Fahrräder -- 2022 -- 2901.jpg · Dietmar Rabich · CC BY-SA 4.0"
+  source: "https://commons.wikimedia.org/wiki/File%3AMountain%20View%20%28CA%2C%20USA%29%2C%20Charleston%20Road%2C%20Google-Fahrr%C3%A4der%20--%202022%20--%202901.jpg"

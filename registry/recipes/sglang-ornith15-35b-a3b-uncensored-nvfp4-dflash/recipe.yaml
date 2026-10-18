@@ -1,0 +1,69 @@
+name: "Ornith-1.5-35B-A3B Uncensored NVFP4 DFlash"
+slug: sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash
+version: "1.0.0"
+description: "The uncensored Ornith-1.5-35B-A3B — ressl's abliterated NVFP4 master — on SGLang with ornith-ai's own DFlash drafter at its native block size of 16: the fastest Ornith uncensored build for code edits, 244.1 tok/s, at the cost of writing speed, 56.9. The DFlash2 sibling is the balanced choice (64.3/179.4). Refusal behaviour is inherited from the same abliterated master: hard refusals 586/1120 down to 20/1120 across five red-team datasets, GPQA-Diamond 58.6% against the base model's 61.1%. 262K context, reasoning and tool calling live. Removes safety refusals the upstream model was trained to have; supply your own guardrails."
+author: "Ornith AI (DeepReinforce)"
+source: "community"
+website: "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B"
+upstream: "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-DFlash"
+category: llm
+tags:
+  - llm
+  - moe
+  - reasoning
+  - coding
+  - tool-use
+  - sglang
+  - nvfp4
+  - abliterated
+  - uncensored
+  - speculative-decoding
+  - dflash
+logo: "/logos/ornith.png"
+requirements:
+  min_memory_gb: 40
+  recommended_memory_gb: 56
+  disk_gb: 32
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8000
+  proxy: true
+  path: "/v1/models"
+docker:
+  build: true
+  build_time_minutes: 8
+  gpu: true
+status: community-verified
+engine: "SGLang"
+params_b: 35
+active_params_b: 3
+arch: moe
+quantization: "NVFP4"
+speculative_method: "dflash"
+artificial_analysis_index: null
+weights_gb: 23.3
+release_date: "2026-08"
+requires_hf_token: false
+tokens_per_second: 56.9
+tokens_per_second_editing: 244.1
+editing_workload: "code-edit"
+benchmarks:
+  prose: 44.21
+  explainer: 54.71
+  code: 84.57
+  code-edit: 244.12
+tested_on:
+  dgx_os: "7.2"
+  date: "2026-10-01"
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "ressl/Ornith-1.5-35B-A3B-uncensored-NVFP4"
+  api_key: "<API_KEY>"
+  curl_example: "curl <HUB>/v1/chat/completions -H 'Authorization: Bearer <API_KEY>' -H 'Content-Type: application/json' -d '{\"model\": \"ressl/Ornith-1.5-35B-A3B-uncensored-NVFP4\", \"messages\": [{\"role\": \"user\", \"content\": \"Write a quicksort in Python.\"}], \"max_tokens\": 512, \"temperature\": 0}'"
+
+cover:
+  image: ornith-cockatiel.jpg
+  caption: "A wild cockatiel — the species behind Ornith's mascot — foraging in South Australia."
+  credit: "Wild cockatiel.jpg · Annette Teng · CC BY-SA 4.0"
+  source: "https://commons.wikimedia.org/wiki/File:Wild_cockatiel_-_panoramio.jpg"

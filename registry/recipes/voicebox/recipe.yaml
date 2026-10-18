@@ -1,0 +1,45 @@
+name: "Voicebox"
+slug: voicebox
+version: "1.0.0"
+description: "Clone voices, generate speech in multiple languages across several TTS engines, apply audio effects, and manage local voice projects with Voicebox."
+author: "Jamie Pine"
+source: "spark-ai-hub"
+website: "https://voicebox.sh/"
+upstream: "https://github.com/WaxacaBytes/voicebox-spark-ai-hub"
+fork: "https://github.com/jamiepine/voicebox"
+category: multi-modal
+tags:
+  - tts
+  - voice-cloning
+  - speech
+  - audio
+  - webui
+icon: "🎙️"
+logo: "/logos/voicebox.png"
+requirements:
+  min_memory_gb: 8
+  recommended_memory_gb: 24
+  disk_gb: 30
+  cuda_compute: "12.1"
+ui:
+  type: web
+  # Port inside the container. Nothing is published to the host:
+  # the app is served at /run/voicebox/ on the Hub's own port.
+  port: 17493
+  proxy: true
+  path: "/"
+docker:
+  build: false
+  build_time_minutes: 12
+  gpu: true
+status: community-verified
+release_date: "2026-01"
+
+cover:
+  image: real-voicebox.jpg
+  backdrop:
+    image: hero-voicebox.jpg
+  caption: "Voicebox's own product art and interface."
+  grade: false
+  credit: "Voicebox site artwork, Jamie Pine"
+  source: "https://voicebox.sh/"

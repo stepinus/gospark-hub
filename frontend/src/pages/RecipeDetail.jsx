@@ -1,0 +1,1156 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useStore } from '../store'
+import { useThemedLogo } from '../hooks/useThemedLogo'
+import { formatParams, openUrl } from '../components/RecipeCard'
+import { fillPlaceholders, hubOrigin } from '../lib/urls'
+import { hasSecret, maskIn } from '../lib/secret'
+import { useApiKey } from '../hooks/useApiKey'
+import { useAuth } from '../auth'
+import { backdropFor, posterFor } from '../covers'
+import { formatDuration, mediaKind, speedLabel } from '../models'
+import CoverInfoModal from '../components/CoverInfoModal'
+import YamlEditor from '../components/YamlEditor'
+
+const DETAIL_TABS = [
+  { id: 'details', label: 'Overview' },
+  { id: 'logs', label: 'Logs' },
+]
+
+// Remount on slug change so per-recipe local state (active tab, logo
+// fallback, …) doesn't leak from one app's page to the next.
+export default function RecipeDetail() {
+  const { slug } = useParams()
+  return <RecipeDetailPage key={slug} slug={slug} />
+}
+
+function RecipeDetailPage({ slug }) {
+  const navigate = useNavigate()
+  const recipes = useStore((s) => s.recipes)
+  // "Back" walks browser history when there is somewhere to go back to,
+  // so it lands where the user came from (Store or Running).
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1)
+    else navigate('/')
+  }
+  const installing = useStore((s) => s.installing)
+  const updating = useStore((s) => s.updating)
+  const removing = useStore((s) => s.removing)
+  const installRecipe = useStore((s) => s.installRecipe)
+  const ensureHfAccess = useStore((s) => s.ensureHfAccess)
+  const updateRecipe = useStore((s) => s.updateRecipe)
+  const launchOrSwap = useStore((s) => s.launchOrSwap)
+  const stopRecipe = useStore((s) => s.stopRecipe)
+  const removeRecipe = useStore((s) => s.removeRecipe)
+  const purging = useStore((s) => s.purging)
+  const purgeRecipe = useStore((s) => s.purgeRecipe)
+  const buildLogs = useStore((s) => s.buildLogs)
+  const containerLogs = useStore((s) => s.containerLogs)
+  const lastInstallFailed = useStore((s) => s.lastInstallFailed)
+  const connectLogs = useStore((s) => s.connectLogs)
+  const disconnectLogs = useStore((s) => s.disconnectLogs)
+
+  const recipe = recipes.find((r) => r.slug === slug)
+  const scrollRef = useRef(null)
+  const previousRecipeRef = useRef(null)
+  const previousPreferLogsRef = useRef(false)
+  const [logoFailed, setLogoFailed] = useState(false)
+  const [posterFailed, setPosterFailed] = useState(false)
+  const [backdropFailed, setBackdropFailed] = useState(false)
+  const [showCoverInfo, setShowCoverInfo] = useState(false)
+  const [launching, setLaunching] = useState(false)
+  const [stopping, setStopping] = useState(false)
+  const [activeTab, setActiveTab] = useState('details')
+  const [showHfModal, setShowHfModal] = useState(false)
+  const [hfToken, setHfToken] = useState('')
+  const [hfSaving, setHfSaving] = useState(false)
+  const [hfError, setHfError] = useState('')
+  // Must run before any early return — hooks can't be conditional, and on a
+  // deep link this component first renders with the catalog still empty.
+  const logoUrl = useThemedLogo(recipe?.logo)
+
+  const isBuilding = !!installing[recipe?.slug]
+  const isUpdating = !!updating[recipe?.slug]
+  const isBusy = isBuilding || isUpdating
+
+  const installFailed = !!lastInstallFailed[recipe?.slug]
+
+  useEffect(() => {
+    if ((recipe?.running || recipe?.starting) && !installFailed) {
+      connectLogs(recipe.slug)
+    } else {
+      disconnectLogs()
+    }
+    return () => disconnectLogs()
+  }, [recipe?.running, recipe?.starting, recipe?.slug, installFailed, connectLogs, disconnectLogs])
+
+  useEffect(() => {
+    if (!recipe) return
+
+    const preferLogs = isBuilding || recipe.starting
+    const recipeChanged = previousRecipeRef.current !== recipe.slug
+
+    if (recipeChanged) {
+      setActiveTab(preferLogs ? 'logs' : 'details')
+      previousRecipeRef.current = recipe.slug
+      previousPreferLogsRef.current = preferLogs
+      return
+    }
+
+    if (preferLogs && !previousPreferLogsRef.current) {
+      setActiveTab('logs')
+    }
+
+    previousPreferLogsRef.current = preferLogs
+  }, [recipe, isBuilding])
+
+  // Deep link / hard refresh: the catalog hasn't arrived yet, so don't
+  // claim the recipe is missing until we actually have the list.
+  if (!recipe && recipes.length === 0) {
+    return (
+      <div className="p-8 text-sm text-text-dim animate-fadeIn">Loading…</div>
+    )
+  }
+
+  if (!recipe) {
+    return (
+      <div className="p-8 animate-fadeIn">
+        <button onClick={goBack} className="text-primary bg-transparent border-none cursor-pointer text-sm font-semibold font-display">
+          ← Back
+        </button>
+        <p className="text-text-muted mt-4">Recipe not found.</p>
+      </div>
+    )
+  }
+
+  const isRemoving = !!removing[recipe.slug]
+  const isReady = recipe.ready
+  const cLogs = containerLogs[recipe.slug] || []
+  const bLogs = buildLogs[recipe.slug] || []
+  // Pin to build logs while installing/updating, or when the last install
+  // failed (so the user can read the error instead of seeing it flash to
+  // "Container not running").
+  const logLines = isBusy || installFailed ? bLogs : cLogs
+
+  const handleRemove = () => {
+    if (window.confirm(`Uninstall ${recipe.name}? This removes containers, images, and volumes.`)) {
+      removeRecipe(recipe.slug)
+    }
+  }
+
+  const handleLaunch = async () => {
+    if (recipe.requires_hf_token) {
+      const res = await fetch('/api/system/hf-token')
+      const { has_token } = await res.json()
+      if (!has_token) {
+        setShowHfModal(true)
+        return
+      }
+    }
+    if (!(await ensureHfAccess(recipe.slug, 'launch'))) return
+    setLaunching(true)
+    await launchOrSwap(recipe.slug)
+    setLaunching(false)
+  }
+
+  const handleHfSubmit = async () => {
+    if (!hfToken.trim()) return
+    setHfSaving(true)
+    setHfError('')
+    try {
+      const res = await fetch('/api/system/hf-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: hfToken.trim() }),
+      })
+      if (!res.ok) throw new Error('Failed to save token')
+      setShowHfModal(false)
+      setHfToken('')
+      if (!(await ensureHfAccess(recipe.slug, 'launch'))) return
+      setLaunching(true)
+      await launchOrSwap(recipe.slug)
+      setLaunching(false)
+    } catch {
+      setHfError('Failed to save token. Please try again.')
+    } finally {
+      setHfSaving(false)
+    }
+  }
+
+  const handleStop = async () => {
+    setStopping(true)
+    await stopRecipe(recipe.slug)
+    setStopping(false)
+  }
+
+  const recipeCategories = Array.isArray(recipe.categories) && recipe.categories.length > 0
+    ? recipe.categories
+    : [recipe.category]
+
+  return (
+    <div className="flex flex-col h-full animate-fadeIn">
+      <div className="relative shrink-0 overflow-hidden border-b border-outline-dim">
+        {/* This app's cover art: the wide backdrop behind the header and the
+            poster beside the logo, so every image in the catalog is visible
+            somewhere and not just the handful the hero happens to rotate. */}
+        {!backdropFailed && (
+          <img
+            src={backdropFor(recipe)}
+            alt=""
+            onError={() => setBackdropFailed(true)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {/* Muted harder than the catalog hero: this header carries spec
+            badges and buttons that have to stay readable over the art. */}
+        <div className="absolute inset-0 bg-bg/60" />
+        <div className="absolute inset-0" style={{ background: 'var(--hero-overlay-left)' }} />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg to-transparent" />
+
+        <button
+          onClick={() => setShowCoverInfo(true)}
+          title="What is this picture?"
+          className="absolute top-3 right-4 sm:top-auto sm:bottom-3 z-10 flex items-center gap-1.5 rounded-full border border-glass-border bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white/80 backdrop-blur-md cursor-pointer hover:bg-black/60 hover:text-white transition-all"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          About this image
+        </button>
+
+        <div className="relative px-4 py-5 sm:px-6">
+        <button
+          onClick={goBack}
+          className="flex items-center gap-1.5 text-text-muted hover:text-primary bg-transparent border-none cursor-pointer text-sm p-0 mb-4 transition-colors font-medium font-display"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
+        </button>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
+          {!posterFailed && (
+            <img
+              src={posterFor(recipe)}
+              alt={`${recipe.name} cover`}
+              onError={() => setPosterFailed(true)}
+              className="hidden xl:block w-[104px] shrink-0 aspect-[2/3] rounded-xl object-cover ring-1 ring-glass-border shadow-2xl"
+            />
+          )}
+
+          {logoUrl && !logoFailed ? (
+            <img src={logoUrl} alt={recipe.name} className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl object-contain bg-surface-high p-2 sm:p-2.5 shadow-lg shrink-0" onError={() => setLogoFailed(true)} />
+          ) : (
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-surface-high flex items-center justify-center text-3xl sm:text-4xl shrink-0">{recipe.icon || '◻'}</div>
+          )}
+
+          {/* Floor the title column so the spec badges wrap instead of
+              squeezing a long name like "Inkling-Small 276B (UD-IQ2_M)"
+              into a four-line sliver. */}
+          <div className="flex-1 min-w-0 sm:min-w-[260px]">
+            <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight m-0 font-display">{recipe.name}</h1>
+            <p className="text-sm text-text-dim mt-0.5 m-0">{recipe.author}</p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {recipeCategories.map((cat) => (
+                <span key={cat} className="text-[10px] font-label text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">{cat}</span>
+              ))}
+              {isBuilding && <StatusPill color="primary" pulse>Building...</StatusPill>}
+              {isUpdating && <StatusPill color="primary" pulse>Updating...</StatusPill>}
+              {!isBusy && recipe.running && isReady && <StatusPill color="success">Running</StatusPill>}
+              {!isBusy && recipe.starting && <StatusPill color="warning" pulse>Starting...</StatusPill>}
+              {!isBusy && !recipe.running && !recipe.starting && recipe.installed && <StatusPill color="dim">Stopped</StatusPill>}
+            </div>
+          </div>
+
+          {/* Capped at the row's width so the badges wrap inside it; a media
+              model's Time and Arena badges are long enough to run off it. */}
+          <div className="hidden lg:flex flex-wrap items-center gap-2 max-w-full">
+            {recipe.engine && <SpecBadge label="Engine" value={recipe.engine} />}
+            {recipe.params_b != null && (
+              <SpecBadge label={recipe.arch === 'moe' ? 'MoE' : 'Dense'} value={formatParams(recipe)} />
+            )}
+            {recipe.media_capabilities?.length > 0 && (
+              <SpecBadge label="Supports" value={recipe.media_capabilities.map((c) => MEDIA_LABELS[c] || c).join(' · ')} />
+            )}
+            {recipe.quantization && <SpecBadge label="Precision" value={recipe.quantization} />}
+            {recipe.weights_gb != null && <SpecBadge label="Weights" value={`${recipe.weights_gb} GB`} />}
+            <SpecBadge label="Memory" value={`${recipe.requirements?.min_memory_gb ?? 8}–${recipe.requirements?.recommended_memory_gb ?? recipe.requirements?.min_memory_gb ?? 8} GB`} />
+            <SpecBadge label="Disk" value={`${recipe.requirements?.disk_gb ?? 10} GB`} />
+            {recipe.tokens_per_second != null && (
+              <SpecBadge label="Speed" value={speedLabel(recipe)} />
+            )}
+            {recipe.render_seconds != null && (
+              <SpecBadge
+                label="Time"
+                value={`${formatDuration(recipe.render_seconds)} per ${mediaKind(recipe) || 'result'}${recipe.render_workload ? ` · ${recipe.render_workload}` : ''}`}
+              />
+            )}
+            {recipe.load_seconds != null && (
+              <SpecBadge label="Ready in" value={formatDuration(recipe.load_seconds)} />
+            )}
+            {(recipe.arena || []).map((a) => (
+              <a key={a.board} href={a.url} target="_blank" rel="noreferrer" className="no-underline text-inherit">
+                <SpecBadge
+                  label={`Arena · ${a.task.replace(/-/g, ' ')}`}
+                  value={`${Math.round(a.elo)} Elo${a.base ? ` (${a.entry}'s)` : ''} · ${a.board} · ${a.read}`}
+                />
+              </a>
+            ))}
+          </div>
+
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+            {!recipe.installed && !recipe.starting && !isBusy && !isRemoving && (
+              <button onClick={() => installRecipe(recipe.slug)} className="btn-primary px-6 py-2.5 text-sm font-bold">
+                Install
+              </button>
+            )}
+            {isBuilding && (
+              <>
+                <div className="px-5 py-2.5 bg-primary/10 rounded-xl text-sm text-primary font-semibold font-label">
+                  <span className="inline-block animate-spin mr-1">⟳</span>Building
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Cancel install for ${recipe.name}? This will stop the download.`)) {
+                      removeRecipe(recipe.slug)
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+            {isUpdating && (
+              <div className="px-5 py-2.5 bg-primary/10 rounded-xl text-sm text-primary font-semibold font-label">
+                <span className="inline-block animate-spin mr-1">⟳</span>Updating
+              </div>
+            )}
+            {isRemoving && (
+              <div className="px-5 py-2.5 bg-error-surface rounded-xl text-sm text-error font-semibold font-label">
+                <span className="inline-block animate-spin mr-1">⟳</span>Uninstalling
+              </div>
+            )}
+            {recipe.installed && !recipe.running && !recipe.starting && !isBusy && !isRemoving && (
+              <>
+                <button disabled={launching || isRemoving} onClick={handleLaunch} className="btn-primary px-6 py-2.5 text-sm font-bold">
+                  {launching ? '...' : '▶ Launch'}
+                </button>
+                <button disabled={launching || isRemoving} onClick={() => updateRecipe(recipe.slug)} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:text-primary hover:bg-surface-highest disabled:opacity-50">
+                  ↻ Update
+                </button>
+                <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
+                  {isRemoving ? '...' : 'Uninstall'}
+                </button>
+              </>
+            )}
+            {(recipe.running || (recipe.installed && recipe.starting)) && (
+              <>
+                {isReady && (
+                  <a href={openUrl(recipe)} target="_blank" rel="noreferrer"
+                    className="btn-primary px-6 py-2.5 text-sm font-bold no-underline inline-block">
+                    Open ↗
+                  </a>
+                )}
+                <button disabled={stopping} onClick={handleStop} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
+                  {stopping ? '...' : '■ Stop'}
+                </button>
+                <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
+                  Uninstall
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {recipe.error && (
+        <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-outline-dim bg-error-surface">
+          <div className="flex items-start gap-3">
+            <span className="text-error text-base leading-6">⚠</span>
+            <div className="min-w-0">
+              <div className="text-error text-sm font-semibold font-label">Couldn't start</div>
+              <div className="text-text-muted text-sm mt-0.5">{recipe.error}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-outline-dim bg-surface-low/40">
+        <div className="inline-flex items-center gap-2 rounded-2xl bg-surface-high/70 p-1.5 border border-outline-dim">
+          {DETAIL_TABS.map((tab) => {
+            const active = tab.id === activeTab
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  active
+                    ? 'bg-primary text-primary-on shadow-lg shadow-primary/20'
+                    : 'bg-transparent text-text-dim hover:bg-surface-highest hover:text-text'
+                }`}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
+        {activeTab === 'details' ? (
+          <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,50rem)_minmax(24rem,1fr)]">
+            <div className="overflow-y-auto border-b border-outline-dim xl:border-b-0 xl:border-r bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%)]">
+              <AboutTab recipe={recipe} purging={purging} purgeRecipe={purgeRecipe} isBuilding={isBusy} />
+            </div>
+
+            <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] min-h-0">
+              <ComposeEditor slug={recipe.slug} />
+            </div>
+          </div>
+        ) : (
+          <div className="h-full min-h-0">
+            <TerminalPanel
+              lines={logLines}
+              isBuilding={isBusy}
+              isUpdating={isUpdating}
+              isRunning={recipe.running || recipe.starting}
+              isReady={isReady}
+              hasLogs={cLogs.length > 0}
+              scrollRef={scrollRef}
+              wide
+            />
+          </div>
+        )}
+      </div>
+
+      {showHfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim">
+            <h3 className="text-lg font-bold text-text font-display m-0">HuggingFace Token Required</h3>
+            <p className="text-sm text-text-dim mt-2 mb-4 leading-relaxed">
+              This model uses gated assets on HuggingFace. Paste your access token below to continue.
+              You can create one at{' '}
+              <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                huggingface.co/settings/tokens
+              </a>.
+            </p>
+            <input
+              type="password"
+              placeholder="hf_..."
+              value={hfToken}
+              onChange={(e) => setHfToken(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleHfSubmit()}
+              className="w-full px-4 py-2.5 rounded-xl bg-surface-low text-text border border-outline-dim text-sm font-mono focus:outline-none focus:border-primary"
+              autoFocus
+            />
+            {hfError && <p className="text-xs text-error mt-2 m-0">{hfError}</p>}
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => { setShowHfModal(false); setHfToken(''); setHfError('') }}
+                className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleHfSubmit}
+                disabled={!hfToken.trim() || hfSaving}
+                className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
+              >
+                {hfSaving ? 'Saving...' : 'Save & Launch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCoverInfo && (
+        <CoverInfoModal recipe={recipe} onClose={() => setShowCoverInfo(false)} />
+      )}
+    </div>
+  )
+}
+
+function StatusPill({ color, pulse, children }) {
+  const colorMap = {
+    primary: 'bg-primary/10 text-primary',
+    success: 'bg-success/10 text-success',
+    warning: 'bg-warning/10 text-warning',
+    dim: 'bg-surface-highest text-text-dim',
+  }
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium font-label px-2.5 py-1 rounded-full ${colorMap[color]} ${pulse ? 'animate-pulse' : ''}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${
+        color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-success' : color === 'warning' ? 'bg-warning' : 'bg-text-dim'
+      }`} />
+      {children}
+    </span>
+  )
+}
+
+// The four workloads behind the speed range, always on screen. A range invites
+// exactly one question — where did each end come from — and answering it behind
+// a click means the number gets believed instead of checked. It is four rows.
+const WORKLOAD_NOTES = {
+  code: 'Write a quicksort with comments — fresh generation, nothing to copy.',
+  explainer: 'TCP vs UDP — fresh prose, the least predictable output here.',
+  prose: 'A Kyoto itinerary — fresh prose.',
+  'code-edit': 'Re-emit a 45-class module with one method added to every class, thinking off. Most of the output is already in the prompt.',
+}
+// Ordered by how predictable the output is, least to most — which is also
+// slowest to fastest. Read top to bottom, the four rows are the argument for
+// why this build reports a range rather than a number.
+const WORKLOAD_ORDER = ['prose', 'explainer', 'code', 'code-edit']
+
+function SpeedDetail({ recipe }) {
+  const rows = WORKLOAD_ORDER.filter((w) => recipe.benchmarks?.[w] != null)
+  if (rows.length === 0) return null
+
+  return (
+    <div className="border-t border-outline-dim pt-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">
+        How this speed was measured
+      </div>
+      <div className="mt-3 space-y-2">
+        {rows.map((w) => (
+          <div key={w} className="flex items-baseline gap-3">
+            <span className="font-display text-[13px] font-extrabold tabular-nums text-primary w-14 text-right shrink-0">
+              {recipe.benchmarks[w]}
+            </span>
+            <span className="min-w-0">
+              <span className="text-[11px] font-label font-bold text-text">{w}</span>
+              <span className="block text-[11px] text-text-dim leading-5">{WORKLOAD_NOTES[w]}</span>
+            </span>
+          </div>
+        ))}
+        <p className="text-[11px] text-text-dim leading-5 m-0 pt-1">
+          The headline number averages the three fresh-generation prompts, with thinking
+          left on as this model ships it. Where a build drafts speculatively, code-edit is
+          reported alongside it as the top of the range: the drafter's proposals are nearly
+          always right when the answer is already in the prompt, and the same server then
+          verifies several tokens per forward pass. That run sends
+          <code className="mx-1 rounded bg-surface-high px-1 text-[10px]">enable_thinking: false</code>
+          — reasoning tokens are invented rather than copied, so a drafter cannot predict
+          them, and leaving thinking on drags the peak back down to roughly the headline
+          number. Run the script below to reproduce both on your own Spark.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SpecBadge({ label, value }) {
+  return (
+    <div className="border border-outline-dim rounded-xl px-3.5 py-2.5 bg-surface-high/65 min-w-[112px]">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-text-dim font-label">{label}</div>
+      <div className="mt-1 text-[12px] font-semibold text-text font-display">{value}</div>
+    </div>
+  )
+}
+
+function RelatedRecipeCard({ recipe, onSelect }) {
+  const logoUrl = useThemedLogo(recipe.logo)
+  const [logoFailed, setLogoFailed] = useState(false)
+
+  return (
+    <div className="rounded-2xl border border-outline-dim bg-surface-high/50 p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-4 min-w-0">
+        {logoUrl && !logoFailed ? (
+          <img
+            src={logoUrl}
+            alt={recipe.name}
+            className="w-12 h-12 rounded-xl object-contain bg-surface-highest p-2 shrink-0"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-xl bg-surface-highest flex items-center justify-center text-lg shrink-0">
+            {recipe.icon || '◻'}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-text">{recipe.name}</div>
+          <div className="text-sm text-text-dim mt-1">{recipe.description}</div>
+        </div>
+      </div>
+      <button
+        onClick={() => onSelect(recipe.slug)}
+        className="px-4 py-2.5 bg-surface-highest text-text border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:border-primary hover:text-primary transition-all shrink-0"
+      >
+        View
+      </button>
+    </div>
+  )
+}
+
+function AboutTab({ recipe, purging, purgeRecipe, isBuilding }) {
+  const recipes = useStore((s) => s.recipes)
+  const selectRecipe = useStore((s) => s.selectRecipe)
+  // /v1 goes through the Hub, so a call needs the caller's own Hub key. The
+  // page never prints it -- it is masked behind a reveal on Account for a
+  // reason -- so the snippets reference the variable `sah env` exports and
+  // the field says where to find it.
+  const authEnabled = useAuth((s) => s.authEnabled)
+  const keyToken = authEnabled ? '$OPENAI_API_KEY' : 'not-needed'
+  // The benchmark snippet is meant to be copied and run with nothing else set
+  // up, so it carries the real key rather than a variable the reader has to
+  // export first. The key is rendered blurred (see BenchmarkBlock): it is in
+  // the DOM, so Copy and text selection both take the working value, but it is
+  // not readable on screen or in a screenshot of this page.
+  const benchKey = useApiKey()
+  const benchKeyLiteral = benchKey || (authEnabled ? '$OPENAI_API_KEY' : 'not-needed')
+  const apiKeyHint = authEnabled
+    ? 'Your Hub API key — Account ▸ Your API key'
+    : 'not-needed (this Hub has authentication off)'
+  const officialUrl = recipe.website || ''
+  const sourceUrl = recipe.upstream || recipe.fork || ''
+  const relatedRecipes = (recipe.depends_on || [])
+    .map((slug) => recipes.find((item) => item.slug === slug))
+    .filter(Boolean)
+
+  return (
+    <div className="w-full px-4 py-6 sm:px-6">
+      <div className="max-w-[44rem]">
+        <div className="space-y-7">
+          <p className="text-[15px] text-text-muted leading-7 m-0">{recipe.description}</p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+            {officialUrl && (
+              <a href={officialUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-primary no-underline hover:text-primary/80 transition-colors font-medium">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Website
+              </a>
+            )}
+            {sourceUrl && (
+              <a href={sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-text-dim no-underline hover:text-text transition-colors font-medium">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                Source
+              </a>
+            )}
+          </div>
+
+          {recipe.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {recipe.tags.map((t) => (
+                <span key={t} className="bg-surface-high/70 text-text-dim px-2.5 py-1 rounded-full text-[11px] font-label">{t}</span>
+              ))}
+            </div>
+          )}
+
+          {relatedRecipes.length > 0 && (
+            <div className="space-y-4 pt-5 border-t border-outline-dim">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Suggested Add-On</div>
+                <p className="text-sm text-text-dim leading-6 m-0 mt-2">
+                  For quick local testing, install a shared model runtime and connect this app to its default endpoint.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {relatedRecipes.map((item) => (
+                  <RelatedRecipeCard key={item.slug} recipe={item} onSelect={selectRecipe} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {recipe.runtime_env_path && (
+            <div className="space-y-4 pt-5 border-t border-outline-dim">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Advanced Configuration</div>
+                <p className="text-sm text-text-dim leading-6 m-0 mt-2">
+                  This app creates a local runtime config file on first install. Most users should leave it alone.
+                  If you know what you are doing, you can edit it manually and relaunch the app.
+                </p>
+              </div>
+              <Field label="Runtime env file" value={recipe.runtime_env_path} />
+            </div>
+          )}
+
+          {recipe.integration && (
+            <div className="space-y-4 pt-5 border-t border-outline-dim">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">API Integration</div>
+                {(recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')) && (
+                  <div className="text-[10px] text-text-muted mt-1">
+                    The Hub forwards /v1 to the running model a request names, or to the
+                    largest one up, so this address keeps working from wherever you reached
+                    this page.
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2.5">
+                <Field label="API URL" value={fillPlaceholders(recipe.integration.api_url)} />
+                <Field label="Model ID" value={recipe.integration.model_id} />
+                <Field label="API Key" value={apiKeyHint} />
+                {recipe.capabilities?.length > 0 && <CapabilityField capabilities={recipe.capabilities} />}
+                {recipe.integration.max_context && <Field label="Max Context" value={recipe.integration.max_context} />}
+                {recipe.integration.max_output_tokens && <Field label="Max Output" value={recipe.integration.max_output_tokens} />}
+                {recipe.integration.curl_example && (
+                  <CodeBlock
+                    label="curl example"
+                    value={fillPlaceholders(recipe.integration.curl_example, { apiKey: keyToken })}
+                  />
+                )}
+                <SpeedDetail recipe={recipe} />
+                {(recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('llama-cpp') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')) && (
+                  <BenchmarkBlock
+                    secret={benchKey}
+                    value={`python3 - <<'EOF'
+import os, time, urllib.request, urllib.error, json
+# The Hub's own endpoint, exactly as this page was reached, so the script runs
+# from any machine that can open the Hub.
+HOST = "${hubOrigin()}"
+KEY = "${benchKeyLiteral}"  # your own Hub key, already filled in
+MODEL = "${recipe.integration.model_id}"
+PROMPTS = [
+    ("code", "Write a quicksort implementation in Python with comments explaining each step."),
+    ("explainer", "Explain the differences between TCP and UDP, and when each is preferred."),
+    ("prose", "Plan a 3-day cultural travel itinerary for Kyoto, Japan in autumn."),
+]
+# Second workload: re-emit a file with a small change. Most of the output is
+# already in the prompt, so a speculative drafter's proposals are nearly always
+# right and it verifies many tokens per forward pass. Builds without a drafter
+# score about the same here as above; builds with one score far higher, which is
+# the whole reason both numbers are reported.
+FENCE = chr(96) * 3
+def source(n=45):
+    src = 'from dataclasses import dataclass, field\\n'
+    for i in range(1, n + 1):
+        src += ('\\n@dataclass\\nclass Item{0}:\\n    sku: str\\n    quantity: int = 0\\n'
+                '    price_cents: int = 0\\n    tags: list[str] = field(default_factory=list)\\n\\n'
+                '    def restock(self, n: int) -> None:\\n        if n < 0:\\n'
+                '            raise ValueError("n must be non-negative")\\n        self.quantity += n\\n\\n'
+                '    def total_value(self) -> int:\\n        return self.quantity * self.price_cents\\n').format(i)
+    return src
+EDIT = ("Here is a Python module. Add a discount(self, pct: int) -> int method to EVERY "
+        "Item class, returning the discounted total value. Output the COMPLETE modified "
+        "file, nothing else.\\n\\n" + FENCE + "python\\n" + source() + "\\n" + FENCE)
+def call(p, mt=512, thinking=True):
+    payload = {"model":MODEL,"messages":[{"role":"user","content":p}],"max_tokens":mt,"temperature":0}
+    # Reasoning tokens are invented, not copied from the prompt, so a drafter
+    # cannot predict them. Left on, the code-edit run measures reasoning speed
+    # and reports roughly the mixed-prompt number instead of the peak.
+    if not thinking: payload["chat_template_kwargs"] = {"enable_thinking": False}
+    body = json.dumps(payload).encode()
+    # A User-Agent is required, not decoration: Cloudflare answers the default
+    # Python-urllib one with 403 (its error 1010) before the request ever
+    # reaches the Hub, so a tunnelled Hub fails while a LAN one works.
+    headers = {"Content-Type":"application/json","Authorization":"Bearer "+KEY,
+               "User-Agent":"spark-ai-hub-benchmark"}
+    req = urllib.request.Request(HOST+"/v1/chat/completions", data=body, headers=headers)
+    t = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=600) as r: d = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"HTTP {e.code} from {HOST}: {e.read().decode(errors='replace')[:300]}")
+    except urllib.error.URLError as e:
+        raise SystemExit(f"Cannot reach {HOST}: {e.reason}")
+    return d["usage"]["completion_tokens"], time.time()-t
+print("warmup (discarded)..."); call("hi", 32)
+total_tok = total_t = 0
+for label, p in PROMPTS:
+    n, dt = call(p); total_tok += n; total_t += dt
+    print(f"  {label:<10} {n} tok / {dt:.2f}s = {n/dt:.2f} tok/s")
+print(f"Writing: {total_tok/total_t:.2f} tok/s ({total_tok} tok / {total_t:.2f}s across {len(PROMPTS)} mixed prompts)")
+n, dt = call(EDIT, 3000, thinking=False)
+print(f"  {'code-edit':<10} {n} tok / {dt:.2f}s = {n/dt:.2f} tok/s")
+print(f"Editing: {n/dt:.2f} tok/s (code-edit, thinking off; the answer is already in the prompt,")
+print(f"         so a drafter's proposals are nearly always accepted)")
+EOF`}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!recipe.installed && !isBuilding && recipe.has_leftovers && (
+          <div className="mt-12 pt-6 border-t border-outline-dim space-y-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Cleanup</div>
+              <p className="text-sm text-text-dim leading-6 m-0 mt-2">Remove leftover images or volumes from a previous uninstall. This is destructive and should only be used when you want to free all remaining app data.</p>
+            </div>
+            <button
+              disabled={!!purging[recipe.slug]}
+              onClick={() => { if (window.confirm(`Wipe all data for ${recipe.name}?`)) purgeRecipe(recipe.slug) }}
+              className="px-4 py-2.5 bg-warning/10 text-warning border border-warning/20 rounded-xl text-sm font-semibold cursor-pointer hover:bg-warning/15 transition-all disabled:opacity-50"
+            >
+              {purging[recipe.slug] ? 'Wiping cached data...' : 'Wipe cached data'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ComposeEditor({ slug }) {
+  const [content, setContent] = useState('')
+  const [original, setOriginal] = useState('')
+  const [defaultContent, setDefaultContent] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      setSaved(false)
+      try {
+        const res = await fetch(`/api/recipes/${slug}/compose`)
+        if (!res.ok) throw new Error('load failed')
+        const data = await res.json()
+        if (cancelled) return
+        setContent(data.content)
+        setOriginal(data.content)
+        setDefaultContent(data.default_content || data.content)
+      } catch {
+        if (!cancelled) setError('Failed to load docker-compose.yml')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  }, [slug])
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/recipes/${slug}/compose`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      if (!res.ok) throw new Error('save failed')
+      setOriginal(content)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setError('Failed to save docker-compose.yml')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetToDefault = async () => {
+    if (!window.confirm('Reset docker-compose.yml to the default recipe version?')) return
+    setResetting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/recipes/${slug}/compose/reset`, { method: 'POST' })
+      if (!res.ok) throw new Error('reset failed')
+      const data = await res.json()
+      setContent(data.content)
+      setOriginal(data.content)
+      setDefaultContent(data.content)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setError('Failed to reset docker-compose.yml')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  const dirty = content !== original
+  const canReset = original !== defaultContent || content !== defaultContent
+
+  return (
+    <div className="h-full min-h-0 flex flex-col">
+      <div className="shrink-0 px-5 py-4 border-b border-outline-dim bg-surface-low/60">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 basis-64">
+            <h2 className="text-sm font-bold text-text font-display m-0">Compose Configuration</h2>
+            <p className="text-sm text-text-dim mt-1 mb-0 leading-relaxed">Edit the live `docker-compose.yml` for this recipe. Save keeps your custom version; restore brings back the default file from the registry.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              disabled={!canReset || resetting || loading}
+              onClick={resetToDefault}
+              className="px-4 py-2 bg-warning/10 text-warning border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:bg-warning/15 disabled:opacity-40 disabled:cursor-default"
+            >
+              {resetting ? 'Restoring...' : 'Restore Default'}
+            </button>
+            <button
+              disabled={!dirty || saving || loading}
+              onClick={save}
+              className="px-4 py-2 bg-primary text-white border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-default"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 p-5 flex flex-col">
+        {loading ? (
+          <div className="h-full rounded-2xl bg-[#08080F] border border-outline-dim flex items-center justify-center text-sm text-text-dim">
+            Loading docker-compose.yml...
+          </div>
+        ) : (
+          <YamlEditor
+            value={content}
+            onChange={setContent}
+            className="flex-1 min-h-0 w-full overflow-hidden bg-[#08080F] rounded-2xl border border-outline-dim focus-within:border-primary/50"
+          />
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 mt-3 text-xs min-h-[20px]">
+          {saved && <span className="text-success font-label">Saved. Relaunch or reinstall to apply.</span>}
+          {dirty && !saved && <span className="text-warning font-label">Unsaved changes</span>}
+          {!dirty && canReset && !saved && <span className="text-text-dim font-label">Using a customized compose file.</span>}
+          {error && <span className="text-error font-label">{error}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// What the Hub reports to coding agents on /v1/models, spelled out so the user
+// knows what their client thinks this model can do.
+const CAPABILITY_LABELS = {
+  completion: 'Text generation',
+  vision: 'Image input',
+  video: 'Video input',
+  tools: 'Tool calling',
+  thinking: 'Reasoning',
+}
+
+// What an image/video recipe makes, from daemon/models/recipe.py MEDIA_CAPABILITIES.
+const MEDIA_LABELS = {
+  'image-generation': 'Image generation',
+  'image-editing': 'Image editing',
+  'multi-image-input': 'Multiple images + text',
+  'text-to-video': 'Text-to-video',
+  'image-to-video': 'Image-to-video',
+  'first-last-frame': 'First/last frame',
+  'multi-reference': 'Multiple references',
+  'audio-reference': 'Audio reference',
+  'video-editing': 'Video editing',
+  'face-swap': 'Face swap',
+  'video-with-audio': 'Video with sound',
+  'orbit-360': '360° orbit',
+  'image-to-3d': 'Image to 3D',
+  'multi-view': 'Multiple views',
+  'music-generation': 'Music generation',
+}
+
+function CapabilityField({ capabilities }) {
+  return (
+    <div>
+      <span className="text-[10px] text-text-dim font-label block">Capabilities</span>
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        {capabilities.map((c) => (
+          <span key={c} className="bg-surface-high/70 text-text-muted px-2.5 py-1 rounded-full text-[11px] font-label">
+            {CAPABILITY_LABELS[c] || c}
+          </span>
+        ))}
+      </div>
+      <p className="text-[10px] text-text-dim leading-4 m-0 mt-1.5">
+        Reported to coding agents and other clients on <code className="font-mono">/v1/models</code>.
+      </p>
+    </div>
+  )
+}
+
+function Field({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    const text = String(value)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200) })
+        .catch(() => fallbackCopy(text, setCopied))
+    } else {
+      fallbackCopy(text, setCopied)
+    }
+  }
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <span className="text-[10px] text-text-dim font-label block">{label}</span>
+        <code className="text-xs text-text-muted font-mono break-all">{String(value)}</code>
+      </div>
+      <button onClick={copy} className="shrink-0 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
+        {copied ? (
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        ) : (
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        )}
+      </button>
+    </div>
+  )
+}
+
+function CodeBlock({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    const text = String(value)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200) })
+        .catch(() => fallbackCopy(text, setCopied))
+    } else {
+      fallbackCopy(text, setCopied)
+    }
+  }
+  return (
+    <div className="pt-2">
+      <span className="text-[10px] text-text-dim font-label block mb-1">{label}</span>
+      <div className="relative">
+        <pre className="bg-surface rounded-xl p-3 pr-10 text-[11px] text-text-muted font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed border border-outline-dim">
+          {value}
+        </pre>
+        <button onClick={copy} className="absolute top-2 right-2 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
+          {copied ? (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function BenchmarkBlock({ value, secret }) {
+  const [copied, setCopied] = useState(false)
+  const [shown, setShown] = useState(false)
+  // Same contract as Account's key card: masked on screen behind a Show, and
+  // Copy hands over the real thing. The snippet needs a working key baked in
+  // -- it is meant to run on another machine with nothing set up -- but this
+  // page is open all day, so the key is not readable until asked for.
+  const carries = hasSecret(value, secret)
+  const display = maskIn(value, secret, shown)
+  const copy = () => {
+    const text = String(value)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200) })
+        .catch(() => fallbackCopy(text, setCopied))
+    } else {
+      fallbackCopy(text, setCopied)
+    }
+  }
+  return (
+    <div className="pt-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-text-dim font-label">benchmark inference speed</span>
+        {carries && (
+          <button
+            onClick={() => setShown(!shown)}
+            className="text-[10px] font-label bg-transparent border-none cursor-pointer text-text-dim hover:text-primary transition-colors p-0"
+            title={shown ? 'Hide your API key' : 'Reveal your API key'}
+          >
+            {shown ? 'Hide' : 'Show'} key
+          </button>
+        )}
+      </div>
+      <div className="relative bg-surface rounded-xl border border-outline-dim overflow-hidden">
+        <div className="px-3 py-2 border-b border-outline-dim bg-surface-high/40">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-label">
+            <span className="text-text-dim uppercase tracking-wider">prompts:</span>
+            <span className="text-text-muted"><span className="text-primary">code</span> · quicksort</span>
+            <span className="text-outline-dim">|</span>
+            <span className="text-text-muted"><span className="text-primary">explainer</span> · TCP vs UDP</span>
+            <span className="text-outline-dim">|</span>
+            <span className="text-text-muted"><span className="text-primary">prose</span> · Kyoto travel</span>
+          </div>
+          <div className="text-[10px] text-text-dim font-label mt-1">512 tok · temp=0 · warmup discarded</div>
+        </div>
+        <pre className="p-3 pr-10 text-[11px] text-text-muted font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed">
+          {display}
+        </pre>
+        <button onClick={copy} className="absolute top-2 right-2 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
+          {copied ? (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function fallbackCopy(text, setCopied) {
+  const ta = document.createElement('textarea')
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+  setCopied(true); setTimeout(() => setCopied(false), 1200)
+}
+
+function TerminalPanel({ lines, isBuilding, isUpdating, isRunning, isReady, hasLogs, scrollRef, wide = false }) {
+  const [autoScroll, setAutoScroll] = useState(true)
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [lines.length, autoScroll, scrollRef])
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+    setAutoScroll(scrollHeight - scrollTop - clientHeight < 40)
+  }
+
+  const showEmpty = !isBuilding && !isRunning && !hasLogs
+
+  return (
+    <div className={`h-full flex flex-col bg-[#08080F] ${wide ? 'w-full' : ''}`}>
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0C0C14] shrink-0 border-b border-[#1a1a2a]">
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]/70" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]/70" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]/70" />
+          </div>
+          <span className="text-[10px] text-gray-500 font-mono">
+            {isUpdating ? 'update' : isBuilding ? 'build' : 'container'} - logs
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isBuilding && <span className="text-[10px] text-primary animate-pulse font-mono">{isUpdating ? '● updating' : '● building'}</span>}
+          {!isBuilding && isRunning && isReady && <span className="text-[10px] text-emerald-400 font-mono">● running</span>}
+          {!isBuilding && isRunning && !isReady && <span className="text-[10px] text-amber-400 animate-pulse font-mono">● starting</span>}
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-5 selection:bg-primary/30"
+      >
+        {showEmpty && (
+          <div className="text-gray-600 italic">No logs. Launch the app to see output here.</div>
+        )}
+        {lines.map((l, i) => (
+          <div
+            key={i}
+            className={
+              l.includes('[error]') || l.includes('Error') || l.includes('FATAL') || l.includes('Traceback')
+                ? 'text-red-400 whitespace-pre-wrap [tab-size:2]'
+                : l.includes('successfully') || l.includes('Started') || l.includes('Running on')
+                ? 'text-emerald-400 whitespace-pre-wrap [tab-size:2]'
+                : 'text-gray-400 whitespace-pre-wrap [tab-size:2]'
+            }
+          >
+            {l}
+          </div>
+        ))}
+        {(isBuilding || (isRunning && !isReady)) && lines.length > 0 && (
+          <span className="text-primary animate-pulse">▋</span>
+        )}
+      </div>
+    </div>
+  )
+}
