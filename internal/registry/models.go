@@ -58,6 +58,10 @@ type Recipe struct {
 	Kind string `json:"kind,omitempty"`
 	// Native is the launch config for a native recipe; nil for containers.
 	Native *RecipeNative `json:"native,omitempty"`
+	// EngineBuild is runtime state for a native recipe that declares
+	// native.engine_build: whether its patched engine client is on disk. The
+	// HTTP handler fills it; the registry never does.
+	EngineBuild *RecipeEngineBuildStatus `json:"engine_build,omitempty"`
 
 	// Computed fields (Pydantic computed_field in the upstream model).
 	MemoryGB          float64  `json:"memory_gb"`
@@ -94,6 +98,7 @@ func (r Recipe) MarshalJSON() ([]byte, error) {
 	if !r.IsNative() {
 		a.Kind = ""
 		a.Native = nil
+		a.EngineBuild = nil
 	}
 	return json.Marshal(a)
 }
@@ -108,6 +113,31 @@ type RecipeNative struct {
 	Args   []string          `json:"args,omitempty"`
 	Env    map[string]string `json:"env,omitempty"`
 	Port   int               `json:"port,omitempty"`
+	// EngineBuild, when set, makes the recipe run on an engine client built
+	// for this model instead of the engine release installed on the host.
+	EngineBuild *RecipeEngineBuild `json:"engine_build,omitempty"`
+}
+
+// RecipeEngineBuild is the `native.engine_build` block: the image that holds
+// the patched engine, the artifacts that make up the client directory, and the
+// model repository's script that builds the image when it is absent.
+//
+// Command is relative to the recipe directory; Env values are paths relative
+// to the client directory. The Hub applies no patches itself — the engine
+// build is the model repository's knowledge.
+type RecipeEngineBuild struct {
+	Image     string            `json:"image,omitempty"`
+	Artifacts []string          `json:"artifacts,omitempty"`
+	Command   string            `json:"command,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+}
+
+// RecipeEngineBuildStatus is the runtime half of the same block: whether the
+// client directory exists, which image it came from and where it lives.
+type RecipeEngineBuildStatus struct {
+	Ready bool   `json:"ready"`
+	Image string `json:"image,omitempty"`
+	Path  string `json:"path,omitempty"`
 }
 
 type RecipeRequirements struct {
