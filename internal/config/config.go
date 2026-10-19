@@ -20,6 +20,9 @@ type Config struct {
 
 	BaseDir      string
 	RegistryPath string
+	// RegistryHome is the single on-disk source of truth for recipes:
+	// sources.yaml, vendored/ clones and local/ recipes live below it.
+	RegistryHome string
 	DataDir      string
 	DBPath       string
 
@@ -59,6 +62,7 @@ func Load() Config {
 		c.BaseDir = v
 	}
 	c.RegistryPath = envPath("REGISTRY_PATH", filepath.Join(c.BaseDir, "registry", "recipes"))
+	c.RegistryHome = envPath("REGISTRY_HOME", defaultRegistryHome())
 	c.DataDir = envPath("DATA_DIR", filepath.Join(c.BaseDir, "data"))
 	c.DBPath = envPath("DB_PATH", filepath.Join(c.DataDir, "spark-ai-hub.db"))
 	return c
@@ -97,6 +101,14 @@ func envBool(name string, def bool) bool {
 		return false
 	}
 	return def
+}
+
+func defaultRegistryHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(".config", "gospark", "registry")
+	}
+	return filepath.Join(home, ".config", "gospark", "registry")
 }
 
 func envPath(name, def string) string {

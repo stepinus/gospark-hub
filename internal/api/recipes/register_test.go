@@ -38,7 +38,7 @@ func setBaseDir(t *testing.T) {
 func TestListAndDetail(t *testing.T) {
 	setBaseDir(t)
 	r := web.NewRouter()
-	Register(r, fakeDeps{})
+	Register(r, Deps{Runtime: fakeDeps{}})
 
 	// List
 	req := httptest.NewRequest(http.MethodGet, "/api/recipes", nil)
@@ -97,7 +97,7 @@ func TestListAndDetail(t *testing.T) {
 func TestListCategoryAndSearch(t *testing.T) {
 	setBaseDir(t)
 	r := web.NewRouter()
-	Register(r, fakeDeps{})
+	Register(r, Deps{Runtime: fakeDeps{}})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/recipes?category=image-gen", nil)
 	rec := httptest.NewRecorder()

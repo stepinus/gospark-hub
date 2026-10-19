@@ -112,10 +112,16 @@ func main() {
 	oauthSvc := oauth.NewService(db)
 	authapi.Register(r, auth.Deps{Store: db, Config: cfg, Logger: log.Default(), TokenResolver: oauthSvc})
 
-	reg := registry.NewCache(cfg.RegistryPath)
+	mgr, err := registry.NewManager(cfg.RegistryHome)
+	if err != nil {
+		log.Fatalf("registry home: %v", err)
+	}
+	// No fallback to the repository checkout: recipes come only from the
+	// configured sources under the registry home.
+	reg := registry.NewCache(mgr.Roots()...)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
 
-	recipesapi.Register(r, dock)
+	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg})
 	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
