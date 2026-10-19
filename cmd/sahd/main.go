@@ -19,12 +19,14 @@ import (
 	containersapi "gospark-hub/internal/api/containers"
 	filesapi "gospark-hub/internal/api/files"
 	mcpapi "gospark-hub/internal/api/mcp"
+	oauthapi "gospark-hub/internal/api/oauthapi"
 	modelsapi "gospark-hub/internal/api/models"
 	recipesapi "gospark-hub/internal/api/recipes"
 	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/auth"
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
+	"gospark-hub/internal/oauth"
 	"gospark-hub/internal/proxy"
 	"gospark-hub/internal/registry"
 	"gospark-hub/internal/store"
@@ -105,7 +107,10 @@ func main() {
 
 	// Auth first: it installs the session middleware that wraps every route
 	// registered after this point.
-	authapi.Register(r, auth.Deps{Store: db, Config: cfg, Logger: log.Default()})
+	// One OAuth service, shared: it issues tokens for /mcp and resolves them in
+	// the session middleware.
+	oauthSvc := oauth.NewService(db)
+	authapi.Register(r, auth.Deps{Store: db, Config: cfg, Logger: log.Default(), TokenResolver: oauthSvc})
 
 	reg := registry.NewCache(cfg.RegistryPath)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
@@ -115,6 +120,7 @@ func main() {
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
 	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock}})
+	oauthapi.Register(r, oauthapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Service: oauthSvc})
 	system.Register(r, system.Deps{Config: cfg, Logger: slog.Default(), Registry: reg})
 	srv.MountStatic(r)
 
