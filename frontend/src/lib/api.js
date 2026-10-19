@@ -74,6 +74,29 @@ export function removeRegistry(id) {
   return request('DELETE', `/api/registries/${encodeURIComponent(id)}`)
 }
 
+/* Engines */
+
+// A model runtime installed once on the machine, not in a container per app.
+// { engines: [{ name, installed, version, latest, path }] }
+export function getEngines() {
+  return request('GET', '/api/engines')
+}
+
+// 409 when the same version is already in place; the daemon's sentence says so.
+export function installEngine(name) {
+  return request('POST', `/api/engines/${encodeURIComponent(name)}/install`)
+}
+
+// Installs the latest release; 409 while a native recipe using it runs.
+export function updateEngine(name) {
+  return request('POST', `/api/engines/${encodeURIComponent(name)}/update`)
+}
+
+// Removes the whole engine directory; 409 while a native recipe using it runs.
+export function deleteEngine(name) {
+  return request('DELETE', `/api/engines/${encodeURIComponent(name)}`)
+}
+
 /* Local recipes */
 
 // { recipes: [{ slug, name, origin, modified }] }

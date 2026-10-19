@@ -7,8 +7,12 @@ import { useEffect, useRef } from 'react'
  * and the folder that is about to disappear, and nothing else. Focus starts on
  * Cancel — a stray Enter must not delete anything — while Escape, the backdrop
  * and Cancel all mean the same thing.
+ *
+ * `title` and `children` let a caller that deletes something else (an engine)
+ * say what is going away in its own words; without them the dialog speaks
+ * about a local recipe folder, which is the common case.
  */
-export default function ConfirmDeleteModal({ name, slug, busy, error, onCancel, onConfirm }) {
+export default function ConfirmDeleteModal({ name, slug, busy, error, title, children, onCancel, onConfirm }) {
   const cancelRef = useRef(null)
 
   useEffect(() => {
@@ -37,15 +41,19 @@ export default function ConfirmDeleteModal({ name, slug, busy, error, onCancel, 
         className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim"
       >
         <h3 id="confirm-delete-title" className="text-lg font-bold text-text font-display m-0">
-          Delete recipe {name || slug}?
+          {title || `Delete recipe ${name || slug}?`}
         </h3>
         <p id="confirm-delete-text" className="text-sm text-text-dim mt-2 mb-0 leading-relaxed">
-          The files will be deleted from{' '}
-          {/* One path, broken after its slashes rather than mid-word. */}
-          <span className="font-mono text-text-muted break-words">
-            ~/.config/gospark/registry/<wbr />local/<wbr />{slug}
-          </span>
-          .
+          {children || (
+            <>
+              The files will be deleted from{' '}
+              {/* One path, broken after its slashes rather than mid-word. */}
+              <span className="font-mono text-text-muted break-words">
+                ~/.config/gospark/registry/<wbr />local/<wbr />{slug}
+              </span>
+              .
+            </>
+          )}
         </p>
 
         {error && <p className="text-xs text-error mt-3 mb-0 leading-relaxed">{error}</p>}
