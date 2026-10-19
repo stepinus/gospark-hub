@@ -145,6 +145,11 @@ function RecipeDetailPage({ slug }) {
   }
 
   const isRemoving = !!removing[recipe.slug]
+  // A native recipe is a launch config for an engine installed on the host:
+  // there is no image to build and no container to uninstall. `kind` is only
+  // present on native recipes (the daemon keeps container JSON unchanged).
+  const isNative = recipe.kind === 'native'
+  const native = recipe.native || {}
   const isReady = recipe.ready
   const cLogs = containerLogs[recipe.slug] || []
   const bLogs = buildLogs[recipe.slug] || []
@@ -310,6 +315,11 @@ function RecipeDetailPage({ slug }) {
                   From registry
                 </span>
               )}
+              {isNative && (
+                <span className="text-[10px] font-label font-semibold text-secondary bg-secondary/10 border border-secondary/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  Native
+                </span>
+              )}
             </div>
             <p className="text-sm text-text-dim mt-0.5 m-0">{recipe.author}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -327,7 +337,9 @@ function RecipeDetailPage({ slug }) {
           {/* Capped at the row's width so the badges wrap inside it; a media
               model's Time and Arena badges are long enough to run off it. */}
           <div className="hidden lg:flex flex-wrap items-center gap-2 max-w-full">
-            {recipe.engine && <SpecBadge label="Engine" value={recipe.engine} />}
+            {/* A native recipe names its engine in `native`; the model's own
+                `engine` field would print a second badge titled Engine. */}
+            {recipe.engine && !isNative && <SpecBadge label="Engine" value={recipe.engine} />}
             {recipe.params_b != null && (
               <SpecBadge label={recipe.arch === 'moe' ? 'MoE' : 'Dense'} value={formatParams(recipe)} />
             )}
@@ -337,7 +349,17 @@ function RecipeDetailPage({ slug }) {
             {recipe.quantization && <SpecBadge label="Precision" value={recipe.quantization} />}
             {recipe.weights_gb != null && <SpecBadge label="Weights" value={`${recipe.weights_gb} GB`} />}
             <SpecBadge label="Memory" value={`${recipe.requirements?.min_memory_gb ?? 8}–${recipe.requirements?.recommended_memory_gb ?? recipe.requirements?.min_memory_gb ?? 8} GB`} />
-            <SpecBadge label="Disk" value={`${recipe.requirements?.disk_gb ?? 10} GB`} />
+            {/* A native recipe has no image and no container disk: what it
+                needs is the engine, the checkpoint and a host port. */}
+            {isNative ? (
+              <>
+                {native.engine && <SpecBadge label="Engine" value={native.engine} />}
+                {native.model && <SpecBadge label="Model" value={native.model} />}
+                {native.port != null && <SpecBadge label="Port" value={String(native.port)} />}
+              </>
+            ) : (
+              <SpecBadge label="Disk" value={`${recipe.requirements?.disk_gb ?? 10} GB`} />
+            )}
             {recipe.tokens_per_second != null && (
               <SpecBadge label="Speed" value={speedLabel(recipe)} />
             )}
@@ -361,12 +383,12 @@ function RecipeDetailPage({ slug }) {
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
-            {!recipe.installed && !recipe.starting && !isBusy && !isRemoving && (
+            {!isNative && !recipe.installed && !recipe.starting && !isBusy && !isRemoving && (
               <button onClick={() => installRecipe(recipe.slug)} className="btn-primary px-6 py-2.5 text-sm font-bold">
                 Install
               </button>
             )}
-            {isBuilding && (
+            {isBuilding && !isNative && (
               <>
                 <div className="px-5 py-2.5 bg-primary/10 rounded-xl text-sm text-primary font-semibold font-label">
                   <span className="inline-block animate-spin mr-1">⟳</span>Building
@@ -393,20 +415,24 @@ function RecipeDetailPage({ slug }) {
                 <span className="inline-block animate-spin mr-1">⟳</span>Uninstalling
               </div>
             )}
-            {recipe.installed && !recipe.running && !recipe.starting && !isBusy && !isRemoving && (
+            {(isNative || recipe.installed) && !recipe.running && !recipe.starting && !isBusy && !isRemoving && (
               <>
                 <button disabled={launching || isRemoving} onClick={handleLaunch} className="btn-primary px-6 py-2.5 text-sm font-bold">
                   {launching ? '...' : '▶ Launch'}
                 </button>
-                <button disabled={launching || isRemoving} onClick={() => updateRecipe(recipe.slug)} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:text-primary hover:bg-surface-highest disabled:opacity-50">
-                  ↻ Update
-                </button>
-                <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
-                  {isRemoving ? '...' : 'Uninstall'}
-                </button>
+                {!isNative && (
+                  <button disabled={launching || isRemoving} onClick={() => updateRecipe(recipe.slug)} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:text-primary hover:bg-surface-highest disabled:opacity-50">
+                    ↻ Update
+                  </button>
+                )}
+                {!isNative && (
+                  <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
+                    {isRemoving ? '...' : 'Uninstall'}
+                  </button>
+                )}
               </>
             )}
-            {(recipe.running || (recipe.installed && recipe.starting)) && (
+            {(recipe.running || ((isNative || recipe.installed) && recipe.starting)) && (
               <>
                 {isReady && (
                   <a href={openUrl(recipe)} target="_blank" rel="noreferrer"
@@ -417,9 +443,11 @@ function RecipeDetailPage({ slug }) {
                 <button disabled={stopping} onClick={handleStop} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
                   {stopping ? '...' : '■ Stop'}
                 </button>
-                <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
-                  Uninstall
-                </button>
+                {!isNative && (
+                  <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
+                    Uninstall
+                  </button>
+                )}
               </>
             )}
             {/* Every recipe can be copied; only a local one can be deleted. */}
@@ -477,14 +505,18 @@ function RecipeDetailPage({ slug }) {
 
       <div className="flex-1 min-h-0">
         {activeTab === 'details' ? (
-          <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,50rem)_minmax(24rem,1fr)]">
-            <div className="overflow-y-auto border-b border-outline-dim xl:border-b-0 xl:border-r bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%)]">
+          <div className={`h-full min-h-0 grid grid-cols-1 ${isNative ? '' : 'xl:grid-cols-[minmax(0,50rem)_minmax(24rem,1fr)]'}`}>
+            <div className={`overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%)] ${isNative ? '' : 'border-b border-outline-dim xl:border-b-0 xl:border-r'}`}>
               <AboutTab recipe={recipe} purging={purging} purgeRecipe={purgeRecipe} isBuilding={isBusy} />
             </div>
 
-            <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] min-h-0">
-              <ComposeEditor slug={recipe.slug} local={isLocal} />
-            </div>
+            {/* A native recipe has no docker-compose.yml to edit; the engine
+                and its flags live in recipe.yaml. */}
+            {!isNative && (
+              <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] min-h-0">
+                <ComposeEditor slug={recipe.slug} local={isLocal} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="h-full min-h-0">
@@ -562,7 +594,11 @@ function RecipeDetailPage({ slug }) {
           error={deleteError}
           onCancel={() => { setShowDelete(false); setDeleteError('') }}
           onConfirm={handleDeleteLocal}
-        />
+        >
+          {isNative
+            ? `This copy of the recipe is deleted from ~/.config/gospark/registry/local/${recipe.slug}. The engine and the checkpoint stay where they are.`
+            : undefined}
+        </ConfirmDeleteModal>
       )}
     </div>
   )

@@ -16,6 +16,7 @@ import Agents, { AgentIcon } from './pages/Agents'
 import Running from './pages/Running'
 import System from './pages/System'
 import Settings from './pages/Settings'
+import Engines from './pages/Engines'
 import RecipeDetail from './pages/RecipeDetail'
 
 const NAV_ITEMS = [
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
 // active account, so these are the nav items that are conditional.
 const ADMIN_NAV_ITEMS = [
   { path: '/users', label: 'Users', icon: UsersIcon },
+  { path: '/engines', label: 'Engines', icon: ChipIcon },
   { path: '/settings', label: 'Settings', icon: SlidersIcon },
 ]
 
@@ -41,6 +43,7 @@ const PAGE_TITLES = {
   '/about': 'About',
   '/account': 'Account',
   '/users': 'Users',
+  '/engines': 'Engines',
   '/settings': 'Settings',
   '/files': 'My files',
   '/upload': 'My files',
@@ -256,6 +259,7 @@ export default function App() {
             <Route path="/account" element={<Account />} />
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/engines" element={<Engines />} />
             <Route path="/files" element={<Files />} />
             <Route path="/upload" element={<Navigate to="/files" replace />} />
             <Route path="/app/:slug" element={<RecipeDetail />} />
@@ -308,6 +312,17 @@ function UsersIcon(props) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+/* A chip: the runtime itself, which is a single thing installed on the
+   machine rather than one per recipe. */
+function ChipIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+      <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
     </svg>
   )
 }
