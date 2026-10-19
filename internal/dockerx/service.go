@@ -80,12 +80,19 @@ func New(cfg config.Config, reg *registry.Cache, db *store.DB, logger *slog.Logg
 // ComposeProject is the per-recipe compose project name, prefixed by
 // cfg.Project so two Hubs never share one.
 func (d *Docker) ComposeProject(slug string) string {
-	return d.Config.Project + "-" + slug
+	prefix := d.Config.AppProjectPrefix
+	if prefix == "" {
+		prefix = "spark-ai-hub"
+	}
+	return prefix + "-" + slug
 }
 
 // Network is the shared external docker network all recipe composes attach to.
 func (d *Docker) Network() string {
-	return d.Config.Project + "-net"
+	if d.Config.AppNetwork == "" {
+		return "spark-ai-hub-net"
+	}
+	return d.Config.AppNetwork
 }
 
 // RecipeDir returns the on-disk recipe directory.

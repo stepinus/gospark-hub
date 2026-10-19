@@ -28,9 +28,15 @@ type Config struct {
 	SessionTTLDays    int
 	ForceSecureCookie bool
 
-	// Docker project prefix: network, container names, compose project. Keeps
-	// a second Hub from touching the first one's containers.
+	// Project names *our* own containers (the Caddy front door) so a second Hub
+	// does not fight the first one over the proxy container.
 	Project string
+
+	// Recipes hardcode `spark-ai-hub-net` and `spark-ai-hub-<slug>` inside their
+	// compose files and container_name fields, so the app-facing names are data,
+	// not a knob: changing them would break every recipe on this device.
+	AppNetwork       string
+	AppProjectPrefix string
 }
 
 func Load() Config {
@@ -46,6 +52,8 @@ func Load() Config {
 		SessionTTLDays:    envInt("SESSION_TTL_DAYS", 30),
 		ForceSecureCookie: envBool("FORCE_SECURE_COOKIE", false),
 		Project:           env("PROJECT", "gospark-hub"),
+		AppNetwork:        env("APP_NETWORK", "spark-ai-hub-net"),
+		AppProjectPrefix:  env("APP_PROJECT_PREFIX", "spark-ai-hub"),
 	}
 	if v := os.Getenv("BASE_DIR"); v != "" {
 		c.BaseDir = v

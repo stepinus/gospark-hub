@@ -315,7 +315,7 @@ func (d *Docker) findProjectVolumes(ctx context.Context, slug string) []string {
 	if idx := strings.LastIndex(slug, "-"); idx > 0 {
 		base := slug[:idx]
 		if _, isRecipe := d.Reg.Get(base); !isRecipe {
-			prefixes[d.Config.Project+"-"+base+"_"] = struct{}{}
+			prefixes[d.Config.AppProjectPrefix+"-"+base+"_"] = struct{}{}
 		}
 	}
 
@@ -368,7 +368,7 @@ func (d *Docker) findProjectImages(ctx context.Context, slug string) []string {
 // Compose-built images are tagged `<project>-<service>` / `<project>_<service>`;
 // pulled base images are not ours and are left alone.
 func (d *Docker) isOwnImage(image string) bool {
-	return strings.HasPrefix(image, d.Config.Project+"-") ||
+	return strings.HasPrefix(image, d.Config.AppProjectPrefix+"-") ||
 		strings.HasPrefix(image, d.Config.Project+"_") ||
 		image == d.Config.Project
 }

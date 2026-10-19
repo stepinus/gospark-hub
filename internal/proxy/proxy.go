@@ -89,7 +89,12 @@ func ListenPort(cfg config.Config) int {
 
 // Network is the shared external docker network all recipes attach to. It is
 // scoped to cfg.Project so a test Hub cannot touch the production network.
-func Network(cfg config.Config) string { return cfg.Project + "-net" }
+func Network(cfg config.Config) string {
+	if cfg.AppNetwork == "" {
+		return "spark-ai-hub-net"
+	}
+	return cfg.AppNetwork
+}
 
 // Container is the name of the Caddy container, also scoped to cfg.Project.
 func Container(cfg config.Config) string { return cfg.Project + "-proxy" }

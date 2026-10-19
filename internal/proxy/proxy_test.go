@@ -25,14 +25,16 @@ func testConfig(t *testing.T) config.Config {
 		t.Fatalf("write probe token: %v", err)
 	}
 	return config.Config{
-		Host:         "0.0.0.0",
-		Port:         9110,
-		PublicPort:   9100,
-		ProxyEnabled: true,
-		AuthEnabled:  true,
-		Project:      "gospark-hub",
-		RegistryPath: filepath.Join("..", "..", "registry", "recipes"),
-		DataDir:      dataDir,
+		Host:             "0.0.0.0",
+		Port:             9110,
+		PublicPort:       9100,
+		ProxyEnabled:     true,
+		AuthEnabled:      true,
+		Project:          "gospark-hub",
+		AppNetwork:       "spark-ai-hub-net",
+		AppProjectPrefix: "spark-ai-hub",
+		RegistryPath:     filepath.Join("..", "..", "registry", "recipes"),
+		DataDir:          dataDir,
 	}
 }
 
@@ -329,7 +331,7 @@ func TestEnsureCreatesProxyContainer(t *testing.T) {
 		"run", "-d",
 		"--name", "gospark-hub-proxy",
 		"--restart", "unless-stopped",
-		"--network", "gospark-hub-net",
+		"--network", "spark-ai-hub-net",
 		"--add-host", "host.docker.internal:host-gateway",
 		"-p", "9100:9100",
 		"-v", filepath.Join(cfg.DataDir, caddyfileName) + ":/etc/caddy/Caddyfile:ro",

@@ -93,7 +93,7 @@ func newTestDocker(t *testing.T, regDir string) (*Docker, *store.DB) {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	cfg := config.Config{Project: "testproj", DataDir: t.TempDir(), RegistryPath: regDir}
+	cfg := config.Config{Project: "testproj", AppProjectPrefix: "testproj", AppNetwork: "testproj-net", DataDir: t.TempDir(), RegistryPath: regDir}
 	d := New(cfg, registry.NewCache(regDir), db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return d, db
 }
