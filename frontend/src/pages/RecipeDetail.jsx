@@ -11,11 +11,24 @@ import { backdropFor, posterFor } from '../covers'
 import { formatDuration, mediaKind, speedLabel } from '../models'
 import CoverInfoModal from '../components/CoverInfoModal'
 import YamlEditor from '../components/YamlEditor'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+import { deleteLocalRecipe, forkRecipe } from '../lib/api'
 
 const DETAIL_TABS = [
   { id: 'details', label: 'Overview' },
   { id: 'logs', label: 'Logs' },
 ]
+
+// A slug becomes a directory name in ~/.config/gospark/registry/local/, so it
+// is kept to what is safe there and to a URL: 2–63 characters, lowercase
+// letters, digits and dashes, never starting with a dash.
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}$/
+
+function suggestCopySlug(slug) {
+  const base = `${slug || 'recipe'}-copy`
+  const trimmed = base.length > 63 ? `${base.slice(0, 58)}-copy` : base
+  return SLUG_PATTERN.test(trimmed) ? trimmed : 'my-recipe'
+}
 
 // Remount on slug change so per-recipe local state (active tab, logo
 // fallback, …) doesn't leak from one app's page to the next.
@@ -49,6 +62,7 @@ function RecipeDetailPage({ slug }) {
   const lastInstallFailed = useStore((s) => s.lastInstallFailed)
   const connectLogs = useStore((s) => s.connectLogs)
   const disconnectLogs = useStore((s) => s.disconnectLogs)
+  const fetchRecipes = useStore((s) => s.fetchRecipes)
 
   const recipe = recipes.find((r) => r.slug === slug)
   const scrollRef = useRef(null)
@@ -65,6 +79,13 @@ function RecipeDetailPage({ slug }) {
   const [hfToken, setHfToken] = useState('')
   const [hfSaving, setHfSaving] = useState(false)
   const [hfError, setHfError] = useState('')
+  // “Create copy” and “Delete”: both act on ~/.config/gospark/registry/local/,
+  // and both report the daemon's own refusal (a taken slug, an app still
+  // installed) in the dialog that asked, so the page never goes blank.
+  const [showFork, setShowFork] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   // Must run before any early return — hooks can't be conditional, and on a
   // deep link this component first renders with the catalog still empty.
   const logoUrl = useThemedLogo(recipe?.logo)
@@ -183,9 +204,36 @@ function RecipeDetailPage({ slug }) {
     setStopping(false)
   }
 
+  // A copy lands in local/<newSlug>; the catalog is refetched before navigating
+  // so the new page has something to render.
+  const handleForked = async (newSlug) => {
+    setShowFork(false)
+    await fetchRecipes()
+    navigate(`/app/${encodeURIComponent(newSlug)}`)
+  }
+
+  const handleDeleteLocal = async () => {
+    setDeleteBusy(true)
+    setDeleteError('')
+    const res = await deleteLocalRecipe(recipe.slug)
+    setDeleteBusy(false)
+    if (!res.ok) {
+      setDeleteError(res.error)
+      return
+    }
+    setShowDelete(false)
+    await fetchRecipes()
+    navigate('/')
+  }
+
   const recipeCategories = Array.isArray(recipe.categories) && recipe.categories.length > 0
     ? recipe.categories
     : [recipe.category]
+
+  // Recipes cloned from a source are overwritten by the next sync; only the
+  // copies in local/ belong to this Hub. A daemon that predates the field
+  // simply reports false, which is the truthful default.
+  const isLocal = recipe.local === true
 
   return (
     <div className="flex flex-col h-full animate-fadeIn">
@@ -251,7 +299,18 @@ function RecipeDetailPage({ slug }) {
               squeezing a long name like "Inkling-Small 276B (UD-IQ2_M)"
               into a four-line sliver. */}
           <div className="flex-1 min-w-0 sm:min-w-[260px]">
-            <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight m-0 font-display">{recipe.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight m-0 font-display">{recipe.name}</h1>
+              {isLocal ? (
+                <span className="text-[10px] font-label font-semibold text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  Local
+                </span>
+              ) : (
+                <span className="text-[10px] font-label font-semibold text-text-dim bg-surface-high border border-outline-dim px-2 py-0.5 rounded-full whitespace-nowrap">
+                  From registry
+                </span>
+              )}
+            </div>
             <p className="text-sm text-text-dim mt-0.5 m-0">{recipe.author}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {recipeCategories.map((cat) => (
@@ -363,6 +422,21 @@ function RecipeDetailPage({ slug }) {
                 </button>
               </>
             )}
+            {/* Every recipe can be copied; only a local one can be deleted. */}
+            <button
+              onClick={() => setShowFork(true)}
+              className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-colors hover:text-primary hover:bg-surface-highest"
+            >
+              Create copy
+            </button>
+            {isLocal && (
+              <button
+                onClick={() => { setDeleteError(''); setShowDelete(true) }}
+                className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-colors hover:bg-error/15"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
         </div>
@@ -409,7 +483,7 @@ function RecipeDetailPage({ slug }) {
             </div>
 
             <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] min-h-0">
-              <ComposeEditor slug={recipe.slug} />
+              <ComposeEditor slug={recipe.slug} local={isLocal} />
             </div>
           </div>
         ) : (
@@ -470,6 +544,25 @@ function RecipeDetailPage({ slug }) {
 
       {showCoverInfo && (
         <CoverInfoModal recipe={recipe} onClose={() => setShowCoverInfo(false)} />
+      )}
+
+      {showFork && (
+        <ForkRecipeModal
+          slug={recipe.slug}
+          onClose={() => setShowFork(false)}
+          onDone={handleForked}
+        />
+      )}
+
+      {showDelete && (
+        <ConfirmDeleteModal
+          slug={recipe.slug}
+          name={recipe.name}
+          busy={deleteBusy}
+          error={deleteError}
+          onCancel={() => { setShowDelete(false); setDeleteError('') }}
+          onConfirm={handleDeleteLocal}
+        />
       )}
     </div>
   )
@@ -787,7 +880,98 @@ EOF`}
   )
 }
 
-function ComposeEditor({ slug }) {
+/* “Create copy” asks for one thing — the new slug — because everything else
+ * about the copy is decided for you: it is a byte-for-byte copy in local/,
+ * where no sync can reach it. A slug that is already taken comes back as a 409
+ * with the daemon's own sentence, shown under the field the user just typed in.
+ */
+function ForkRecipeModal({ slug, onClose, onDone }) {
+  const [value, setValue] = useState(() => suggestCopySlug(slug))
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const inputRef = useRef(null)
+  const valid = SLUG_PATTERN.test(value)
+
+  useEffect(() => {
+    const el = inputRef.current
+    if (el) { el.focus(); el.select() }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const submit = async () => {
+    if (!valid || busy) return
+    setBusy(true)
+    setError('')
+    const res = await forkRecipe(slug, value)
+    setBusy(false)
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+    onDone(res.data?.slug || value)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn px-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fork-title"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim"
+      >
+        <h3 id="fork-title" className="text-lg font-bold text-text font-display m-0">Create a copy</h3>
+        <p className="text-sm text-text-dim mt-2 mb-3 leading-relaxed">
+          The copy lives in <span className="font-mono text-text-muted">~/.config/gospark/registry/local/</span> and is never
+          overwritten by a sync. Everything else — compose file, ports, settings — comes with it.
+        </p>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold font-label text-text-dim uppercase tracking-wide">New slug</span>
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => { setValue(e.target.value); setError('') }}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            spellCheck={false}
+            className="w-full px-3.5 py-2.5 bg-surface-low rounded-xl text-text text-sm font-mono outline-none border border-outline-dim focus:border-primary/60"
+          />
+          <span className={`text-[11px] ${valid ? 'text-text-dim' : 'text-warning'}`}>
+            Lowercase letters, digits and dashes, 2–63 characters.
+          </span>
+        </label>
+
+        {error && <p className="text-xs text-error mt-3 mb-0 leading-relaxed">{error}</p>}
+
+        <div className="flex justify-end gap-3 mt-5">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!valid || busy}
+            className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          >
+            {busy ? 'Copying…' : 'Create copy'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ComposeEditor({ slug, local }) {
   const [content, setContent] = useState('')
   const [original, setOriginal] = useState('')
   const [defaultContent, setDefaultContent] = useState('')
@@ -873,6 +1057,11 @@ function ComposeEditor({ slug }) {
           <div className="min-w-0 flex-1 basis-64">
             <h2 className="text-sm font-bold text-text font-display m-0">Compose Configuration</h2>
             <p className="text-sm text-text-dim mt-1 mb-0 leading-relaxed">Edit the live `docker-compose.yml` for this recipe. Save keeps your custom version; restore brings back the default file from the registry.</p>
+            {!local && (
+              <p className="text-[11px] text-warning mt-1.5 mb-0 leading-relaxed">
+                This recipe comes from a registry source: the next sync replaces these edits. Use “Create copy” to keep a version of your own.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button

@@ -15,6 +15,7 @@ import Catalog from './pages/Catalog'
 import Agents, { AgentIcon } from './pages/Agents'
 import Running from './pages/Running'
 import System from './pages/System'
+import Settings from './pages/Settings'
 import RecipeDetail from './pages/RecipeDetail'
 
 const NAV_ITEMS = [
@@ -25,9 +26,12 @@ const NAV_ITEMS = [
   { path: '/about', label: 'About', icon: InfoIcon },
 ]
 
-// Only an admin can reach /users; everything else is open to any active
-// account, so this is the one nav item that is conditional.
-const ADMIN_NAV_ITEM = { path: '/users', label: 'Users', icon: UsersIcon }
+// Only an admin can reach /users and /settings; everything else is open to any
+// active account, so these are the nav items that are conditional.
+const ADMIN_NAV_ITEMS = [
+  { path: '/users', label: 'Users', icon: UsersIcon },
+  { path: '/settings', label: 'Settings', icon: SlidersIcon },
+]
 
 const PAGE_TITLES = {
   '/': 'Store',
@@ -37,6 +41,7 @@ const PAGE_TITLES = {
   '/about': 'About',
   '/account': 'Account',
   '/users': 'Users',
+  '/settings': 'Settings',
   '/files': 'My files',
   '/upload': 'My files',
 }
@@ -85,7 +90,7 @@ export default function App() {
     return () => clearInterval(interval)
   }, [fetchRecipes])
 
-  const navItems = user?.role === 'admin' ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS
+  const navItems = user?.role === 'admin' ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS
   const searchPlaceholder = location.pathname === '/agents' ? 'Search models...' : 'Search apps...'
 
   // Phones get the same app with the chrome moved: the sidebar becomes a tab
@@ -250,6 +255,7 @@ export default function App() {
             <Route path="/about" element={<div className="animate-fadeIn"><About /></div>} />
             <Route path="/account" element={<Account />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/files" element={<Files />} />
             <Route path="/upload" element={<Navigate to="/files" replace />} />
             <Route path="/app/:slug" element={<RecipeDetail />} />
@@ -302,6 +308,19 @@ function UsersIcon(props) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+/* Sliders: the two knobs that matter here — which repositories are read, and
+   whether they are in sync. */
+function SlidersIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="8" x2="20" y2="8" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <circle cx="9" cy="8" r="2.4" />
+      <circle cx="15" cy="16" r="2.4" />
     </svg>
   )
 }
