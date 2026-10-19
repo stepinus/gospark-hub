@@ -418,6 +418,7 @@ func sweepEndpoints(a, b *side) int {
 	}
 	missing := 0
 	checked := 0
+	skipped := 0
 	for path, ops := range doc.Paths {
 		if path == "/{full_path}" {
 			continue
@@ -426,32 +427,32 @@ func sweepEndpoints(a, b *side) int {
 		for k, v := range subs {
 			p = strings.ReplaceAll(p, k, v)
 		}
-		method := "GET"
+		// Read-only sweep: a write path (install, launch, purge) would change
+		// this machine, so it is counted but not exercised. Write routes are
+		// covered by their own try-it-manually step in docs/ACCEPTANCE.md.
+		writes := false
 		for m := range ops {
-			if m == "post" || m == "put" || m == "patch" || m == "delete" {
-				method = strings.ToUpper(m)
-				break
+			if m != "get" {
+				writes = true
 			}
 		}
-		checked++
-		ct := ""
-		if method == "GET" {
-			_, _, h, _ := b.do("GET", p, "")
-			ct = h.Get("Content-Type")
-		} else {
-			_, _, h, _ := b.do(method, p, "{}")
-			ct = h.Get("Content-Type")
+		if writes {
+			skipped++
+			continue
 		}
+		checked++
+		_, _, h, _ := b.do("GET", p, "")
+		ct := h.Get("Content-Type")
 		if strings.HasPrefix(ct, "text/html") {
 			missing++
-			fmt.Printf("%-16s DIFF   нет маршрута: %s %s\n", "sweep", method, p)
+			fmt.Printf("%-16s DIFF   нет маршрута: GET %s\n", "sweep", p)
 		}
 	}
 	if missing > 0 {
 		fmt.Printf("%-16s DIFF   %d из %d путей у нас отсутствуют\n", "sweep", missing, checked)
 		return 1
 	}
-	fmt.Printf("%-16s ok     (%d путей апстрима отвечают у нас)\n", "sweep", checked)
+	fmt.Printf("%-16s ok     (%d GET-путей отвечают у нас, %d записывающих пропущено)\n", "sweep", checked, skipped)
 	return 0
 }
 
