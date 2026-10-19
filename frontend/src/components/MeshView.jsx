@@ -80,12 +80,12 @@ export default function MeshView({ file, onLoaded }) {
     <div onClick={(e) => e.stopPropagation()} className="absolute inset-0">
       <div ref={box} className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing" />
       {state !== 'ready' && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-semibold text-white/80">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm font-medium text-muted-foreground">
           {state === 'loading' ? 'Opening the 3D model…' : 'Could not open this 3D model.'}
         </span>
       )}
       {state === 'ready' && !turned && (
-        <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-sm font-semibold text-white bg-black/60 px-3 py-1.5 rounded-full">
+        <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground">
           Drag to turn it
         </span>
       )}

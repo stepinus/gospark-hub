@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
+/* The build log, pinned to the bottom of the window while an install runs.
+ * A small header names the app and the state; the lines scroll underneath, and
+ * the box keeps itself scrolled to the newest one. */
 export default function BuildLog() {
   const installing = useStore((s) => s.installing)
   const buildLogs = useStore((s) => s.buildLogs)
@@ -19,24 +22,28 @@ export default function BuildLog() {
   if (!activeSlug) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-56 bg-[#0c0c10] border-t border-spark/30 font-mono text-[11px] p-4 overflow-auto z-50" ref={scrollRef}>
-      <div className="flex justify-between mb-2">
-        <span className="text-spark font-bold text-xs">BUILD LOG — {activeSlug}</span>
-        <span className="text-text-dim">⟳ Building...</span>
+    <div className="fixed right-0 bottom-0 left-0 z-50 border-t border-border bg-[#0c0c10]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2">
+        <span className="truncate font-mono text-[11px] font-semibold tracking-[0.08em] text-foreground">
+          BUILD LOG — {activeSlug}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">⟳ Building...</span>
       </div>
-      {lines.map((l, i) => (
-        <div
-          key={i}
-          className={`leading-7 ${
-            l.includes('successfully') || l.includes('✅') ? 'text-spark' :
-            l.includes('error') || l.includes('failed') ? 'text-red-400' :
-            'text-text-muted'
-          }`}
-        >
-          {l}
-        </div>
-      ))}
-      <div className="text-spark animate-pulse">▋</div>
+      <div ref={scrollRef} className="h-56 overflow-auto px-4 py-3 font-mono text-[11px]">
+        {lines.map((l, i) => (
+          <div
+            key={i}
+            className={`leading-6 ${
+              l.includes('successfully') || l.includes('✅') ? 'text-primary' :
+              l.includes('error') || l.includes('failed') ? 'text-destructive' :
+              'text-muted-foreground'
+            }`}
+          >
+            {l}
+          </div>
+        ))}
+        <div className="text-primary animate-pulse">▋</div>
+      </div>
     </div>
   )
 }

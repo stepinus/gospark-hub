@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '../store'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 // Models run side by side while they fit in memory. When the next one does not
 // fit, launching it has to stop some of what is up, and stopping a running
@@ -24,48 +33,46 @@ export default function LaunchConflictModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md rounded-2xl border border-outline-dim bg-surface-high p-6 shadow-2xl">
-        <h3 className="m-0 font-display text-lg font-bold text-text">Swap running model?</h3>
-        <p className="m-0 mt-1 text-sm text-text-dim">They don&apos;t fit in memory together.</p>
+    <Dialog open onOpenChange={(next) => { if (!next) cancelLaunch() }}>
+      <DialogContent className="gap-4 border-border bg-card p-5 shadow-none sm:max-w-md">
+        <DialogHeader className="gap-1">
+          <DialogTitle className="font-display text-base font-semibold tracking-tight">
+            Swap running model?
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            They don&apos;t fit in memory together.
+          </DialogDescription>
+        </DialogHeader>
 
         {/* The swap, drawn rather than described — the names appear once, and
             the shape of the trade reads before the words do. */}
-        <div className="mt-4 flex items-center gap-3 rounded-xl bg-surface-low p-3">
-          <Endpoint label="Stopping" name={outgoing.join(' and ')} dot="bg-text-dim" tone="text-text-muted" />
-          <span aria-hidden className="shrink-0 text-lg leading-none text-text-dim">→</span>
-          <Endpoint label="Starting" name={incoming} dot="bg-primary" tone="text-text" />
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-3">
+          <Endpoint label="Stopping" name={outgoing.join(' and ')} dot="bg-muted-foreground" tone="text-muted-foreground" />
+          <span aria-hidden className="shrink-0 text-base leading-none text-muted-foreground">→</span>
+          <Endpoint label="Starting" name={incoming} dot="bg-primary" tone="text-foreground" />
         </div>
 
-        <div className="mt-5 flex justify-end gap-3">
-          <button
-            onClick={cancelLaunch}
-            disabled={swapping}
-            className="cursor-pointer rounded-xl border border-outline-dim bg-transparent px-4 py-2 text-sm font-semibold text-text-muted transition-colors hover:text-text disabled:opacity-40"
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={cancelLaunch} disabled={swapping}>
             Cancel
-          </button>
-          <button
-            onClick={confirm}
-            disabled={swapping}
-            className="cursor-pointer rounded-xl border-none bg-primary px-5 py-2 text-sm font-bold text-primary-on disabled:cursor-default disabled:opacity-40"
-          >
+          </Button>
+          <Button onClick={confirm} disabled={swapping}>
             {swapping ? 'Swapping…' : 'Stop & Launch'}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 function Endpoint({ label, name, dot, tone }) {
   return (
     <div className="min-w-0 flex-1">
-      <p className="m-0 flex items-center gap-1.5 font-label text-[10px] font-bold uppercase tracking-wider text-text-dim">
+      <p className="m-0 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
         {label}
       </p>
-      <p className={`m-0 mt-0.5 truncate text-sm font-semibold ${tone}`} title={name}>{name}</p>
+      <p className={`m-0 mt-1 truncate text-sm font-semibold ${tone}`} title={name}>{name}</p>
     </div>
   )
 }

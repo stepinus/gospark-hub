@@ -1,4 +1,7 @@
+import { Eye, EyeOff } from 'lucide-react'
+import { cn } from 'cn'
 import { useStore } from '../store'
+import { Button } from '@/components/ui/button'
 
 /* The little tick that takes a card out of the catalogue.
  *
@@ -11,26 +14,29 @@ export default function HideButton({ slug, size = 'md', always = false, classNam
   const hidden = useStore((s) => s.hidden)
   const toggleHidden = useStore((s) => s.toggleHidden)
   const isHidden = hidden.has(slug)
+  const label = isHidden ? 'Show this card again' : 'Hide this card'
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size={size === 'sm' ? 'icon-xs' : 'icon-sm'}
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
         toggleHidden(slug)
       }}
-      title={isHidden ? 'Show this card again' : 'Hide this card'}
-      aria-label={isHidden ? 'Show this card again' : 'Hide this card'}
-      className={`flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-outline-dim bg-surface-high/90 p-0 leading-none transition-opacity hover:text-text ${
-        size === 'sm' ? 'h-5 w-5 text-[11px]' : 'h-6 w-6 text-[13px]'
-      } ${
+      title={label}
+      aria-label={label}
+      className={cn(
+        'shrink-0 text-muted-foreground transition-colors hover:text-foreground',
         isHidden || always
-          ? 'text-text-dim opacity-100 hover:text-text'
-          : 'text-text-dim opacity-0 group-hover:opacity-100 focus:opacity-100'
-      } ${className}`}
+          ? 'opacity-100'
+          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+        className,
+      )}
     >
-      {isHidden ? '◉' : '⊘'}
-    </button>
+      {isHidden ? <Eye /> : <EyeOff />}
+    </Button>
   )
 }

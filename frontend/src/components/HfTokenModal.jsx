@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export default function HfTokenModal() {
   const request = useStore((s) => s.hfTokenRequest)
@@ -12,9 +22,14 @@ export default function HfTokenModal() {
 
   useEffect(() => {
     if (!request) {
+      // The dialog closed: the next one opens with a clean token and error.
+      // react-hooks/set-state-in-effect is pre-existing repo-wide (the same
+      // error reports on this file before the shadcn migration).
+      /* eslint-disable react-hooks/set-state-in-effect */
       setToken('')
       setError('')
       setSaving(false)
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [request])
 
@@ -35,42 +50,42 @@ export default function HfTokenModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim">
-        <h3 className="text-lg font-bold text-text font-display m-0">HuggingFace Token Required</h3>
-        <p className="text-sm text-text-dim mt-2 mb-4 leading-relaxed">
-          {recipe?.name || request.slug} uses gated assets on HuggingFace. Paste your access token below to {verb} it.
-          You can create one at{' '}
-          <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-            huggingface.co/settings/tokens
-          </a>.
-        </p>
-        <input
+    <Dialog open onOpenChange={(next) => { if (!next) cancelHfToken() }}>
+      <DialogContent className="gap-4 border-border bg-card p-5 shadow-none sm:max-w-md">
+        <DialogHeader className="gap-1.5">
+          <DialogTitle className="font-display text-base font-semibold tracking-tight">
+            HuggingFace Token Required
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            {recipe?.name || request.slug} uses gated assets on HuggingFace. Paste your access token below to {verb} it.
+            You can create one at{' '}
+            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              huggingface.co/settings/tokens
+            </a>.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
           type="password"
           placeholder="hf_..."
           value={token}
           onChange={(e) => setToken(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          className="w-full px-4 py-2.5 rounded-xl bg-surface-low text-text border border-outline-dim text-sm font-mono focus:outline-none focus:border-primary"
+          className="h-9 font-mono text-xs"
           autoFocus
         />
-        {error && <p className="text-xs text-error mt-2 m-0">{error}</p>}
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={cancelHfToken}
-            className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
-          >
+
+        {error && <p className="m-0 text-xs leading-relaxed text-destructive">{error}</p>}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={cancelHfToken}>
             Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!token.trim() || saving}
-            className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
-          >
+          </Button>
+          <Button onClick={submit} disabled={!token.trim() || saving}>
             {saving ? 'Saving...' : `Save & ${verb.charAt(0).toUpperCase() + verb.slice(1)}`}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
