@@ -7,6 +7,9 @@ import { posterFor } from '../covers'
 import { formatParams } from './RecipeCard'
 import { speedLabel } from '../models'
 import { openUrl as openUrlFor } from './RecipeCard'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -17,8 +20,8 @@ function formatMonth(date) {
 }
 
 // The fact the catalog is currently sorted by. It is promoted out of the spec
-// chips into the corner badge, so the value you are ranking on is readable
-// without having to read the tile.
+// chips into its own chip, so the value you are ranking on is readable without
+// having to read the tile.
 const HIGHLIGHTS = {
   release: { label: 'Released', value: (r) => formatMonth(r.release_date) },
   params: { label: 'Params', value: (r) => (r.params_b != null ? formatParams(r) : null) },
@@ -26,12 +29,13 @@ const HIGHLIGHTS = {
   speed: { label: 'Speed', value: (r) => speedLabel(r) },
 }
 
-// Tokens/sec keeps its own corner slot whatever the catalog is sorted by —
-// it is the one number that decides whether a build is usable day to day.
+// Tokens/sec keeps its own slot whatever the catalog is sorted by — it is the
+// one number that decides whether a build is usable day to day.
 
-// A poster tile for the catalog rows. The name is allowed to wrap to two
-// lines and is never truncated mid-word — long builds like
-// "Nemotron-3.5 Lightning 30B-A3B NVFP4 + DSpark" have to stay readable.
+// A poster tile for the catalog rows: the artwork on top, then the title and
+// the facts that tell one build from another underneath it. The name is
+// allowed to wrap to two lines and is never truncated mid-word — long builds
+// like "Nemotron-3.5 Lightning 30B-A3B NVFP4 + DSpark" have to stay readable.
 export default function PosterCard({ recipe, highlight = null }) {
   const installing = useStore((s) => s.installing)
   const updating = useStore((s) => s.updating)
@@ -45,13 +49,13 @@ export default function PosterCard({ recipe, highlight = null }) {
   const openUrl = openUrlFor(recipe)
 
   const status = isBusy
-    ? { label: 'Building', dot: 'bg-secondary animate-pulse' }
+    ? { label: 'Building', dot: 'bg-muted-foreground animate-pulse' }
     : recipe.running && recipe.ready
       ? { label: 'Running', dot: 'bg-primary' }
       : recipe.running || recipe.starting
         ? { label: 'Starting', dot: 'bg-warning animate-pulse' }
         : recipe.installed
-          ? { label: 'Installed', dot: 'bg-text-dim' }
+          ? { label: 'Installed', dot: 'bg-muted-foreground/50' }
           : null
 
   // The facts that actually differentiate one build of a model from another.
@@ -69,145 +73,124 @@ export default function PosterCard({ recipe, highlight = null }) {
   const badgeValue = badge?.value(recipe)
   const speed = recipe.tokens_per_second
   const speedLeads = highlight === 'speed'
-  // Whatever the corner already states is dropped from the chips — printing
-  // tok/s twice on one tile is noise, not emphasis.
+  // Whatever the promoted chip already states is dropped from the chips —
+  // printing tok/s twice on one tile is noise, not emphasis.
   const chips = specs.filter((s) => s.id !== highlight && !(s.id === 'speed' && speed != null))
 
   return (
     <Link
       to={`/app/${recipe.slug}`}
-      className="poster-card group relative block w-[calc(50%-6px)] shrink-0 no-underline text-inherit sm:w-[196px]"
+      className="group relative block w-[calc(50%-6px)] shrink-0 no-underline text-inherit sm:w-[196px]"
       title={recipe.name}
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-surface-high ring-1 ring-glass-border">
-        {!artFailed && (
-          <img
-            src={posterFor(recipe)}
-            alt=""
-            loading="lazy"
-            onError={() => setArtFailed(true)}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-          />
-        )}
-
-        {/* Legibility scrim for the title block. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/92 via-black/55 to-transparent" />
-
-        {/* Vendor logo, always legible against the art. */}
-        {logoUrl && !logoFailed && (
-          <span className="absolute left-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-black/45 p-1.5 ring-1 ring-white/15 backdrop-blur-md">
+      <Card className="gap-0 border-border bg-card p-0 shadow-none transition-colors group-hover:ring-primary/40 [--card-spacing:0px]">
+        <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
+          {!artFailed && (
             <img
-              src={logoUrl}
+              src={posterFor(recipe)}
               alt=""
               loading="lazy"
-              onError={() => setLogoFailed(true)}
-              className="h-full w-full object-contain"
+              onError={() => setArtFailed(true)}
+              className="absolute inset-0 h-full w-full object-cover"
             />
-          </span>
-        )}
+          )}
 
-        <HideButton slug={recipe.slug} always className="absolute right-2 top-2 z-20 bg-black/55 text-white/80 hover:text-white" />
-
-        <div className="absolute right-2.5 top-11 flex flex-col items-end gap-1">
-          {/* The sorted metric, unless that metric is speed — the pill below
-              already carries speed, and louder. */}
-          {badgeValue && !speedLeads && (
-            <span className="flex flex-col items-end rounded-lg bg-primary px-2 py-1 shadow-lg shadow-black/25 ring-1 ring-black/10">
-              <span className="font-label text-[8px] font-bold uppercase tracking-wider text-primary-on/75">
-                {badge.label}
-              </span>
-              <span className="font-display text-[14px] font-extrabold leading-tight text-primary-on">
-                {badgeValue}
-              </span>
+          {/* Vendor logo, always legible against the art. */}
+          {logoUrl && !logoFailed && (
+            <span className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/70 p-1">
+              <img
+                src={logoUrl}
+                alt=""
+                loading="lazy"
+                onError={() => setLogoFailed(true)}
+                className="h-full w-full object-contain"
+              />
             </span>
           )}
 
-          {speed != null && (
-            <span
-              className={`flex flex-col items-end gap-1 rounded-lg px-2 py-1 shadow-lg shadow-black/25 ${
-                speedLeads
-                  ? 'bg-primary ring-1 ring-black/10'
-                  : 'bg-black/55 ring-1 ring-white/15 backdrop-blur-md'
-              }`}
-            >
-              {speedLeads && (
-                <span className="font-label text-[8px] font-bold uppercase tracking-wider text-primary-on/75">
-                  Speed
-                </span>
-              )}
-              <span
-                className={speedLeads
-                  ? 'font-display text-[14px] font-extrabold leading-tight text-primary-on'
-                  : 'font-label text-[10px] font-bold leading-none text-primary'}
-              >
-                {speed} tok/s
-              </span>
-            </span>
-          )}
+          <HideButton slug={recipe.slug} always className="absolute right-2 top-2 z-20 border-border bg-background/70 text-muted-foreground hover:text-foreground" />
         </div>
 
-        {/* Title + hover action share one bottom-anchored stack, so the
-            button slides in *under* the name instead of covering it. */}
-        <div className="absolute inset-x-0 bottom-0 p-3">
+        {/* Title and metadata, under the artwork rather than over it. */}
+        <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-2">
           {status && (
-            <p className="m-0 mb-1 flex items-center gap-1.5 font-label text-[10px] font-semibold text-white/85">
+            <p className="m-0 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
               <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
               {status.label}
             </p>
           )}
-          <h3 className="m-0 font-display text-[13px] font-bold leading-snug text-white line-clamp-2 break-words drop-shadow">
+          <h3 className="m-0 font-display text-[13px] font-semibold leading-snug text-foreground line-clamp-2 break-words">
             {recipe.name}
           </h3>
-          {chips.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
+
+          {(badgeValue || speed != null || chips.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1">
+              {badgeValue && !speedLeads && (
+                <Badge variant="outline" className="h-4 gap-1 border-border px-1.5 text-[10px] font-mono tabular-nums text-foreground">
+                  <span className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{badge.label}</span>
+                  {badgeValue}
+                </Badge>
+              )}
+              {speed != null && (
+                <Badge
+                  variant="outline"
+                  className={`h-4 px-1.5 font-mono text-[10px] tabular-nums ${
+                    speedLeads ? 'border-primary/40 text-primary' : 'border-border text-primary'
+                  }`}
+                >
+                  {speedLeads && (
+                    <span className="text-[9px] uppercase tracking-[0.08em] text-primary/70">Speed</span>
+                  )}
+                  {speed} tok/s
+                </Badge>
+              )}
               {chips.map((s) => (
-                <span
+                <Badge
                   key={s.id}
-                  className="rounded-md bg-white/20 px-1.5 py-0.5 font-label text-[10px] font-bold text-white backdrop-blur-sm"
+                  variant="outline"
+                  className="h-4 border-border/60 bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground"
                 >
                   {s.text}
-                </span>
+                </Badge>
               ))}
             </div>
           )}
 
-          <div className="grid grid-rows-[0fr] opacity-0 transition-all duration-200 group-hover:mt-2 group-hover:grid-rows-[1fr] group-hover:opacity-100">
-            <div className="overflow-hidden">
-              {recipe.running && recipe.ready ? (
-                <a
-                  href={openUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="btn-primary block w-full py-1.5 text-center text-[11px] font-bold no-underline"
-                >
-                  Open ↗
+          <p className="m-0 truncate text-[11px] text-muted-foreground/70">{recipe.author}</p>
+
+          <div className="mt-0.5">
+            {recipe.running && recipe.ready ? (
+              <Button asChild size="xs" className="w-full">
+                <a href={openUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  {'Open ↗'}
                 </a>
-              ) : !recipe.installed && !recipe.starting && !isBusy ? (
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); installRecipe(recipe.slug) }}
-                  className="btn-primary w-full py-1.5 text-[11px] font-bold"
-                >
-                  Install
-                </button>
-              ) : recipe.installed && !recipe.running && !recipe.starting && !isBusy ? (
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); requestLaunch(recipe.slug) }}
-                  className="btn-primary w-full py-1.5 text-[11px] font-bold"
-                >
-                  Launch
-                </button>
-              ) : (
-                <span className="block w-full rounded-xl bg-white/15 py-1.5 text-center text-[11px] font-semibold text-white backdrop-blur">
-                  Details
-                </span>
-              )}
-            </div>
+              </Button>
+            ) : !recipe.installed && !recipe.starting && !isBusy ? (
+              <Button
+                variant="outline"
+                size="xs"
+                className="w-full"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); installRecipe(recipe.slug) }}
+              >
+                Install
+              </Button>
+            ) : recipe.installed && !recipe.running && !recipe.starting && !isBusy ? (
+              <Button
+                variant="outline"
+                size="xs"
+                className="w-full hover:border-primary/40 hover:text-primary"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); requestLaunch(recipe.slug) }}
+              >
+                Launch
+              </Button>
+            ) : (
+              <span className="block w-full rounded-lg border border-border py-1 text-center text-[11px] font-medium text-muted-foreground">
+                Details
+              </span>
+            )}
           </div>
         </div>
-      </div>
-
-      <p className="m-0 mt-2 truncate font-label text-[11px] text-text-dim">{recipe.author}</p>
+      </Card>
     </Link>
   )
 }

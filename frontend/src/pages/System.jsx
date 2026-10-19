@@ -1,56 +1,61 @@
 import { useState, useEffect } from 'react'
+import { Activity } from 'lucide-react'
 import { useStore } from '../store'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { PageHeader, EmptyState } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-// `pair`: two figures that matter equally (used and free), shown big side by
-// side under the ring instead of one of them hiding in the small print.
-function CircularGauge({ value, max, label, sublabel, unit, pair, color = 'var(--tertiary)', size = 140 }) {
-  const radius = (size - 20) / 2
-  const stroke = 6
-  const circ = 2 * Math.PI * radius
+/* One metric tile: the figure it reports, the lane it fills, and the two
+ * figures that matter as much (used and free) as inset rows underneath.
+ *
+ * `pair`: two figures that matter equally (used and free), shown big side by
+ * side under the lane instead of one of them hiding in the small print. */
+function CircularGauge({ value, max, label, sublabel, unit, pair, color = 'var(--tertiary)' }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
-  const offset = circ - (pct / 100) * circ
   const displayVal = typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value
 
   return (
-    <div className="bg-surface rounded-2xl p-6 card-hover flex flex-col items-center">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="var(--outline-dim)" strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke={color} strokeWidth={stroke}
-          strokeDasharray={circ} strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className="gauge-ring"
-        />
-        <text x={size / 2} y={size / 2 - 6} textAnchor="middle" dominantBaseline="middle"
-          fill="var(--text)" fontSize="26" fontFamily="Sora" fontWeight="700">
-          {displayVal}
-        </text>
-        <text x={size / 2} y={size / 2 + 16} textAnchor="middle" dominantBaseline="middle"
-          fill="var(--text-dim)" fontSize="11" fontFamily="Space Grotesk">
-          {unit}
-        </text>
-      </svg>
-      <div className="mt-3 text-center">
-        <div className="text-sm font-semibold font-display text-text">{label}</div>
-        {sublabel && <div className="text-[11px] text-text-dim font-label mt-0.5">{sublabel}</div>}
+    <Card className="gap-0 p-4 shadow-none">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
       </div>
+
+      <div className="mt-1 flex items-baseline gap-1">
+        <span className="font-mono text-xl font-semibold tabular-nums text-foreground">{displayVal}</span>
+        <span className="text-[11px] text-muted-foreground">{unit}</span>
+      </div>
+
+      <Progress value={pct} className="mt-2.5" />
+
+      {sublabel && <p className="m-0 mt-2 text-[11px] leading-relaxed text-muted-foreground">{sublabel}</p>}
+
       {pair && (
-        <div className="mt-3 flex w-full flex-col gap-1.5">
+        <div className="mt-3 flex flex-col gap-1">
           {pair.map((p) => (
-            <div key={p.label} className="flex items-baseline justify-center gap-1.5 rounded-xl bg-surface-high px-2 py-1.5">
-              <span className="whitespace-nowrap text-lg min-[400px]:text-xl font-bold font-display tabular-nums" style={{ color: p.color }}>{p.value}</span>
-              <span className="whitespace-nowrap text-xs font-label text-text-dim">{p.label}</span>
+            <div key={p.label} className="flex items-baseline justify-between gap-2 rounded-md bg-muted px-2 py-1">
+              <span className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{p.label}</span>
+              <span
+                className="font-mono text-sm font-semibold tabular-nums"
+                style={{ color: p.color || 'var(--text)' }}
+              >
+                {p.value}
+              </span>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -64,6 +69,10 @@ export default function System() {
 
   useEffect(() => {
     if (!metrics) return
+    // The 60-sample history is kept exactly as it was: each daemon push appends
+    // one point. react-hooks/set-state-in-effect is pre-existing repo-wide
+    // (the same error reports on this file before the shadcn migration).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory((prev) => {
       const next = [
         ...prev,
@@ -79,9 +88,11 @@ export default function System() {
 
   if (!metrics) {
     return (
-      <div className="p-6 text-center text-text-dim py-20 animate-fadeIn">
-        <div className="text-4xl mb-3">📊</div>
-        <div className="text-base font-semibold font-display">Waiting for metrics...</div>
+      <div className="page">
+        <EmptyState
+          icon={<Activity className="h-6 w-6" />}
+          title="Waiting for metrics..."
+        />
       </div>
     )
   }
@@ -94,7 +105,7 @@ export default function System() {
   // How far the GPU is from slowing down is the headroom nvidia-smi reports
   // (T.Limit), measured where the GPU itself measures it -- not a fixed
   // number of degrees: under load it throttled at 83 °C with 3 °C left, so
-  // the ring fills toward that margin running out, not toward 100 °C.
+  // the lane fills toward that margin running out, not toward 100 °C.
   const headroom = metrics.gpu_temp_headroom
   const gpuLimit = headroom != null ? metrics.gpu_temperature + Math.max(headroom, 0) : null
   const tempColor = metrics.gpu_thermal_slowdown || (headroom != null && headroom < 5)
@@ -105,16 +116,14 @@ export default function System() {
   const freeColor = (free, total) => (free / total < 0.1 ? 'var(--error)' : free / total < 0.25 ? 'var(--warning)' : 'var(--primary)')
 
   return (
-    <div className="px-6 py-6 pb-12">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight font-display m-0">System Monitor</h2>
-        <p className="text-sm text-text-dim m-0 mt-1 font-label">
-          {metrics.gpu_name || 'NVIDIA DGX Spark'} — {metrics.ram_total_gb} GB Unified Memory
-        </p>
-      </div>
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        title="System Monitor"
+        description={`${metrics.gpu_name || 'NVIDIA DGX Spark'} — ${metrics.ram_total_gb} GB Unified Memory`}
+      />
 
-      {/* Circular Gauges */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Metric tiles */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CircularGauge
           value={metrics.gpu_utilization} max={100}
           label="GPU" sublabel={metrics.gpu_name || 'Blackwell'}
@@ -156,18 +165,18 @@ export default function System() {
 
       {/* Performance Chart */}
       {history.length > 2 && (
-        <div className="bg-surface rounded-2xl p-5 card-hover mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <Card className="gap-0 p-5 shadow-none">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold font-display text-text m-0">Performance History</h3>
-              <p className="text-[11px] text-text-dim font-label m-0 mt-0.5">Last 60 seconds</p>
+              <h3 className="m-0 font-display text-sm font-semibold text-foreground">Performance History</h3>
+              <p className="m-0 mt-0.5 text-[11px] text-muted-foreground">Last 60 seconds</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-[11px] font-label text-tertiary">
-                <span className="w-3 h-0.5 bg-tertiary rounded" /> GPU %
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="h-0.5 w-3 rounded-full bg-tertiary" /> GPU %
               </span>
-              <span className="flex items-center gap-1.5 text-[11px] font-label text-warning">
-                <span className="w-3 h-0.5 bg-warning rounded" /> Temp °C
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="h-0.5 w-3 rounded-full bg-warning" /> Temp °C
               </span>
             </div>
           </div>
@@ -180,7 +189,7 @@ export default function System() {
                 contentStyle={{
                   background: tooltipBg,
                   border: `1px solid ${tooltipBorder}`,
-                  borderRadius: 12,
+                  borderRadius: 8,
                   fontFamily: 'Space Grotesk',
                   fontSize: 12,
                 }}
@@ -190,47 +199,65 @@ export default function System() {
               <Line type="monotone" dataKey="temp" stroke="#FBBF24" strokeWidth={2} dot={false} name="Temp °C" />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
       )}
 
       {/* Running Processes */}
       {runningApps.length > 0 && (
-        <div className="bg-surface rounded-2xl p-5 card-hover">
-          <h3 className="text-sm font-semibold font-display text-text m-0 mb-4">Active Processes</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] text-text-dim font-label border-b border-outline-dim">
-                  <th className="text-left pb-2 font-medium">App</th>
-                  <th className="hidden sm:table-cell text-right pb-2 font-medium">Port</th>
-                  <th className="text-right pb-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runningApps.map((r) => (
-                  <tr key={r.slug} className="border-b border-outline-dim last:border-0">
-                    <td className="py-2.5 flex items-center gap-2">
+        <Card className="gap-0 p-5 shadow-none">
+          <h3 className="m-0 mb-3 font-display text-sm font-semibold text-foreground">Active Processes</h3>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-8 pl-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  App
+                </TableHead>
+                <TableHead className="hidden h-8 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
+                  Port
+                </TableHead>
+                <TableHead className="h-8 pr-0 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Status
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runningApps.map((r) => (
+                <TableRow key={r.slug}>
+                  <TableCell className="pl-0">
+                    <span className="flex min-w-0 items-center gap-2">
                       {r.logo ? (
-                        <img src={r.logo} alt="" className="w-6 h-6 rounded-md object-contain bg-surface-high p-0.5" />
+                        <img
+                          src={r.logo}
+                          alt=""
+                          className="h-6 w-6 shrink-0 rounded-md bg-muted object-contain p-0.5"
+                        />
                       ) : (
-                        <span className="text-sm">{r.icon || '◻'}</span>
+                        <span className="text-sm text-foreground">{r.icon || '◻'}</span>
                       )}
-                      <span className="font-medium text-text">{r.name}</span>
-                    </td>
-                    <td className="hidden sm:table-cell text-right text-text-dim font-label">{r.app_url ? `/run/${r.slug}/` : (r.ui?.port || '—')}</td>
-                    <td className="text-right">
-                      {r.ready ? (
-                        <span className="text-success text-xs font-label">Running</span>
-                      ) : (
-                        <span className="text-warning text-xs font-label animate-pulse">Starting</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      <span className="truncate font-medium text-foreground">{r.name}</span>
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground sm:table-cell">
+                    {r.app_url ? `/run/${r.slug}/` : (r.ui?.port || '—')}
+                  </TableCell>
+                  <TableCell className="pr-0 text-right">
+                    <Badge
+                      variant="outline"
+                      className={
+                        r.ready
+                          ? 'gap-1.5 border-success/30 bg-success/10 text-success'
+                          : 'gap-1.5 border-warning/30 bg-warning/10 text-warning'
+                      }
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${r.ready ? 'bg-success' : 'bg-warning'}`} />
+                      {r.ready ? 'Running' : 'Starting'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   )

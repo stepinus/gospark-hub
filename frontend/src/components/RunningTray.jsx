@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { cn } from 'cn'
 import { useStore } from '../store'
 import { useThemedLogo } from '../hooks/useThemedLogo'
 import { buildLabel, displayName, isAgentModel, isModel } from '../models'
 import { openUrl } from './RecipeCard'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 
 // What is running on this Spark, in the header of every page.
 //
 // A count on a sidebar icon said how many things were up, never which; the
 // Running page said which, but only once you went there. Here each one is a
-// pill that names itself the way you would: its kind (an app you open, a
+// chip that names itself the way you would: its kind (an app you open, a
 // language model agents talk to at /v1, a media model they call through
 // /mcp), the model, and for models the build. The memory gauge sits at the
 // end because on a Spark that is what decides whether the next launch fits.
@@ -17,9 +22,9 @@ import { openUrl } from './RecipeCard'
 const MAX_PILLS = 4
 
 const KIND = {
-  app: { label: 'App', className: 'bg-surface-highest text-text-muted' },
-  llm: { label: 'LLM', className: 'bg-primary/15 text-primary' },
-  media: { label: 'Media', className: 'bg-tertiary/15 text-tertiary' },
+  app: { label: 'App', className: 'border-transparent bg-muted text-muted-foreground' },
+  llm: { label: 'LLM', className: 'border-primary/30 bg-primary/15 text-primary' },
+  media: { label: 'Media', className: 'border-tertiary/30 bg-tertiary/15 text-tertiary' },
 }
 
 function kindOf(recipe) {
@@ -37,7 +42,7 @@ function bySize(a, b) {
 const KIND_ORDER = { llm: 0, media: 1, app: 2 }
 
 // `scroll`: phones, where the tray has a row of its own that scrolls
-// sideways — every pill keeps its full width and none is folded into "+N".
+// sideways — every chip keeps its full width and none is folded into "+N".
 export default function RunningTray({ scroll = false }) {
   const recipes = useStore((s) => s.recipes)
   const installing = useStore((s) => s.installing)
@@ -55,10 +60,13 @@ export default function RunningTray({ scroll = false }) {
   const hidden = items.length - shown.length
 
   return (
-    <div className={`flex items-center gap-1.5 ${scroll ? 'w-max' : 'min-w-0 flex-1'}`}>
+    <div className={cn('flex items-center gap-1.5', scroll ? 'w-max' : 'min-w-0 flex-1')}>
       {items.length === 0 ? (
-        <Link to="/running" className="flex items-center gap-2 rounded-xl px-2 py-1 font-label text-[11px] text-text-dim no-underline hover:text-text">
-          <span className="h-1.5 w-1.5 rounded-full bg-text-dim" />
+        <Link
+          to="/running"
+          className="flex items-center gap-2 rounded-lg px-2 py-1 text-[11px] text-muted-foreground no-underline transition-colors hover:text-foreground"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
           Nothing running
         </Link>
       ) : (
@@ -76,7 +84,7 @@ export default function RunningTray({ scroll = false }) {
             <Link
               to="/running"
               title="Everything running on this Spark"
-              className="shrink-0 rounded-xl border border-outline-dim px-2.5 py-2 font-label text-[11px] font-bold text-text-muted no-underline hover:border-text-dim hover:text-text"
+              className="shrink-0 rounded-lg border border-border px-2 py-1 font-mono text-[11px] font-semibold tabular-nums text-muted-foreground no-underline transition-colors hover:border-muted-foreground hover:text-foreground"
             >
               +{hidden}
             </Link>
@@ -97,10 +105,10 @@ function Pill({ recipe, building, isDefault, scroll }) {
   const ready = recipe.running && recipe.ready
 
   const state = building
-    ? { dot: 'bg-secondary animate-pulse', label: 'Building' }
+    ? { dot: 'bg-muted-foreground', label: 'Building' }
     : ready
-      ? { dot: 'bg-primary', label: 'Running' }
-      : { dot: 'bg-warning animate-pulse', label: 'Starting' }
+      ? { dot: 'bg-success', label: 'Running' }
+      : { dot: 'bg-warning', label: 'Starting' }
 
   // Models are told apart by build; apps by who made them.
   const detail = kind === 'app'
@@ -110,10 +118,12 @@ function Pill({ recipe, building, isDefault, scroll }) {
   const name = kind === 'app' ? recipe.name : displayName(recipe)
 
   return (
-    <div
-      className={`group relative flex min-w-0 ${scroll ? 'max-w-[250px] shrink-0' : 'max-w-[290px] shrink'} items-center gap-2 rounded-xl border bg-surface py-1 pl-1.5 pr-2 transition-colors hover:border-text-dim ${
-        isDefault ? 'border-primary/40' : 'border-outline-dim'
-      }`}
+    <Card
+      className={cn(
+        'group flex-row items-center gap-2 rounded-lg border bg-card p-0 py-1 pl-1.5 pr-2 shadow-none ring-0 transition-colors',
+        scroll ? 'max-w-[250px] shrink-0' : 'min-w-0 max-w-[290px] shrink',
+        isDefault ? 'border-primary/40' : 'border-border',
+      )}
       title={`${recipe.name} — ${state.label}${memory ? ` · holds ${memory}` : ''}${isDefault ? ' · /v1 default' : ''}`}
     >
       <button
@@ -123,19 +133,29 @@ function Pill({ recipe, building, isDefault, scroll }) {
       >
         <span className="relative shrink-0">
           {logoUrl && !logoFailed ? (
-            <img src={logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-7 w-7 rounded-lg bg-surface-high object-contain p-1" />
+            <img
+              src={logoUrl}
+              alt=""
+              onError={() => setLogoFailed(true)}
+              className="h-7 w-7 rounded-md bg-muted object-contain p-1"
+            />
           ) : (
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-high text-xs">{recipe.icon || '◻'}</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted text-xs text-foreground">
+              {recipe.icon || '◻'}
+            </span>
           )}
-          <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-surface ${state.dot}`} />
+          <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card', state.dot)} />
         </span>
         <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-[12px] font-semibold text-text">{name}</span>
-          <span className="flex min-w-0 items-center gap-1 font-label text-[10px] text-text-dim">
-            <span className={`shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide ${KIND[kind].className}`}>
+          <span className="truncate text-[12px] font-semibold text-foreground">{name}</span>
+          <span className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+            <Badge
+              variant="outline"
+              className={cn('h-4 shrink-0 rounded px-1 text-[9px] font-semibold uppercase tracking-wide', KIND[kind].className)}
+            >
               {KIND[kind].label}
-            </span>
-            {isDefault && <span className="shrink-0 font-bold text-primary">default</span>}
+            </Badge>
+            {isDefault && <span className="shrink-0 font-semibold text-primary">default</span>}
             <span className="truncate">{building ? 'building…' : !ready ? 'starting…' : detail}</span>
           </span>
         </span>
@@ -144,28 +164,25 @@ function Pill({ recipe, building, isDefault, scroll }) {
       {/* Actions appear on hover so the resting tray reads as a list. */}
       <span className="hidden shrink-0 items-center gap-1 group-hover:flex">
         {kind === 'app' && ready && (
-          <a
-            href={openUrl(recipe)}
-            target="_blank"
-            rel="noreferrer"
-            title={`Open ${recipe.name}`}
-            className="rounded-md bg-primary px-1.5 py-0.5 font-label text-[10px] font-bold text-primary-on no-underline hover:opacity-90"
-          >
-            Open ↗
-          </a>
+          <Button asChild size="xs" className="h-5 px-1.5 text-[10px] font-semibold">
+            <a href={openUrl(recipe)} target="_blank" rel="noreferrer" title={`Open ${recipe.name}`}>
+              Open ↗
+            </a>
+          </Button>
         )}
         {!building && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => stopRecipe(recipe.slug)}
             title={`Stop ${recipe.name}`}
-            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md border border-outline-dim bg-transparent text-[13px] leading-none text-text-dim hover:border-error hover:text-error"
+            className="h-5 w-5 text-muted-foreground hover:text-error"
           >
             ×
-          </button>
+          </Button>
         )}
       </span>
-    </div>
+    </Card>
   )
 }
 
@@ -175,19 +192,19 @@ function MemoryGauge({ used, total }) {
   const free = Math.max(0, total - used)
   // The bar is the free share too, so the number and the bar say one thing.
   const pct = Math.min(100, Math.round((free / total) * 100))
-  const color = pct <= 10 ? 'var(--error)' : pct <= 25 ? 'var(--warning)' : 'var(--tertiary)'
+  const tone = pct <= 10
+    ? '[&>[data-slot=progress-indicator]]:bg-error'
+    : pct <= 25 ? '[&>[data-slot=progress-indicator]]:bg-warning' : ''
   return (
     <Link
       to="/system"
       title={`${free.toFixed(1)} GB free of ${total.toFixed(0)} GB — open System Monitor`}
-      className="ml-1 flex shrink-0 flex-col gap-1 rounded-xl px-2 py-1 no-underline hover:bg-surface-high"
+      className="ml-1 flex shrink-0 flex-col gap-1 rounded-lg px-2 py-1 no-underline transition-colors hover:bg-muted"
     >
-      <span className="whitespace-nowrap font-label text-[11px] tabular-nums text-text-muted">
-        <span className="text-[13px] font-bold text-text">{Math.round(free)} GB</span> free
+      <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+        <span className="font-mono text-[13px] font-semibold text-foreground">{Math.round(free)} GB</span> free
       </span>
-      <span className="h-1 w-16 overflow-hidden rounded-full bg-surface-highest">
-        <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-      </span>
+      <Progress value={pct} className={cn('h-1 w-16', tone)} />
     </Link>
   )
 }

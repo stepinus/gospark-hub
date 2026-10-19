@@ -7,6 +7,8 @@ import { formatParams } from './RecipeCard'
 import { buildLabel, displayName, formatDuration, primaryArena } from '../models'
 import { openUrl as openUrlFor } from './RecipeCard'
 import Hint from './Hint'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 // Model builds, as rows of aligned numbers.
 //
@@ -227,17 +229,17 @@ export function formatContext(tokens) {
 }
 
 function runState(recipe, busy) {
-  if (busy) return { label: 'Building', dot: 'bg-secondary animate-pulse' }
+  if (busy) return { label: 'Building', dot: 'bg-muted-foreground animate-pulse' }
   if (recipe.running && recipe.ready) return { label: 'Running', dot: 'bg-primary' }
   if (recipe.running || recipe.starting) return { label: 'Starting', dot: 'bg-warning animate-pulse' }
-  if (recipe.installed) return { label: 'Installed', dot: 'bg-text-dim' }
+  if (recipe.installed) return { label: 'Installed', dot: 'bg-muted-foreground/50' }
   return null
 }
 
 function Cell({ children, className = '' }) {
   return (
     <span className={`truncate ${CELL_CLASS} ${className}`}>
-      {children ?? <span className="text-text-dim">—</span>}
+      {children ?? <span className="text-muted-foreground/60">—</span>}
     </span>
   )
 }
@@ -245,12 +247,12 @@ function Cell({ children, className = '' }) {
 function ColumnHeader({ v }) {
   return (
     <div
-      className="grid gap-x-1.5 border-b border-outline-dim px-2 pb-1"
+      className="grid gap-x-1.5 border-b border-border px-2 pb-1"
       style={{ gridTemplateColumns: v.columns }}
     >
       {v.lead && <span />}
       {!v.stack && [v.first, ...v.headers].map((h) => (
-        <span key={h} className="font-label text-[9px] font-semibold uppercase tracking-wider text-text-dim">
+        <span key={h} className="font-label text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           {h}
         </span>
       ))}
@@ -262,9 +264,9 @@ function ColumnHeader({ v }) {
         <Hint
           key={h}
           text={HEADER_HINTS[h]}
-          className={`font-label text-[9px] font-semibold uppercase tracking-wider text-text-dim ${
+          className={`font-label text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 ${
             h === 'AA Index' ? 'text-center' : 'text-right'
-          } ${HEADER_HINTS[h] ? 'cursor-default underline decoration-dotted decoration-text-dim/60 underline-offset-2 outline-none' : ''}`}
+          } ${HEADER_HINTS[h] ? 'cursor-default underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 outline-none' : ''}`}
         >
           {h}
         </Hint>
@@ -292,54 +294,53 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
   const label = variant === 'build' ? buildLabel(recipe) : displayName(recipe)
 
   const action = isBusy ? (
-    <span className="font-label text-[10px] text-secondary">Building…</span>
+    <span className="text-[10px] text-muted-foreground">Building…</span>
   ) : running ? (
-    <a
-      href={openUrl}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="btn-primary block w-full py-1 text-center text-[10px] font-bold no-underline"
-    >
-      Open ↗
-    </a>
+    <Button asChild size="xs" className="w-full">
+      <a
+        href={openUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        Open ↗
+      </a>
+    </Button>
   ) : recipe.starting ? (
-    <span className="font-label text-[10px] text-warning">Starting…</span>
+    <span className="text-[10px] text-warning">Starting…</span>
   ) : (
-    <button
+    // Install is the quiet option: on a page showing 73 of them, a filled
+    // button per row is noise. Launch stays loud — that one does something
+    // to the Spark right now.
+    <Button
+      variant={recipe.installed ? 'default' : 'outline'}
+      size="xs"
+      className="w-full"
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
         recipe.installed ? requestLaunch(recipe.slug) : installRecipe(recipe.slug)
       }}
-      // Install is the quiet option: on a page showing 73 of them, a filled
-      // button per row is noise. Launch stays loud — that one does something
-      // to the Spark right now.
-      className={`w-full rounded-lg py-1 text-[10px] font-bold transition-colors ${
-        recipe.installed
-          ? 'btn-primary'
-          : 'cursor-pointer border border-outline-dim bg-transparent text-text-muted hover:border-primary hover:text-primary'
-      }`}
     >
       {recipe.installed ? 'Launch' : 'Install'}
-    </button>
+    </Button>
   )
 
   return (
     <Link
       to={`/app/${recipe.slug}`}
-      className="group grid items-center gap-x-1.5 rounded-lg px-2 py-1.5 no-underline text-inherit transition-colors hover:bg-surface-high"
+      className="group grid items-center gap-x-1.5 rounded-lg px-2 py-1.5 no-underline text-inherit transition-colors hover:bg-muted"
       style={{ gridTemplateColumns: v.columns }}
     >
       {v.lead === 'rank' && (
-        <span className="text-right font-label text-[10px] tabular-nums text-text-dim">{rank}</span>
+        <span className="text-right font-label text-[10px] tabular-nums text-muted-foreground/70">{rank}</span>
       )}
       {v.stack ? (
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 pb-0.5" style={{ gridColumn: '1 / -1' }}>
-          {rank != null && <span className="font-label text-[10px] tabular-nums text-text-dim">{rank}</span>}
+          {rank != null && <span className="font-label text-[10px] tabular-nums text-muted-foreground/70">{rank}</span>}
           {state && <span className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${state.dot}`} />}
-          <span className="font-label text-[11px] font-bold text-text">{label}</span>
-          <span className="font-label text-[9px] text-text-dim">
+          <span className="font-label text-[11px] font-bold text-foreground">{label}</span>
+          <span className="font-label text-[9px] text-muted-foreground/70">
             {[buildLabel(recipe), recipe.engine].filter(Boolean).join(' · ')}
           </span>
           {onFrontier && <span className="font-label text-[11px] font-bold leading-none text-success">★</span>}
@@ -360,7 +361,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
         )}
         <span className="flex min-w-0 flex-1 flex-col">
           <span
-            className={`min-w-0 font-label text-[11px] font-bold text-text ${
+            className={`min-w-0 font-label text-[11px] font-bold text-foreground ${
               // Standalone rows carry a full model name and get a second line.
               // Cutting the tail off "Nemotron-3 Nano Omni 30B-A3B Reasoning" is
               // what makes two builds look like the same one.
@@ -371,7 +372,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
             {label}
           </span>
           {v.sub && (
-            <span className="truncate font-label text-[9px] text-text-dim">
+            <span className="truncate font-label text-[9px] text-muted-foreground/70">
               {[variant === 'ranked' && buildLabel(recipe), recipe.engine].filter(Boolean).join(' · ')}
             </span>
           )}
@@ -393,24 +394,24 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
       )}
 
       {v.headers.includes('Engine') && (
-        <Cell className={`text-text-muted ${v.wrap ? '' : ENGINE_SIZE}`}>{recipe.engine}</Cell>
+        <Cell className={`text-muted-foreground ${v.wrap ? '' : ENGINE_SIZE}`}>{recipe.engine}</Cell>
       )}
-      {v.headers.includes('Quant') && <Cell className="text-text-muted">{recipe.quantization}</Cell>}
+      {v.headers.includes('Quant') && <Cell className="text-muted-foreground">{recipe.quantization}</Cell>}
 
       {/* Speed leads: it is the number that decides whether a build is usable. */}
       {v.media ? (
         <>
           <span className={`truncate text-right font-display text-[13px] font-extrabold tabular-nums ${
-            recipe.render_seconds != null ? 'text-primary' : 'text-text-dim'
+            recipe.render_seconds != null ? 'text-primary' : 'text-muted-foreground/60'
           }`}>
             {formatDuration(recipe.render_seconds) ?? '—'}
           </span>
-          <Cell className="text-right text-text-muted">{formatDuration(recipe.load_seconds)}</Cell>
+          <Cell className="text-right text-muted-foreground">{formatDuration(recipe.load_seconds)}</Cell>
           {v.fixedHeaders.includes('Arena') && (
             <Cell className={`text-right ${
               highlight === 'arena'
-                ? (primaryArena(recipe)?.base ? 'font-bold text-secondary/55' : 'font-bold text-secondary')
-                : primaryArena(recipe)?.base ? 'text-text-dim' : 'text-text-muted'
+                ? (primaryArena(recipe)?.base ? 'font-bold text-muted-foreground' : 'font-bold text-foreground')
+                : primaryArena(recipe)?.base ? 'text-muted-foreground/60' : 'text-muted-foreground'
             }`}>
               {primaryArena(recipe) ? Math.round(primaryArena(recipe).elo) : null}
             </Cell>
@@ -418,7 +419,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
         </>
       ) : (<>
       <span className={`truncate text-right font-display text-[13px] font-extrabold tabular-nums ${
-        recipe.tokens_per_second != null ? 'text-primary' : 'text-text-dim'
+        recipe.tokens_per_second != null ? 'text-primary' : 'text-muted-foreground/60'
       }`}>
         {recipe.tokens_per_second ?? '—'}
       </span>
@@ -428,10 +429,10 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
       <span
         className={`truncate text-right tabular-nums ${
           highlight === 'editing'
-            ? 'font-label text-[11px] font-bold text-secondary'
+            ? 'font-label text-[11px] font-bold text-foreground'
             : recipe.tokens_per_second_editing !== recipe.tokens_per_second
               ? 'font-display text-[13px] font-extrabold text-primary'
-              : 'font-label text-[11px] text-text-muted'
+              : 'font-label text-[11px] text-muted-foreground'
         }`}
         title={recipe.tokens_per_second_editing != null ? `${recipe.tokens_per_second_editing} tok/s sustained, reproducing a document with a small change applied (${recipe.editing_workload || 'code-edit'}, thinking off)` : undefined}
       >
@@ -439,17 +440,17 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
       </span>
       </>)}
       {v.fixedHeaders.includes('Params') && (
-        <Cell className={`text-right ${highlight === 'params' ? 'text-secondary font-bold' : 'text-text-muted'}`}>
+        <Cell className={`text-right ${highlight === 'params' ? 'text-foreground font-bold' : 'text-muted-foreground'}`}>
           {recipe.params_b != null ? formatParams(recipe) : null}
         </Cell>
       )}
       {v.fixedHeaders.includes('On disk') && (
-        <Cell className={`text-right ${highlight === 'size' ? 'text-secondary font-bold' : 'text-text-muted'}`}>
+        <Cell className={`text-right ${highlight === 'size' ? 'text-foreground font-bold' : 'text-muted-foreground'}`}>
           {recipe.weights_gb != null ? `${recipe.weights_gb} GB` : null}
         </Cell>
       )}
       {v.fixedHeaders.includes('Ctx') && (
-        <Cell className="text-right text-text-muted">{formatContext(recipe.context_tokens)}</Cell>
+        <Cell className="text-right text-muted-foreground">{formatContext(recipe.context_tokens)}</Cell>
       )}
       {/* A capability score, not a speed one — published per base model by
           Artificial Analysis, so it does not vary with quantization or
@@ -458,7 +459,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
           ranked leaderboards, where every row is an independent build. */}
       {v.aaIndex && (
         <Cell
-          className={`text-center ${highlight === 'aa-index' ? 'text-secondary font-bold' : 'text-text-muted'}`}
+          className={`text-center ${highlight === 'aa-index' ? 'text-foreground font-bold' : 'text-muted-foreground'}`}
           title={recipe.artificial_analysis_index != null ? `${recipe.artificial_analysis_index} on the Artificial Analysis Intelligence Index` : undefined}
         >
           {recipe.artificial_analysis_index ?? null}
@@ -533,7 +534,7 @@ export default function ModelList({ items, variant = 'ranked', highlight = null,
       }}
     >
       {halves.map((half, i) => (
-        <section key={i} className="rounded-2xl bg-surface p-3 ring-1 ring-glass-border">
+        <Card key={i} className="gap-0 bg-background p-3 shadow-none ring-border [--card-spacing:0px]">
           <ColumnHeader v={v} />
           <div className="mt-0.5">
             {half.map((r, j) => (
@@ -548,7 +549,7 @@ export default function ModelList({ items, variant = 'ranked', highlight = null,
               />
             ))}
           </div>
-        </section>
+        </Card>
       ))}
     </div>
   )
@@ -567,7 +568,7 @@ export function ModelBlock({ group, frontier = null, widths = null, media = fals
   const logoUrl = useThemedLogo(group.lead.logo)
 
   return (
-    <section className="rounded-2xl bg-surface p-3 ring-1 ring-glass-border">
+    <Card className="gap-0 bg-background p-3 shadow-none ring-border [--card-spacing:0px]">
       <header className="mb-1.5 flex items-center gap-2 px-2">
         {logoUrl && !logoFailed && (
           <img
@@ -575,24 +576,24 @@ export function ModelBlock({ group, frontier = null, widths = null, media = fals
             alt=""
             loading="lazy"
             onError={() => setLogoFailed(true)}
-            className="h-6 w-6 shrink-0 rounded-md bg-surface-high object-contain p-0.5"
+            className="h-6 w-6 shrink-0 rounded-md bg-muted object-contain p-0.5"
           />
         )}
         <h3
-          className="m-0 min-w-0 flex-1 truncate font-display text-[13px] font-bold tracking-tight text-text"
+          className="m-0 min-w-0 flex-1 truncate font-display text-[13px] font-bold tracking-tight text-foreground"
           title={group.label}
         >
           {group.label}
         </h3>
         {group.lead.artificial_analysis_index != null && (
           <span
-            className="shrink-0 font-label text-[10px] font-bold tabular-nums text-text-muted"
+            className="shrink-0 font-label text-[10px] font-bold tabular-nums text-muted-foreground"
             title={`${group.lead.artificial_analysis_index} on the Artificial Analysis Intelligence Index — one score per model, shared by every build below`}
           >
             AA {group.lead.artificial_analysis_index}
           </span>
         )}
-        <span className="shrink-0 font-label text-[10px] text-text-dim">
+        <span className="shrink-0 font-label text-[10px] text-muted-foreground/70">
           {group.items.length} build{group.items.length > 1 ? 's' : ''}
         </span>
       </header>
@@ -612,6 +613,6 @@ export function ModelBlock({ group, frontier = null, widths = null, media = fals
           />
         ))}
       </div>
-    </section>
+    </Card>
   )
 }

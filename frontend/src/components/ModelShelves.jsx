@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import CardRow from './CardRow'
 import Hint from './Hint'
+import { EmptyState } from '@/components/page-shell'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import ModelList, { ModelBlock, buildBlockWidth, useBuildColumns, useNarrow } from './ModelList'
 import { vendorKey, vendorLabel } from '../covers'
-import { formatDuration, groupModels, mediaKind, primaryArena } from '../models'
+import { groupModels, mediaKind, primaryArena } from '../models'
 
 // The model catalog as shelves. The Agents page draws two of them: the LLMs
 // agents talk to at /v1, and the media models they call as tools through
@@ -287,33 +289,33 @@ export default function ModelShelves({
   if (models.length === 0) return null
 
   return (
-    <div id={id} className="space-y-7 scroll-mt-16">
-      <div className="space-y-2 px-6">
+    <div id={id} className="space-y-6 scroll-mt-16">
+      <div className="px-6">
         <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
           <div>
-            {eyebrow && (
-              <div className="mb-1 font-label text-[10px] font-bold uppercase tracking-[0.14em] text-primary">{eyebrow}</div>
-            )}
-            <h2 className="m-0 font-display text-xl font-bold tracking-tight text-text">{title}</h2>
-            {subtitle && <p className="m-0 mt-0.5 text-xs text-text-dim">{subtitle}</p>}
+            {eyebrow && <div className="eyebrow mb-1">{eyebrow}</div>}
+            <h2 className="m-0 font-display text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+            {subtitle && <p className="m-0 mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
           </div>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:ml-auto">
             {offered.length > 1 && (
-              <div className="row-scroller flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-outline-dim bg-surface-high p-0.5">
-                <span className="shrink-0 px-2 font-label text-[10px] text-text-dim">Sort</span>
+              <div className="row-scroller flex max-w-full items-center gap-2 overflow-x-auto">
+                <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Sort</span>
                 {/* What a sort ranks on, in full, on hover. A tap sorts. */}
-                {offered.map((s) => (
-                  <Hint key={s.id} text={s.note} tap={false} className="shrink-0">
-                    <button
-                      onClick={() => setSortId(s.id)}
-                      className={`cursor-pointer whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                        sort.id === s.id ? 'bg-primary text-primary-on' : 'bg-transparent text-text-muted hover:text-text'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  </Hint>
-                ))}
+                <ToggleGroup
+                  type="single"
+                  value={sort.id}
+                  onValueChange={(next) => { if (next) setSortId(next) }}
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                >
+                  {offered.map((s) => (
+                    <Hint key={s.id} text={s.note} tap={false} className="shrink-0">
+                      <ToggleGroupItem value={s.id} className="whitespace-nowrap">{s.label}</ToggleGroupItem>
+                    </Hint>
+                  ))}
+                </ToggleGroup>
               </div>
             )}
             {actions}
@@ -322,7 +324,9 @@ export default function ModelShelves({
       </div>
 
       {visible.length === 0 && (
-        <p className="m-0 px-6 text-sm text-text-dim">No models match this search.</p>
+        <div className="px-6">
+          <EmptyState title="No models match this search." />
+        </div>
       )}
 
       {/* Two shapes for two questions. Browsing by lab, you are choosing a

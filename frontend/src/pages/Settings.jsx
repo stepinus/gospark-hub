@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { FolderOpen, GitBranch } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useStore } from '../store'
 import {
@@ -11,6 +12,20 @@ import {
   syncRegistry,
 } from '../lib/api'
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+import { EmptyState, PageHeader, SectionTitle } from '@/components/page-shell'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 
 /* Admin-only: where recipes come from, and the ones this Hub owns.
  *
@@ -156,24 +171,22 @@ export default function Settings() {
 
   if (!isAdmin) {
     return (
-      <div className="px-6 py-20 text-center text-text-dim text-sm">
-        Administrator rights required.
+      <div className="page">
+        <p className="m-0 text-sm text-muted-foreground">Administrator rights required.</p>
       </div>
     )
   }
 
   return (
-    <div className="px-4 sm:px-6 py-6 pb-12 max-w-4xl mx-auto animate-fadeIn flex flex-col gap-4">
-      <div className="mb-1">
-        <h1 className="text-2xl font-bold tracking-tight font-display m-0">Settings</h1>
-        <p className="text-sm text-text-dim m-0 mt-1">
-          Where recipes come from, and the copies this Hub owns.
-        </p>
-      </div>
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        title="Settings"
+        description="Where recipes come from, and the copies this Hub owns."
+      />
 
       {error && (
-        <div className="rounded-2xl border border-error/30 bg-error-surface px-4 py-3">
-          <p className="text-sm text-error m-0 leading-relaxed">{error}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="m-0 text-sm leading-relaxed text-destructive">{error}</p>
         </div>
       )}
 
@@ -182,34 +195,42 @@ export default function Settings() {
         title="Recipe sources"
         subtitle="A folder of recipes in a git repository. Several at once, separated by commas or new lines."
       >
-        <form onSubmit={submitSources} className="flex flex-col gap-2.5">
-          <textarea
-            value={urls}
-            onChange={(e) => setUrls(e.target.value)}
-            rows={3}
-            spellCheck={false}
-            placeholder="https://github.com/owner/repo/tree/main/registry/recipes"
-            className="w-full px-3.5 py-2.5 bg-surface-high rounded-xl text-text text-sm font-mono outline-none border border-outline-dim focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-text-dim transition-all resize-y"
-          />
-          <p className="text-[11px] text-text-dim m-0">
+        <form onSubmit={submitSources} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="settings-source-urls"
+              className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+            >
+              Source URLs
+            </Label>
+            <Textarea
+              id="settings-source-urls"
+              value={urls}
+              onChange={(e) => setUrls(e.target.value)}
+              rows={3}
+              spellCheck={false}
+              placeholder="https://github.com/owner/repo/tree/main/registry/recipes"
+              className="min-h-[76px] resize-y font-mono text-xs placeholder:text-muted-foreground/70"
+            />
+          </div>
+          <p className="m-0 text-[11px] text-muted-foreground">
             One per line or comma-separated. A <span className="font-mono">/tree/&lt;branch&gt;/&lt;subfolder&gt;</span> link
             picks the branch and the recipe folder inside the repository.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="submit"
               disabled={adding || !urls.trim()}
-              className="btn-primary px-4 py-2 text-sm font-bold disabled:cursor-default"
             >
               {adding ? 'Adding…' : 'Add sources'}
-            </button>
-            {adding && <span className="text-xs text-text-dim font-label">Cloning… this can take a moment.</span>}
+            </Button>
+            {adding && <span className="text-xs text-muted-foreground">Cloning… this can take a moment.</span>}
           </div>
-          {addError && <p className="text-xs text-error m-0 leading-relaxed">{addError}</p>}
+          {addError && <p className="m-0 text-xs leading-relaxed text-destructive">{addError}</p>}
           {lineErrors.length > 0 && (
-            <ul className="m-0 pl-4 flex flex-col gap-1">
+            <ul className="m-0 flex flex-col gap-1 pl-4">
               {lineErrors.map((e) => (
-                <li key={`${e.url}-${e.error}`} className="text-xs text-error break-all">
+                <li key={`${e.url}-${e.error}`} className="break-all text-xs text-destructive">
                   <span className="font-mono">{e.url}</span> — {e.error}
                 </li>
               ))}
@@ -223,32 +244,66 @@ export default function Settings() {
         title={`Sources · ${sources.length}`}
         subtitle="A source updates only when you sync it. Recipes it carries are read-only copies."
         action={
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => runSync(null)}
             disabled={busy === 'sync-all' || syncing || sources.length === 0}
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-primary text-primary-on border-none text-xs font-bold cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-default transition-opacity whitespace-nowrap"
+            className="shrink-0 whitespace-nowrap"
           >
             {busy === 'sync-all' || syncing ? 'Syncing…' : 'Sync all'}
-          </button>
+          </Button>
         }
       >
         {loading && sources.length === 0 ? (
-          <p className="text-sm text-text-dim m-0">Loading sources…</p>
-        ) : sources.length === 0 ? (
-          <p className="text-sm text-text-dim m-0">No sources yet.</p>
-        ) : (
-          <div className="flex flex-col">
-            {sources.map((source) => (
-              <SourceRow
-                key={source.id}
-                source={source}
-                busy={busy === source.id}
-                disabled={busy !== null}
-                onSync={() => runSync(source.id)}
-                onRemove={() => removeSource(source)}
-              />
+          <div className="flex flex-col gap-3">
+            <p className="m-0 text-sm text-muted-foreground">Loading sources…</p>
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-64 max-w-full" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-7 w-28 shrink-0" />
+              </div>
             ))}
           </div>
+        ) : sources.length === 0 ? (
+          <EmptyState
+            icon={<GitBranch className="h-6 w-6" />}
+            title="No sources yet."
+          />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-8 pl-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Source
+                </TableHead>
+                <TableHead className="h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Synced
+                </TableHead>
+                <TableHead className="hidden h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
+                  Recipes
+                </TableHead>
+                <TableHead className="h-8 pr-0 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sources.map((source) => (
+                <SourceRow
+                  key={source.id}
+                  source={source}
+                  busy={busy === source.id}
+                  disabled={busy !== null}
+                  onSync={() => runSync(source.id)}
+                  onRemove={() => removeSource(source)}
+                />
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Section>
 
@@ -258,34 +313,38 @@ export default function Settings() {
         subtitle="Your own copies, made with “Create copy” on a recipe page. Syncing never touches them."
       >
         {local.length === 0 ? (
-          <p className="text-sm text-text-dim m-0">
-            No local recipes yet. Open any recipe and press “Create copy” to make one.
-          </p>
+          <EmptyState
+            icon={<FolderOpen className="h-6 w-6" />}
+            title="No local recipes yet."
+            description="Open any recipe and press “Create copy” to make one."
+          />
         ) : (
           <div className="flex flex-col">
             {local.map((recipe) => (
               <div
                 key={recipe.slug}
-                className="flex flex-wrap items-center gap-3 py-3 border-b border-outline-dim last:border-b-0"
+                className="flex flex-wrap items-center gap-3 border-b border-border py-3 last:border-b-0"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-text truncate">{recipe.name || recipe.slug}</div>
-                  <div className="text-[11px] text-text-dim mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="truncate text-sm font-medium text-foreground">{recipe.name || recipe.slug}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                     <span className="font-mono">{recipe.slug}</span>
                     <span>{recipe.origin ? `copied from ${recipe.origin}` : 'own recipe'}</span>
                     {recipe.modified && <span>{formatDate(recipe.modified)}</span>}
                   </div>
                 </div>
-                <button
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => {
                     setDeleteError('')
                     setConfirm({ slug: recipe.slug, name: recipe.name })
                   }}
                   disabled={!!deleting[recipe.slug]}
-                  className="shrink-0 px-3.5 py-2 rounded-xl bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  className="shrink-0 whitespace-nowrap"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -312,52 +371,59 @@ export default function Settings() {
 function SourceRow({ source, busy, disabled, onSync, onRemove }) {
   const recipes = typeof source.recipes === 'number' ? source.recipes : null
   return (
-    <div className="flex flex-wrap items-start gap-3 py-3 border-b border-outline-dim last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <div className="text-sm text-text break-all">{source.url}</div>
-        <div className="text-[11px] text-text-dim mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+    <TableRow>
+      <TableCell className="max-w-0 pl-0 align-top">
+        <div className="break-all text-sm text-foreground">{source.url}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
           {source.ref && <span className="font-mono">{source.ref}</span>}
           {source.commit && <span className="font-mono">{source.commit}</span>}
           {source.subpath && <span className="font-mono">{source.subpath}</span>}
-          <span>synced {timeAgo(source.synced_at)}</span>
-          {recipes != null && <span>{recipes} recipe{recipes === 1 ? '' : 's'}</span>}
         </div>
         {source.error && (
-          <p className="text-xs text-error mt-1.5 mb-0 leading-relaxed break-words">{source.error}</p>
+          <p className="m-0 mt-1.5 break-words text-xs leading-relaxed text-destructive">{source.error}</p>
         )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          onClick={onSync}
-          disabled={disabled}
-          className="px-3.5 py-2 rounded-xl bg-surface-high text-text border border-outline-dim text-xs font-semibold cursor-pointer hover:bg-surface-highest disabled:opacity-50 disabled:cursor-default transition-colors whitespace-nowrap"
-        >
-          {busy ? 'Syncing…' : 'Sync'}
-        </button>
-        <button
-          onClick={onRemove}
-          disabled={disabled}
-          className="px-3.5 py-2 rounded-xl bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50 disabled:cursor-default transition-colors whitespace-nowrap"
-        >
-          Remove
-        </button>
-      </div>
-    </div>
+      </TableCell>
+      <TableCell className="whitespace-nowrap align-top text-[11px] text-muted-foreground">
+        {`synced ${timeAgo(source.synced_at)}`}
+      </TableCell>
+      <TableCell className="hidden whitespace-nowrap align-top font-mono text-xs tabular-nums text-muted-foreground sm:table-cell">
+        {recipes != null ? `${recipes} recipe${recipes === 1 ? '' : 's'}` : '—'}
+      </TableCell>
+      <TableCell className="pr-0 text-right align-top">
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onSync}
+            disabled={disabled}
+            className="whitespace-nowrap"
+          >
+            {busy ? 'Syncing…' : 'Sync'}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onRemove}
+            disabled={disabled}
+            className="whitespace-nowrap"
+          >
+            Remove
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   )
 }
 
 function Section({ title, subtitle, action, children }) {
   return (
-    <div className="bg-surface rounded-2xl p-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <h2 className="font-semibold text-sm font-display m-0">{title}</h2>
-          {subtitle && <p className="text-[11px] text-text-dim m-0 mt-1 mb-3 leading-relaxed">{subtitle}</p>}
-        </div>
-        {action}
-      </div>
+    <Card className="gap-0 p-5 shadow-none">
+      <SectionTitle right={action}>{title}</SectionTitle>
+      {subtitle && (
+        <p className="m-0 mb-4 max-w-2xl text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
+      )}
       <div className={subtitle ? '' : 'mt-3'}>{children}</div>
-    </div>
+    </Card>
   )
 }
 

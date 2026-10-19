@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Info } from 'lucide-react'
 
 // An explanation that appears on hover, focus or tap, right where the thing
 // it explains is. A native `title` tooltip waits a second, shows nothing on
@@ -62,9 +63,10 @@ export default function Hint({ text, children, className = '', tap = true }) {
         <span
           role="tooltip"
           style={{ position: 'fixed', width: WIDTH, ...pos }}
-          className="pointer-events-none z-[100] block rounded-xl border border-outline bg-surface-highest px-3 py-2.5 text-left font-sans text-[11px] font-normal normal-case leading-5 tracking-normal text-text-muted shadow-2xl"
+          className="pointer-events-none z-[100] flex items-start gap-1.5 rounded-lg border border-border bg-popover px-3 py-2 text-left font-sans text-[11px] font-normal normal-case leading-5 tracking-normal text-muted-foreground shadow-none"
         >
-          {text}
+          <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
+          <span>{text}</span>
         </span>,
         document.body,
       )}

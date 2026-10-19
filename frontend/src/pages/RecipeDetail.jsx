@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Check, Copy, GitBranch, Globe, Info } from 'lucide-react'
 import { useStore } from '../store'
 import { useThemedLogo } from '../hooks/useThemedLogo'
 import { formatParams, openUrl } from '../components/RecipeCard'
@@ -11,9 +12,33 @@ import { backdropFor, posterFor } from '../covers'
 import { formatDuration, mediaKind, speedLabel } from '../models'
 import CoverInfoModal from '../components/CoverInfoModal'
 import YamlEditor from '../components/YamlEditor'
-import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import CopyField from '../components/CopyField'
 import { deleteLocalRecipe, forkRecipe } from '../lib/api'
+import { Field, PageHeader, SectionTitle } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const DETAIL_TABS = [
   { id: 'details', label: 'Overview' },
@@ -130,17 +155,27 @@ function RecipeDetailPage({ slug }) {
   // claim the recipe is missing until we actually have the list.
   if (!recipe && recipes.length === 0) {
     return (
-      <div className="p-8 text-sm text-text-dim animate-fadeIn">Loading…</div>
+      <div className="page">
+        <p className="m-0 text-sm text-muted-foreground">Loading…</p>
+      </div>
     )
   }
 
   if (!recipe) {
     return (
-      <div className="p-8 animate-fadeIn">
-        <button onClick={goBack} className="text-primary bg-transparent border-none cursor-pointer text-sm font-semibold font-display">
-          ← Back
-        </button>
-        <p className="text-text-muted mt-4">Recipe not found.</p>
+      <div className="page flex flex-col gap-4">
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={goBack}
+            className="-ml-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
+        </div>
+        <p className="m-0 text-sm text-muted-foreground">Recipe not found.</p>
       </div>
     )
   }
@@ -236,6 +271,12 @@ function RecipeDetailPage({ slug }) {
     navigate('/')
   }
 
+  const cancelInstall = () => {
+    if (window.confirm(`Cancel install for ${recipe.name}? This will stop the download.`)) {
+      removeRecipe(recipe.slug)
+    }
+  }
+
   const recipeCategories = Array.isArray(recipe.categories) && recipe.categories.length > 0
     ? recipe.categories
     : [recipe.category]
@@ -245,297 +286,354 @@ function RecipeDetailPage({ slug }) {
   // simply reports false, which is the truthful default.
   const isLocal = recipe.local === true
 
+  // The lifecycle rows below carry exactly the conditions the old action row
+  // used: "can launch" is that row, "up or starting" is its mirror image.
+  const canLaunch = (isNative || recipe.installed) && !recipe.running && !recipe.starting && !isBusy && !isRemoving
+  const isUpOrStarting = recipe.running || ((isNative || recipe.installed) && recipe.starting)
+  const canUpdate = !isNative && canLaunch
+  const canUninstall = !isNative && (canLaunch || isUpOrStarting)
+  const canRemoveEngine = isNative && !!engineBuild?.ready && !recipe.running && !isBusy && !isRemoving
+  const canCancelInstall = isBuilding && !isNative
+  const hasControls = canLaunch || isUpOrStarting || canUpdate || canUninstall || canRemoveEngine || canCancelInstall
+
   return (
-    <div className="flex flex-col h-full animate-fadeIn">
-      <div className="relative shrink-0 overflow-hidden border-b border-outline-dim">
-        {/* This app's cover art: the wide backdrop behind the header and the
-            poster beside the logo, so every image in the catalog is visible
-            somewhere and not just the handful the hero happens to rotate. */}
-        {!backdropFailed && (
-          <img
-            src={backdropFor(recipe)}
-            alt=""
-            onError={() => setBackdropFailed(true)}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
-        {/* Muted harder than the catalog hero: this header carries spec
-            badges and buttons that have to stay readable over the art. */}
-        <div className="absolute inset-0 bg-bg/60" />
-        <div className="absolute inset-0" style={{ background: 'var(--hero-overlay-left)' }} />
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg to-transparent" />
-
-        <button
-          onClick={() => setShowCoverInfo(true)}
-          title="What is this picture?"
-          className="absolute top-3 right-4 sm:top-auto sm:bottom-3 z-10 flex items-center gap-1.5 rounded-full border border-glass-border bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white/80 backdrop-blur-md cursor-pointer hover:bg-black/60 hover:text-white transition-all"
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          About this image
-        </button>
-
-        <div className="relative px-4 py-5 sm:px-6">
-        <button
-          onClick={goBack}
-          className="flex items-center gap-1.5 text-text-muted hover:text-primary bg-transparent border-none cursor-pointer text-sm p-0 mb-4 transition-colors font-medium font-display"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back
-        </button>
-
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
-          {!posterFailed && (
-            <img
-              src={posterFor(recipe)}
-              alt={`${recipe.name} cover`}
-              onError={() => setPosterFailed(true)}
-              className="hidden xl:block w-[104px] shrink-0 aspect-[2/3] rounded-xl object-cover ring-1 ring-glass-border shadow-2xl"
-            />
-          )}
-
-          {logoUrl && !logoFailed ? (
-            <img src={logoUrl} alt={recipe.name} className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl object-contain bg-surface-high p-2 sm:p-2.5 shadow-lg shrink-0" onError={() => setLogoFailed(true)} />
-          ) : (
-            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-surface-high flex items-center justify-center text-3xl sm:text-4xl shrink-0">{recipe.icon || '◻'}</div>
-          )}
-
-          {/* Floor the title column so the spec badges wrap instead of
-              squeezing a long name like "Inkling-Small 276B (UD-IQ2_M)"
-              into a four-line sliver. */}
-          <div className="flex-1 min-w-0 sm:min-w-[260px]">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight m-0 font-display">{recipe.name}</h1>
-              {isLocal ? (
-                <span className="text-[10px] font-label font-semibold text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  Local
-                </span>
-              ) : (
-                <span className="text-[10px] font-label font-semibold text-text-dim bg-surface-high border border-outline-dim px-2 py-0.5 rounded-full whitespace-nowrap">
-                  From registry
-                </span>
-              )}
-              {isNative && (
-                <span className="text-[10px] font-label font-semibold text-secondary bg-secondary/10 border border-secondary/30 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  Native
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-text-dim mt-0.5 m-0">{recipe.author}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {recipeCategories.map((cat) => (
-                <span key={cat} className="text-[10px] font-label text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">{cat}</span>
-              ))}
-              {isBuilding && <StatusPill color="primary" pulse>Building...</StatusPill>}
-              {isUpdating && <StatusPill color="primary" pulse>Updating...</StatusPill>}
-              {!isBusy && recipe.running && isReady && <StatusPill color="success">Running</StatusPill>}
-              {!isBusy && recipe.starting && <StatusPill color="warning" pulse>Starting...</StatusPill>}
-              {!isBusy && !recipe.running && !recipe.starting && recipe.installed && <StatusPill color="dim">Stopped</StatusPill>}
-            </div>
-          </div>
-
-          {/* Capped at the row's width so the badges wrap inside it; a media
-              model's Time and Arena badges are long enough to run off it. */}
-          <div className="hidden lg:flex flex-wrap items-center gap-2 max-w-full">
-            {/* A native recipe names its engine in `native`; the model's own
-                `engine` field would print a second badge titled Engine. */}
-            {recipe.engine && !isNative && <SpecBadge label="Engine" value={recipe.engine} />}
-            {recipe.params_b != null && (
-              <SpecBadge label={recipe.arch === 'moe' ? 'MoE' : 'Dense'} value={formatParams(recipe)} />
-            )}
-            {recipe.media_capabilities?.length > 0 && (
-              <SpecBadge label="Supports" value={recipe.media_capabilities.map((c) => MEDIA_LABELS[c] || c).join(' · ')} />
-            )}
-            {recipe.quantization && <SpecBadge label="Precision" value={recipe.quantization} />}
-            {recipe.weights_gb != null && <SpecBadge label="Weights" value={`${recipe.weights_gb} GB`} />}
-            <SpecBadge label="Memory" value={`${recipe.requirements?.min_memory_gb ?? 8}–${recipe.requirements?.recommended_memory_gb ?? recipe.requirements?.min_memory_gb ?? 8} GB`} />
-            {/* A native recipe has no image and no container disk: what it
-                needs is the engine, the checkpoint and a host port. */}
-            {isNative ? (
-              <>
-                {native.engine && <SpecBadge label="Engine" value={native.engine} />}
-                {native.model && <SpecBadge label="Model" value={native.model} />}
-                {native.port != null && <SpecBadge label="Port" value={String(native.port)} />}
-                {engineBuild && <SpecBadge label="Engine build" value={engineBuild.ready ? 'built' : 'not built'} />}
-              </>
-            ) : (
-              <SpecBadge label="Disk" value={`${recipe.requirements?.disk_gb ?? 10} GB`} />
-            )}
-            {recipe.tokens_per_second != null && (
-              <SpecBadge label="Speed" value={speedLabel(recipe)} />
-            )}
-            {recipe.render_seconds != null && (
-              <SpecBadge
-                label="Time"
-                value={`${formatDuration(recipe.render_seconds)} per ${mediaKind(recipe) || 'result'}${recipe.render_workload ? ` · ${recipe.render_workload}` : ''}`}
-              />
-            )}
-            {recipe.load_seconds != null && (
-              <SpecBadge label="Ready in" value={formatDuration(recipe.load_seconds)} />
-            )}
-            {(recipe.arena || []).map((a) => (
-              <a key={a.board} href={a.url} target="_blank" rel="noreferrer" className="no-underline text-inherit">
-                <SpecBadge
-                  label={`Arena · ${a.task.replace(/-/g, ' ')}`}
-                  value={`${Math.round(a.elo)} Elo${a.base ? ` (${a.entry}'s)` : ''} · ${a.board} · ${a.read}`}
-                />
-              </a>
-            ))}
-          </div>
-
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
-            {!isNative && !recipe.installed && !recipe.starting && !isBusy && !isRemoving && (
-              <button onClick={() => installRecipe(recipe.slug)} className="btn-primary px-6 py-2.5 text-sm font-bold">
-                Install
-              </button>
-            )}
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        eyebrow={recipeCategories.join(' · ')}
+        title={recipe.name}
+        actions={
+          <>
             {isBuilding && !isNative && (
-              <>
-                <div className="px-5 py-2.5 bg-primary/10 rounded-xl text-sm text-primary font-semibold font-label">
-                  <span className="inline-block animate-spin mr-1">⟳</span>Building
-                </div>
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Cancel install for ${recipe.name}? This will stop the download.`)) {
-                      removeRecipe(recipe.slug)
-                    }
-                  }}
-                  className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </>
+              <Badge variant="outline" className="h-7 gap-1.5 border-primary/30 bg-primary/10 px-2.5 text-primary">
+                <span className="font-mono">⟳</span>
+                Building
+              </Badge>
             )}
             {isUpdating && (
-              <div className="px-5 py-2.5 bg-primary/10 rounded-xl text-sm text-primary font-semibold font-label">
-                <span className="inline-block animate-spin mr-1">⟳</span>Updating
-              </div>
+              <Badge variant="outline" className="h-7 gap-1.5 border-primary/30 bg-primary/10 px-2.5 text-primary">
+                <span className="font-mono">⟳</span>
+                Updating
+              </Badge>
             )}
             {isRemoving && (
-              <div className="px-5 py-2.5 bg-error-surface rounded-xl text-sm text-error font-semibold font-label">
-                <span className="inline-block animate-spin mr-1">⟳</span>Uninstalling
-              </div>
+              <Badge variant="outline" className="h-7 gap-1.5 border-destructive/30 bg-destructive/10 px-2.5 text-destructive">
+                <span className="font-mono">⟳</span>
+                Uninstalling
+              </Badge>
+            )}
+            {!isNative && !recipe.installed && !recipe.starting && !isBusy && !isRemoving && (
+              <Button onClick={() => installRecipe(recipe.slug)}>Install</Button>
             )}
             {isNative && engineBuild && !engineBuild.ready && !isBusy && !isRemoving && (
-              <button onClick={() => installRecipe(recipe.slug)} className="btn-primary px-6 py-2.5 text-sm font-bold">
-                Build engine
-              </button>
+              <Button onClick={() => installRecipe(recipe.slug)}>Build engine</Button>
             )}
-            {isNative && engineBuild?.ready && !recipe.running && !isBusy && !isRemoving && (
-              <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
-                Remove engine
-              </button>
-            )}
-            {(isNative || recipe.installed) && !recipe.running && !recipe.starting && !isBusy && !isRemoving && (
-              <>
-                <button disabled={launching || isRemoving || (engineBuild && !engineBuild.ready)} onClick={handleLaunch} className="btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50">
-                  {launching ? '...' : '▶ Launch'}
-                </button>
-                {!isNative && (
-                  <button disabled={launching || isRemoving} onClick={() => updateRecipe(recipe.slug)} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:text-primary hover:bg-surface-highest disabled:opacity-50">
-                    ↻ Update
-                  </button>
-                )}
-                {!isNative && (
-                  <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
-                    {isRemoving ? '...' : 'Uninstall'}
-                  </button>
-                )}
-              </>
-            )}
-            {(recipe.running || ((isNative || recipe.installed) && recipe.starting)) && (
-              <>
-                {isReady && (
-                  <a href={openUrl(recipe)} target="_blank" rel="noreferrer"
-                    className="btn-primary px-6 py-2.5 text-sm font-bold no-underline inline-block">
-                    Open ↗
-                  </a>
-                )}
-                <button disabled={stopping} onClick={handleStop} className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
-                  {stopping ? '...' : '■ Stop'}
-                </button>
-                {!isNative && (
-                  <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50">
-                    Uninstall
-                  </button>
-                )}
-              </>
+            {isUpOrStarting && isReady && (
+              <Button asChild>
+                <a href={openUrl(recipe)} target="_blank" rel="noreferrer">
+                  Open ↗
+                </a>
+              </Button>
             )}
             {/* Every recipe can be copied; only a local one can be deleted. */}
-            <button
-              onClick={() => setShowFork(true)}
-              className="px-4 py-2.5 bg-surface-high text-text-muted border-none rounded-xl text-sm font-semibold cursor-pointer transition-colors hover:text-primary hover:bg-surface-highest"
-            >
+            <Button variant="outline" onClick={() => setShowFork(true)}>
               Create copy
-            </button>
-            {isLocal && (
-              <button
-                onClick={() => { setDeleteError(''); setShowDelete(true) }}
-                className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-colors hover:bg-error/15"
-              >
-                Delete
-              </button>
+            </Button>
+          </>
+        }
+      >
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
+          {logoUrl && !logoFailed ? (
+            <img
+              src={logoUrl}
+              alt={recipe.name}
+              onError={() => setLogoFailed(true)}
+              className="h-10 w-10 shrink-0 rounded-lg border border-border bg-muted object-contain p-1.5"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-lg">
+              {recipe.icon || '◻'}
+            </div>
+          )}
+
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {isBuilding && <StatusBadge tone="primary" pulse>Building...</StatusBadge>}
+            {isUpdating && <StatusBadge tone="primary" pulse>Updating...</StatusBadge>}
+            {!isBusy && recipe.running && isReady && <StatusBadge tone="success">Running</StatusBadge>}
+            {!isBusy && recipe.starting && <StatusBadge tone="warning" pulse>Starting...</StatusBadge>}
+            {!isBusy && !recipe.running && !recipe.starting && recipe.installed && <StatusBadge tone="dim">Stopped</StatusBadge>}
+            <Badge variant="outline" className="text-[11px] font-normal">
+              {isLocal ? 'Local' : 'From registry'}
+            </Badge>
+            {isNative && (
+              <Badge variant="secondary" className="text-[11px] font-normal">
+                Native
+              </Badge>
             )}
           </div>
+
+          {/* This app's cover art, both halves of it: the wide backdrop and the
+              poster, so every image in the catalog is visible somewhere and not
+              just the handful the hero happens to rotate. The dialog explains
+              where the picture came from. */}
+          <div className="ml-auto flex items-center gap-2">
+            {!backdropFailed && (
+              <img
+                src={backdropFor(recipe)}
+                alt=""
+                onError={() => setBackdropFailed(true)}
+                className="h-12 w-20 rounded-md border border-border bg-muted object-cover"
+              />
+            )}
+            {!posterFailed && (
+              <img
+                src={posterFor(recipe)}
+                alt={`${recipe.name} cover`}
+                onError={() => setPosterFailed(true)}
+                className="h-12 w-8 rounded-md border border-border bg-muted object-cover"
+              />
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCoverInfo(true)}
+              title="What is this picture?"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Info className="size-3.5" />
+              About this image
+            </Button>
+          </div>
         </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span className="truncate">{recipe.author}</span>
+          {recipe.quantization && (
+            <span className="font-mono text-xs text-foreground">{recipe.quantization}</span>
+          )}
+          {recipe.tokens_per_second != null && (
+            <span className="font-mono text-xs tabular-nums text-foreground">{speedLabel(recipe)}</span>
+          )}
         </div>
-      </div>
+      </PageHeader>
 
       {recipe.error && (
-        <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-outline-dim bg-error-surface">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
           <div className="flex items-start gap-3">
-            <span className="text-error text-base leading-6">⚠</span>
+            <span className="text-base leading-6 text-destructive">⚠</span>
             <div className="min-w-0">
-              <div className="text-error text-sm font-semibold font-label">Couldn't start</div>
-              <div className="text-text-muted text-sm mt-0.5">{recipe.error}</div>
+              <p className="m-0 text-sm font-semibold text-destructive">Couldn't start</p>
+              <p className="m-0 mt-0.5 text-sm leading-relaxed text-muted-foreground">{recipe.error}</p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-outline-dim bg-surface-low/40">
-        <div className="inline-flex items-center gap-2 rounded-2xl bg-surface-high/70 p-1.5 border border-outline-dim">
-          {DETAIL_TABS.map((tab) => {
-            const active = tab.id === activeTab
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  active
-                    ? 'bg-primary text-primary-on shadow-lg shadow-primary/20'
-                    : 'bg-transparent text-text-dim hover:bg-surface-highest hover:text-text'
-                }`}
+      {/* Launch and teardown live outside the tabs: a build switches the page to
+          Logs on its own, and Cancel has to stay reachable while that happens. */}
+      {hasControls && (
+        <Card className="gap-0 p-5 shadow-none">
+          <SectionTitle hint="one at a time">Controls</SectionTitle>
+          <div className="flex flex-col">
+            {canLaunch && (
+              <ControlRow
+                label="Launch"
+                hint="Start this app on the Spark. Launching another app stops the one that is running."
               >
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+                <Button
+                  disabled={launching || isRemoving || (engineBuild && !engineBuild.ready)}
+                  onClick={handleLaunch}
+                >
+                  {launching ? '...' : '▶ Launch'}
+                </Button>
+              </ControlRow>
+            )}
+            {isUpOrStarting && (
+              <ControlRow label="Stop" hint="Shut the app down and free the memory it is holding.">
+                <Button variant="outline" disabled={stopping} onClick={handleStop}>
+                  {stopping ? '...' : '■ Stop'}
+                </Button>
+              </ControlRow>
+            )}
+            {canUpdate && (
+              <ControlRow label="Update" hint="Pull the newest image and rebuild this app's container.">
+                <Button
+                  variant="outline"
+                  disabled={launching || isRemoving}
+                  onClick={() => updateRecipe(recipe.slug)}
+                >
+                  ↻ Update
+                </Button>
+              </ControlRow>
+            )}
+            {canUninstall && (
+              <ControlRow label="Uninstall" hint="Remove the container, its image and its volumes from this machine.">
+                <Button variant="destructive" disabled={isRemoving} onClick={handleRemove}>
+                  {isRemoving ? '...' : 'Uninstall'}
+                </Button>
+              </ControlRow>
+            )}
+            {canRemoveEngine && (
+              <ControlRow label="Remove engine" hint="Delete the engine build this recipe needs. The engine itself stays installed.">
+                <Button variant="destructive" disabled={isRemoving} onClick={handleRemove}>
+                  Remove engine
+                </Button>
+              </ControlRow>
+            )}
+            {canCancelInstall && (
+              <ControlRow label="Cancel install" hint="Stop the download. What has already arrived is kept.">
+                <Button variant="destructive" onClick={cancelInstall}>
+                  Cancel
+                </Button>
+              </ControlRow>
+            )}
+          </div>
+        </Card>
+      )}
 
-      <div className="flex-1 min-h-0">
-        {activeTab === 'details' ? (
-          <div className={`h-full min-h-0 grid grid-cols-1 ${isNative ? '' : 'xl:grid-cols-[minmax(0,50rem)_minmax(24rem,1fr)]'}`}>
-            <div className={`overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%)] ${isNative ? '' : 'border-b border-outline-dim xl:border-b-0 xl:border-r'}`}>
-              <AboutTab recipe={recipe} purging={purging} purgeRecipe={purgeRecipe} isBuilding={isBusy} />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
+        <TabsList variant="line">
+          {DETAIL_TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} className="px-3 text-xs font-medium">
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="details" className="flex flex-col gap-6 outline-none">
+          {/* Every fact the recipe ships, as a definition list. */}
+          <Card className="gap-0 p-5 shadow-none">
+            <SectionTitle>Specs</SectionTitle>
+            <div className="grid gap-x-8 sm:grid-cols-2">
+              {/* A native recipe names its engine in `native`; the model's own
+                  `engine` field would print a second row titled Engine. */}
+              {recipe.engine && !isNative && (
+                <Field label="Engine" mono value={recipe.engine} className="border-b border-border" />
+              )}
+              {recipe.params_b != null && (
+                <Field
+                  label={recipe.arch === 'moe' ? 'MoE' : 'Dense'}
+                  mono
+                  value={formatParams(recipe)}
+                  className="border-b border-border"
+                />
+              )}
+              {recipe.media_capabilities?.length > 0 && (
+                <SpecRow
+                  label="Supports"
+                  value={recipe.media_capabilities.map((c) => MEDIA_LABELS[c] || c).join(' · ')}
+                />
+              )}
+              {recipe.quantization && (
+                <Field label="Precision" mono value={recipe.quantization} className="border-b border-border" />
+              )}
+              {recipe.weights_gb != null && (
+                <Field label="Weights" mono value={`${recipe.weights_gb} GB`} className="border-b border-border" />
+              )}
+              <Field
+                label="Memory"
+                mono
+                value={`${recipe.requirements?.min_memory_gb ?? 8}–${recipe.requirements?.recommended_memory_gb ?? recipe.requirements?.min_memory_gb ?? 8} GB`}
+                className="border-b border-border"
+              />
+              {/* A native recipe has no image and no container disk: what it
+                  needs is the engine, the checkpoint and a host port. */}
+              {isNative ? (
+                <>
+                  {native.engine && (
+                    <Field label="Engine" mono value={native.engine} className="border-b border-border" />
+                  )}
+                  {native.model && (
+                    <Field label="Model" mono value={native.model} className="border-b border-border" />
+                  )}
+                  {native.port != null && (
+                    <Field label="Port" mono value={String(native.port)} className="border-b border-border" />
+                  )}
+                  {engineBuild && (
+                    <Field
+                      label="Engine build"
+                      mono
+                      value={engineBuild.ready ? 'built' : 'not built'}
+                      className="border-b border-border"
+                    />
+                  )}
+                </>
+              ) : (
+                <Field
+                  label="Disk"
+                  mono
+                  value={`${recipe.requirements?.disk_gb ?? 10} GB`}
+                  className="border-b border-border"
+                />
+              )}
+              {recipe.tokens_per_second != null && (
+                <Field label="Speed" mono value={speedLabel(recipe)} className="border-b border-border" />
+              )}
+              {recipe.render_seconds != null && (
+                <SpecRow
+                  label="Time"
+                  value={`${formatDuration(recipe.render_seconds)} per ${mediaKind(recipe) || 'result'}${recipe.render_workload ? ` · ${recipe.render_workload}` : ''}`}
+                />
+              )}
+              {recipe.load_seconds != null && (
+                <Field
+                  label="Ready in"
+                  mono
+                  value={formatDuration(recipe.load_seconds)}
+                  className="border-b border-border"
+                />
+              )}
+              {(recipe.arena || []).map((a) => (
+                <SpecRow key={a.board} label={`Arena · ${a.task.replace(/-/g, ' ')}`}>
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {`${Math.round(a.elo)} Elo${a.base ? ` (${a.entry}'s)` : ''} · ${a.board} · ${a.read}`}
+                  </a>
+                </SpecRow>
+              ))}
             </div>
+          </Card>
+
+          <div className={`grid grid-cols-1 gap-6 ${isNative ? '' : 'xl:grid-cols-[minmax(0,50rem)_minmax(24rem,1fr)]'}`}>
+            <AboutTab recipe={recipe} purging={purging} purgeRecipe={purgeRecipe} isBuilding={isBusy} />
 
             {/* A native recipe has no docker-compose.yml to edit; the engine
                 and its flags live in recipe.yaml. */}
             {!isNative && (
-              <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] min-h-0">
+              <div className="min-w-0">
                 <ComposeEditor slug={recipe.slug} local={isLocal} />
               </div>
             )}
           </div>
-        ) : (
-          <div className="h-full min-h-0">
+
+          {isLocal && (
+            <Card className="gap-0 p-5 shadow-none">
+              <SectionTitle>Danger zone</SectionTitle>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="m-0 text-sm font-medium text-foreground">Delete this copy</p>
+                  <p className="m-0 mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    The folder is removed from{' '}
+                    <span className="font-mono text-foreground">~/.config/gospark/registry/local/</span>{' '}
+                    and this Hub stops listing it. Recipes from a registry source cannot be deleted this way.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => { setDeleteError(''); setShowDelete(true) }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="logs" className="outline-none">
+          <div className="h-[70vh] min-h-[420px] overflow-hidden rounded-lg border border-border">
             <TerminalPanel
               lines={logLines}
               isBuilding={isBusy}
@@ -547,47 +645,50 @@ function RecipeDetailPage({ slug }) {
               wide
             />
           </div>
-        )}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {showHfModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim">
-            <h3 className="text-lg font-bold text-text font-display m-0">HuggingFace Token Required</h3>
-            <p className="text-sm text-text-dim mt-2 mb-4 leading-relaxed">
-              This model uses gated assets on HuggingFace. Paste your access token below to continue.
-              You can create one at{' '}
-              <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                huggingface.co/settings/tokens
-              </a>.
-            </p>
-            <input
+        <Dialog
+          open
+          onOpenChange={(open) => { if (!open) { setShowHfModal(false); setHfToken(''); setHfError('') } }}
+        >
+          <DialogContent className="gap-3 border-border bg-card p-5 shadow-none sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display text-base font-semibold tracking-tight">
+                HuggingFace Token Required
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                This model uses gated assets on HuggingFace. Paste your access token below to continue.
+                You can create one at{' '}
+                <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  huggingface.co/settings/tokens
+                </a>.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
               type="password"
               placeholder="hf_..."
               value={hfToken}
               onChange={(e) => setHfToken(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleHfSubmit()}
-              className="w-full px-4 py-2.5 rounded-xl bg-surface-low text-text border border-outline-dim text-sm font-mono focus:outline-none focus:border-primary"
+              className="h-9 font-mono text-xs"
               autoFocus
             />
-            {hfError && <p className="text-xs text-error mt-2 m-0">{hfError}</p>}
-            <div className="flex justify-end gap-3 mt-4">
-              <button
+            {hfError && <p className="m-0 text-xs text-destructive">{hfError}</p>}
+            <DialogFooter>
+              <Button
+                variant="outline"
                 onClick={() => { setShowHfModal(false); setHfToken(''); setHfError('') }}
-                className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
               >
                 Cancel
-              </button>
-              <button
-                onClick={handleHfSubmit}
-                disabled={!hfToken.trim() || hfSaving}
-                className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
-              >
+              </Button>
+              <Button onClick={handleHfSubmit} disabled={!hfToken.trim() || hfSaving}>
                 {hfSaving ? 'Saving...' : 'Save & Launch'}
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {showCoverInfo && (
@@ -603,37 +704,84 @@ function RecipeDetailPage({ slug }) {
       )}
 
       {showDelete && (
-        <ConfirmDeleteModal
-          slug={recipe.slug}
-          name={recipe.name}
-          busy={deleteBusy}
-          error={deleteError}
-          onCancel={() => { setShowDelete(false); setDeleteError('') }}
-          onConfirm={handleDeleteLocal}
+        <AlertDialog
+          open
+          onOpenChange={(open) => { if (!open) { setShowDelete(false); setDeleteError('') } }}
         >
-          {isNative
-            ? `This copy of the recipe is deleted from ~/.config/gospark/registry/local/${recipe.slug}. The engine and the checkpoint stay where they are.`
-            : undefined}
-        </ConfirmDeleteModal>
+          <AlertDialogContent className="border-border bg-card shadow-none sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-display text-base font-semibold tracking-tight">
+                {`Delete recipe ${recipe.name}?`}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                {isNative ? (
+                  `This copy of the recipe is deleted from ~/.config/gospark/registry/local/${recipe.slug}. The engine and the checkpoint stay where they are.`
+                ) : (
+                  <>
+                    The files will be deleted from{' '}
+                    <span className="break-words font-mono text-foreground">
+                      ~/.config/gospark/registry/local/{recipe.slug}
+                    </span>
+                    .
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {deleteError && <p className="m-0 text-xs leading-relaxed text-destructive">{deleteError}</p>}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteBusy} onClick={() => { setShowDelete(false); setDeleteError('') }}>
+                Cancel
+              </AlertDialogCancel>
+              {/* preventDefault: a failing delete (a 409 from the daemon) has to
+                  stay readable in this dialog, so the action must not close it. */}
+              <AlertDialogAction
+                variant="destructive"
+                disabled={deleteBusy}
+                onClick={(e) => { e.preventDefault(); handleDeleteLocal() }}
+              >
+                {deleteBusy ? 'Deleting…' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   )
 }
 
-function StatusPill({ color, pulse, children }) {
-  const colorMap = {
-    primary: 'bg-primary/10 text-primary',
-    success: 'bg-success/10 text-success',
-    warning: 'bg-warning/10 text-warning',
-    dim: 'bg-surface-highest text-text-dim',
+// One labelled lifecycle row: what it does on the left, the control on the
+// right, the same shape as the toggles on Engines.
+function ControlRow({ label, hint, children }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="m-0 text-xs font-semibold text-foreground">{label}</p>
+        <p className="m-0 mt-0.5 max-w-lg text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
+    </div>
+  )
+}
+
+// State is a dot and a word, never a painted panel.
+function StatusBadge({ tone, pulse, children }) {
+  const tones = {
+    primary: 'border-primary/30 bg-primary/10 text-primary',
+    success: 'border-success/30 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning',
+    dim: 'border-border bg-muted text-muted-foreground',
+  }
+  const dots = {
+    primary: 'bg-primary',
+    success: 'bg-success',
+    warning: 'bg-warning',
+    dim: 'bg-muted-foreground',
   }
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium font-label px-2.5 py-1 rounded-full ${colorMap[color]} ${pulse ? 'animate-pulse' : ''}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${
-        color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-success' : color === 'warning' ? 'bg-warning' : 'bg-text-dim'
-      }`} />
+    <Badge variant="outline" className={`gap-1.5 text-[11px] font-normal ${tones[tone] || tones.dim}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dots[tone] || dots.dim} ${pulse ? 'animate-pulse' : ''}`} />
       {children}
-    </span>
+    </Badge>
   )
 }
 
@@ -656,29 +804,29 @@ function SpeedDetail({ recipe }) {
   if (rows.length === 0) return null
 
   return (
-    <div className="border-t border-outline-dim pt-4">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">
+    <div className="border-t border-border pt-4">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
         How this speed was measured
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 flex flex-col gap-2">
         {rows.map((w) => (
           <div key={w} className="flex items-baseline gap-3">
-            <span className="font-display text-[13px] font-extrabold tabular-nums text-primary w-14 text-right shrink-0">
+            <span className="w-14 shrink-0 text-right font-mono text-[13px] font-semibold tabular-nums text-primary">
               {recipe.benchmarks[w]}
             </span>
             <span className="min-w-0">
-              <span className="text-[11px] font-label font-bold text-text">{w}</span>
-              <span className="block text-[11px] text-text-dim leading-5">{WORKLOAD_NOTES[w]}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground">{w}</span>
+              <span className="block text-[11px] leading-5 text-muted-foreground">{WORKLOAD_NOTES[w]}</span>
             </span>
           </div>
         ))}
-        <p className="text-[11px] text-text-dim leading-5 m-0 pt-1">
+        <p className="m-0 pt-1 text-[11px] leading-5 text-muted-foreground">
           The headline number averages the three fresh-generation prompts, with thinking
           left on as this model ships it. Where a build drafts speculatively, code-edit is
           reported alongside it as the top of the range: the drafter's proposals are nearly
           always right when the answer is already in the prompt, and the same server then
           verifies several tokens per forward pass. That run sends
-          <code className="mx-1 rounded bg-surface-high px-1 text-[10px]">enable_thinking: false</code>
+          <code className="mx-1 rounded bg-muted px-1 font-mono text-[10px] text-foreground">enable_thinking: false</code>
           — reasoning tokens are invented rather than copied, so a drafter cannot predict
           them, and leaving thinking on drags the peak back down to roughly the headline
           number. Run the script below to reproduce both on your own Spark.
@@ -688,11 +836,14 @@ function SpeedDetail({ recipe }) {
   )
 }
 
-function SpecBadge({ label, value }) {
+// A definition-list row for the values Field would truncate: capabilities,
+// durations and arena lines are sentences, and a sentence that ends in an
+// ellipsis is a fact the page failed to state.
+function SpecRow({ label, value, children }) {
   return (
-    <div className="border border-outline-dim rounded-xl px-3.5 py-2.5 bg-surface-high/65 min-w-[112px]">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-text-dim font-label">{label}</div>
-      <div className="mt-1 text-[12px] font-semibold text-text font-display">{value}</div>
+    <div className="flex items-baseline justify-between gap-4 border-b border-border py-2">
+      <span className="shrink-0 text-[11px] uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right text-sm leading-relaxed text-foreground">{children ?? value}</span>
     </div>
   )
 }
@@ -702,31 +853,28 @@ function RelatedRecipeCard({ recipe, onSelect }) {
   const [logoFailed, setLogoFailed] = useState(false)
 
   return (
-    <div className="rounded-2xl border border-outline-dim bg-surface-high/50 p-4 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4 min-w-0">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-3">
+      <div className="flex min-w-0 items-center gap-3">
         {logoUrl && !logoFailed ? (
           <img
             src={logoUrl}
             alt={recipe.name}
-            className="w-12 h-12 rounded-xl object-contain bg-surface-highest p-2 shrink-0"
+            className="h-10 w-10 shrink-0 rounded-md bg-muted object-contain p-1.5"
             onError={() => setLogoFailed(true)}
           />
         ) : (
-          <div className="w-12 h-12 rounded-xl bg-surface-highest flex items-center justify-center text-lg shrink-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-base">
             {recipe.icon || '◻'}
           </div>
         )}
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-text">{recipe.name}</div>
-          <div className="text-sm text-text-dim mt-1">{recipe.description}</div>
+          <div className="text-sm font-medium text-foreground">{recipe.name}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{recipe.description}</div>
         </div>
       </div>
-      <button
-        onClick={() => onSelect(recipe.slug)}
-        className="px-4 py-2.5 bg-surface-highest text-text border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:border-primary hover:text-primary transition-all shrink-0"
-      >
+      <Button variant="outline" size="sm" onClick={() => onSelect(recipe.slug)} className="shrink-0">
         View
-      </button>
+      </Button>
     </div>
   )
 }
@@ -755,95 +903,120 @@ function AboutTab({ recipe, purging, purgeRecipe, isBuilding }) {
   const relatedRecipes = (recipe.depends_on || [])
     .map((slug) => recipes.find((item) => item.slug === slug))
     .filter(Boolean)
+  // The Hub forwards /v1 to whichever model a request names, so the address on
+  // this page keeps working — but only for engines that serve /v1 at all.
+  const forwardsNote = recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')
+  const canBenchmark = recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('llama-cpp') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')
+  const hasSpeedRows = WORKLOAD_ORDER.some((w) => recipe.benchmarks?.[w] != null)
 
   return (
-    <div className="w-full px-4 py-6 sm:px-6">
-      <div className="max-w-[44rem]">
-        <div className="space-y-7">
-          <p className="text-[15px] text-text-muted leading-7 m-0">{recipe.description}</p>
+    <div className="flex min-w-0 flex-col gap-6">
+      {/* ─── Overview ─── */}
+      <Card className="gap-0 p-5 shadow-none">
+        <SectionTitle>Overview</SectionTitle>
+        <p className="m-0 text-sm leading-relaxed text-foreground">{recipe.description}</p>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+        {(officialUrl || sourceUrl) && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             {officialUrl && (
-              <a href={officialUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-primary no-underline hover:text-primary/80 transition-colors font-medium">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                Website
-              </a>
+              <Button asChild variant="link" size="sm" className="h-auto p-0 text-xs">
+                <a href={officialUrl} target="_blank" rel="noreferrer">
+                  <Globe className="size-3.5" />
+                  Website
+                </a>
+              </Button>
             )}
             {sourceUrl && (
-              <a href={sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-text-dim no-underline hover:text-text transition-colors font-medium">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-                Source
-              </a>
+              <Button asChild variant="link" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground">
+                <a href={sourceUrl} target="_blank" rel="noreferrer">
+                  <GitBranch className="size-3.5" />
+                  Source
+                </a>
+              </Button>
             )}
           </div>
+        )}
 
-          {recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {recipe.tags.map((t) => (
-                <span key={t} className="bg-surface-high/70 text-text-dim px-2.5 py-1 rounded-full text-[11px] font-label">{t}</span>
+        {recipe.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {recipe.tags.map((t) => (
+              <Badge key={t} variant="outline" className="text-[11px] font-normal text-muted-foreground">
+                {t}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {relatedRecipes.length > 0 && (
+          <div className="mt-5 border-t border-border pt-4">
+            <SectionTitle>Suggested Add-On</SectionTitle>
+            <p className="m-0 mb-3 text-xs leading-relaxed text-muted-foreground">
+              For quick local testing, install a shared model runtime and connect this app to its default endpoint.
+            </p>
+            <div className="flex flex-col gap-2">
+              {relatedRecipes.map((item) => (
+                <RelatedRecipeCard key={item.slug} recipe={item} onSelect={selectRecipe} />
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {relatedRecipes.length > 0 && (
-            <div className="space-y-4 pt-5 border-t border-outline-dim">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Suggested Add-On</div>
-                <p className="text-sm text-text-dim leading-6 m-0 mt-2">
-                  For quick local testing, install a shared model runtime and connect this app to its default endpoint.
-                </p>
-              </div>
-              <div className="space-y-3">
-                {relatedRecipes.map((item) => (
-                  <RelatedRecipeCard key={item.slug} recipe={item} onSelect={selectRecipe} />
-                ))}
-              </div>
-            </div>
-          )}
+        {recipe.runtime_env_path && (
+          <div className="mt-5 border-t border-border pt-4">
+            <SectionTitle>Advanced Configuration</SectionTitle>
+            <p className="m-0 mb-3 text-xs leading-relaxed text-muted-foreground">
+              This app creates a local runtime config file on first install. Most users should leave it alone.
+              If you know what you are doing, you can edit it manually and relaunch the app.
+            </p>
+            {/* CopyField is the shared copy-row: the value is what lands in the
+                clipboard, which is the point of printing a path. */}
+            <CopyField label="Runtime env file" value={recipe.runtime_env_path} />
+          </div>
+        )}
+      </Card>
 
-          {recipe.runtime_env_path && (
-            <div className="space-y-4 pt-5 border-t border-outline-dim">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Advanced Configuration</div>
-                <p className="text-sm text-text-dim leading-6 m-0 mt-2">
-                  This app creates a local runtime config file on first install. Most users should leave it alone.
-                  If you know what you are doing, you can edit it manually and relaunch the app.
-                </p>
-              </div>
-              <Field label="Runtime env file" value={recipe.runtime_env_path} />
-            </div>
+      {/* ─── API integration ─── */}
+      {recipe.integration && (
+        <Card className="gap-0 p-5 shadow-none">
+          <SectionTitle>API Integration</SectionTitle>
+          {forwardsNote && (
+            <p className="m-0 mb-3 text-[11px] leading-relaxed text-muted-foreground">
+              The Hub forwards /v1 to the running model a request names, or to the
+              largest one up, so this address keeps working from wherever you reached
+              this page.
+            </p>
           )}
+          <div className="flex flex-col gap-3">
+            <CopyField label="API URL" value={fillPlaceholders(recipe.integration.api_url)} />
+            <CopyField label="Model ID" value={recipe.integration.model_id} />
+            <CopyField label="API Key" value={apiKeyHint} />
+            {recipe.capabilities?.length > 0 && <CapabilityField capabilities={recipe.capabilities} />}
+            {recipe.integration.max_context && (
+              <CopyField label="Max Context" value={recipe.integration.max_context} />
+            )}
+            {recipe.integration.max_output_tokens && (
+              <CopyField label="Max Output" value={recipe.integration.max_output_tokens} />
+            )}
+            {recipe.integration.curl_example && (
+              <CodeBlock
+                label="curl example"
+                value={fillPlaceholders(recipe.integration.curl_example, { apiKey: keyToken })}
+              />
+            )}
+          </div>
+        </Card>
+      )}
 
-          {recipe.integration && (
-            <div className="space-y-4 pt-5 border-t border-outline-dim">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">API Integration</div>
-                {(recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')) && (
-                  <div className="text-[10px] text-text-muted mt-1">
-                    The Hub forwards /v1 to the running model a request names, or to the
-                    largest one up, so this address keeps working from wherever you reached
-                    this page.
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2.5">
-                <Field label="API URL" value={fillPlaceholders(recipe.integration.api_url)} />
-                <Field label="Model ID" value={recipe.integration.model_id} />
-                <Field label="API Key" value={apiKeyHint} />
-                {recipe.capabilities?.length > 0 && <CapabilityField capabilities={recipe.capabilities} />}
-                {recipe.integration.max_context && <Field label="Max Context" value={recipe.integration.max_context} />}
-                {recipe.integration.max_output_tokens && <Field label="Max Output" value={recipe.integration.max_output_tokens} />}
-                {recipe.integration.curl_example && (
-                  <CodeBlock
-                    label="curl example"
-                    value={fillPlaceholders(recipe.integration.curl_example, { apiKey: keyToken })}
-                  />
-                )}
-                <SpeedDetail recipe={recipe} />
-                {(recipe.tags?.includes('vllm') || recipe.tags?.includes('sglang') || recipe.tags?.includes('llama-cpp') || recipe.tags?.includes('exllamav3') || recipe.tags?.includes('atlas') || recipe.tags?.includes('tensorfold')) && (
-                  <BenchmarkBlock
-                    secret={benchKey}
-                    value={`python3 - <<'EOF'
+      {/* ─── Benchmarks ─── */}
+      {recipe.integration && (hasSpeedRows || canBenchmark) && (
+        <Card className="gap-0 p-5 shadow-none">
+          <SectionTitle>Benchmarks</SectionTitle>
+          <div className="flex flex-col gap-4 pt-1">
+            <SpeedDetail recipe={recipe} />
+            {canBenchmark && (
+              <BenchmarkBlock
+                secret={benchKey}
+                value={`python3 - <<'EOF'
 import os, time, urllib.request, urllib.error, json
 # The Hub's own endpoint, exactly as this page was reached, so the script runs
 # from any machine that can open the Hub.
@@ -905,29 +1078,31 @@ print(f"  {'code-edit':<10} {n} tok / {dt:.2f}s = {n/dt:.2f} tok/s")
 print(f"Editing: {n/dt:.2f} tok/s (code-edit, thinking off; the answer is already in the prompt,")
 print(f"         so a drafter's proposals are nearly always accepted)")
 EOF`}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+              />
+            )}
+          </div>
+        </Card>
+      )}
 
-        {!recipe.installed && !isBuilding && recipe.has_leftovers && (
-          <div className="mt-12 pt-6 border-t border-outline-dim space-y-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-text-dim font-label">Cleanup</div>
-              <p className="text-sm text-text-dim leading-6 m-0 mt-2">Remove leftover images or volumes from a previous uninstall. This is destructive and should only be used when you want to free all remaining app data.</p>
-            </div>
-            <button
+      {/* ─── Cleanup ─── */}
+      {!recipe.installed && !isBuilding && recipe.has_leftovers && (
+        <Card className="gap-0 p-5 shadow-none">
+          <SectionTitle>Cleanup</SectionTitle>
+          <p className="m-0 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+            Remove leftover images or volumes from a previous uninstall. This is destructive and should only be used when you want to free all remaining app data.
+          </p>
+          <div className="mt-3">
+            <Button
+              variant="outline"
               disabled={!!purging[recipe.slug]}
               onClick={() => { if (window.confirm(`Wipe all data for ${recipe.name}?`)) purgeRecipe(recipe.slug) }}
-              className="px-4 py-2.5 bg-warning/10 text-warning border border-warning/20 rounded-xl text-sm font-semibold cursor-pointer hover:bg-warning/15 transition-all disabled:opacity-50"
+              className="border-warning/30 text-warning hover:bg-warning/10"
             >
               {purging[recipe.slug] ? 'Wiping cached data...' : 'Wipe cached data'}
-            </button>
+            </Button>
           </div>
-        )}
-      </div>
+        </Card>
+      )}
     </div>
   )
 }
@@ -969,57 +1144,49 @@ function ForkRecipeModal({ slug, onClose, onDone }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn px-4"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="fork-title"
-        onClick={(e) => e.stopPropagation()}
-        className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim"
-      >
-        <h3 id="fork-title" className="text-lg font-bold text-text font-display m-0">Create a copy</h3>
-        <p className="text-sm text-text-dim mt-2 mb-3 leading-relaxed">
-          The copy lives in <span className="font-mono text-text-muted">~/.config/gospark/registry/local/</span> and is never
-          overwritten by a sync. Everything else — compose file, ports, settings — comes with it.
-        </p>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-3 border-border bg-card p-5 shadow-none sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base font-semibold tracking-tight">
+            Create a copy
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            The copy lives in <span className="font-mono text-foreground">~/.config/gospark/registry/local/</span> and is never
+            overwritten by a sync. Everything else — compose file, ports, settings — comes with it.
+          </DialogDescription>
+        </DialogHeader>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold font-label text-text-dim uppercase tracking-wide">New slug</span>
-          <input
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor="fork-slug"
+            className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+          >
+            New slug
+          </Label>
+          <Input
+            id="fork-slug"
             ref={inputRef}
             value={value}
             onChange={(e) => { setValue(e.target.value); setError('') }}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             spellCheck={false}
-            className="w-full px-3.5 py-2.5 bg-surface-low rounded-xl text-text text-sm font-mono outline-none border border-outline-dim focus:border-primary/60"
+            className="h-9 font-mono text-xs"
           />
-          <span className={`text-[11px] ${valid ? 'text-text-dim' : 'text-warning'}`}>
+          <span className={`text-[11px] ${valid ? 'text-muted-foreground' : 'text-warning'}`}>
             Lowercase letters, digits and dashes, 2–63 characters.
           </span>
-        </label>
-
-        {error && <p className="text-xs text-error mt-3 mb-0 leading-relaxed">{error}</p>}
-
-        <div className="flex justify-end gap-3 mt-5">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!valid || busy}
-            className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
-          >
-            {busy ? 'Copying…' : 'Create copy'}
-          </button>
         </div>
-      </div>
-    </div>
+
+        {error && <p className="m-0 text-xs leading-relaxed text-destructive">{error}</p>}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={!valid || busy}>
+            {busy ? 'Copying…' : 'Create copy'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1103,58 +1270,61 @@ function ComposeEditor({ slug, local }) {
   const canReset = original !== defaultContent || content !== defaultContent
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
-      <div className="shrink-0 px-5 py-4 border-b border-outline-dim bg-surface-low/60">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex-1 basis-64">
-            <h2 className="text-sm font-bold text-text font-display m-0">Compose Configuration</h2>
-            <p className="text-sm text-text-dim mt-1 mb-0 leading-relaxed">Edit the live `docker-compose.yml` for this recipe. Save keeps your custom version; restore brings back the default file from the registry.</p>
-            {!local && (
-              <p className="text-[11px] text-warning mt-1.5 mb-0 leading-relaxed">
-                This recipe comes from a registry source: the next sync replaces these edits. Use “Create copy” to keep a version of your own.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
+    <Card className="gap-0 p-5 shadow-none">
+      <SectionTitle
+        right={
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
               disabled={!canReset || resetting || loading}
               onClick={resetToDefault}
-              className="px-4 py-2 bg-warning/10 text-warning border-none rounded-xl text-sm font-semibold cursor-pointer transition-all hover:bg-warning/15 disabled:opacity-40 disabled:cursor-default"
             >
               {resetting ? 'Restoring...' : 'Restore Default'}
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               disabled={!dirty || saving || loading}
               onClick={save}
-              className="px-4 py-2 bg-primary text-white border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-default"
             >
               {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+        }
+      >
+        Compose Configuration
+      </SectionTitle>
 
-      <div className="flex-1 min-h-0 p-5 flex flex-col">
+      <p className="m-0 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+        Edit the live `docker-compose.yml` for this recipe. Save keeps your custom version; restore brings back the default file from the registry.
+      </p>
+      {!local && (
+        <p className="m-0 mt-2 max-w-2xl text-[11px] leading-relaxed text-warning">
+          This recipe comes from a registry source: the next sync replaces these edits. Use “Create copy” to keep a version of your own.
+        </p>
+      )}
+
+      <div className="mt-4">
         {loading ? (
-          <div className="h-full rounded-2xl bg-[#08080F] border border-outline-dim flex items-center justify-center text-sm text-text-dim">
+          <div className="flex h-[420px] items-center justify-center rounded-lg border border-border bg-[#08080F] text-sm text-muted-foreground">
             Loading docker-compose.yml...
           </div>
         ) : (
           <YamlEditor
             value={content}
             onChange={setContent}
-            className="flex-1 min-h-0 w-full overflow-hidden bg-[#08080F] rounded-2xl border border-outline-dim focus-within:border-primary/50"
+            className="h-[420px] w-full overflow-hidden rounded-lg border border-border bg-[#08080F] focus-within:border-primary/50"
           />
         )}
-
-        <div className="flex flex-wrap items-center gap-3 mt-3 text-xs min-h-[20px]">
-          {saved && <span className="text-success font-label">Saved. Relaunch or reinstall to apply.</span>}
-          {dirty && !saved && <span className="text-warning font-label">Unsaved changes</span>}
-          {!dirty && canReset && !saved && <span className="text-text-dim font-label">Using a customized compose file.</span>}
-          {error && <span className="text-error font-label">{error}</span>}
-        </div>
       </div>
-    </div>
+
+      <div className="mt-2 flex min-h-[20px] flex-wrap items-center gap-3 text-xs">
+        {saved && <span className="text-success">Saved. Relaunch or reinstall to apply.</span>}
+        {dirty && !saved && <span className="text-warning">Unsaved changes</span>}
+        {!dirty && canReset && !saved && <span className="text-muted-foreground">Using a customized compose file.</span>}
+        {error && <span className="text-destructive">{error}</span>}
+      </div>
+    </Card>
   )
 }
 
@@ -1189,25 +1359,21 @@ const MEDIA_LABELS = {
 
 function CapabilityField({ capabilities }) {
   return (
-    <div>
-      <span className="text-[10px] text-text-dim font-label block">Capabilities</span>
-      <div className="flex flex-wrap gap-1.5 mt-1">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Capabilities</span>
+      <div className="flex flex-wrap gap-1.5">
         {capabilities.map((c) => (
-          <span key={c} className="bg-surface-high/70 text-text-muted px-2.5 py-1 rounded-full text-[11px] font-label">
+          <Badge key={c} variant="secondary" className="text-[11px] font-normal">
             {CAPABILITY_LABELS[c] || c}
-          </span>
+          </Badge>
         ))}
       </div>
-      <p className="text-[10px] text-text-dim leading-4 m-0 mt-1.5">
+      <p className="m-0 text-[10px] leading-4 text-muted-foreground">
         Reported to coding agents and other clients on <code className="font-mono">/v1/models</code>.
       </p>
     </div>
   )
 }
-
-// The copy row lives in components/CopyField, shared with the Running card and
-// the llama-swap page.
-const Field = CopyField
 
 function CodeBlock({ label, value }) {
   const [copied, setCopied] = useState(false)
@@ -1221,19 +1387,22 @@ function CodeBlock({ label, value }) {
     }
   }
   return (
-    <div className="pt-2">
-      <span className="text-[10px] text-text-dim font-label block mb-1">{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
       <div className="relative">
-        <pre className="bg-surface rounded-xl p-3 pr-10 text-[11px] text-text-muted font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed border border-outline-dim">
+        <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted p-3 pr-12 font-mono text-[11px] leading-relaxed text-foreground">
           {value}
         </pre>
-        <button onClick={copy} className="absolute top-2 right-2 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
-          {copied ? (
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          ) : (
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          )}
-        </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={copy}
+          title="Copy"
+          className="absolute top-2 right-2 bg-background"
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        </Button>
       </div>
     </div>
   )
@@ -1258,41 +1427,46 @@ function BenchmarkBlock({ value, secret }) {
     }
   }
   return (
-    <div className="pt-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-text-dim font-label">benchmark inference speed</span>
+    <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">benchmark inference speed</span>
         {carries && (
-          <button
+          <Button
+            variant="ghost"
+            size="xs"
             onClick={() => setShown(!shown)}
-            className="text-[10px] font-label bg-transparent border-none cursor-pointer text-text-dim hover:text-primary transition-colors p-0"
             title={shown ? 'Hide your API key' : 'Reveal your API key'}
+            className="text-muted-foreground hover:text-foreground"
           >
             {shown ? 'Hide' : 'Show'} key
-          </button>
+          </Button>
         )}
       </div>
-      <div className="relative bg-surface rounded-xl border border-outline-dim overflow-hidden">
-        <div className="px-3 py-2 border-b border-outline-dim bg-surface-high/40">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-label">
-            <span className="text-text-dim uppercase tracking-wider">prompts:</span>
-            <span className="text-text-muted"><span className="text-primary">code</span> · quicksort</span>
-            <span className="text-outline-dim">|</span>
-            <span className="text-text-muted"><span className="text-primary">explainer</span> · TCP vs UDP</span>
-            <span className="text-outline-dim">|</span>
-            <span className="text-text-muted"><span className="text-primary">prose</span> · Kyoto travel</span>
+      <div className="relative overflow-hidden rounded-lg border border-border">
+        <div className="border-b border-border bg-muted px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10px]">
+            <span className="uppercase tracking-[0.12em] text-muted-foreground">prompts:</span>
+            <span className="text-foreground"><span className="text-primary">code</span> · quicksort</span>
+            <span className="text-border">|</span>
+            <span className="text-foreground"><span className="text-primary">explainer</span> · TCP vs UDP</span>
+            <span className="text-border">|</span>
+            <span className="text-foreground"><span className="text-primary">prose</span> · Kyoto travel</span>
           </div>
-          <div className="text-[10px] text-text-dim font-label mt-1">512 tok · temp=0 · warmup discarded</div>
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground">512 tok · temp=0 · warmup discarded</div>
         </div>
-        <pre className="p-3 pr-10 text-[11px] text-text-muted font-mono overflow-x-auto whitespace-pre-wrap break-all m-0 leading-relaxed">
+        <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all p-3 pr-12 font-mono text-[11px] leading-relaxed text-foreground">
           {display}
         </pre>
-        <button onClick={copy} className="absolute top-2 right-2 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
-          {copied ? (
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          ) : (
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          )}
-        </button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={copy}
+          title="Copy"
+          className="absolute top-11 right-2 bg-background"
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        </Button>
       </div>
     </div>
   )
@@ -1323,22 +1497,22 @@ function TerminalPanel({ lines, isBuilding, isUpdating, isRunning, isReady, hasL
   const showEmpty = !isBuilding && !isRunning && !hasLogs
 
   return (
-    <div className={`h-full flex flex-col bg-[#08080F] ${wide ? 'w-full' : ''}`}>
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0C0C14] shrink-0 border-b border-[#1a1a2a]">
+    <div className={`log-terminal flex h-full flex-col overflow-hidden ${wide ? 'w-full' : ''}`}>
+      <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-[#0C0C14] px-4 py-2.5">
         <div className="flex items-center gap-3">
           <div className="flex gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]/70" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]/70" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/70" />
           </div>
-          <span className="text-[10px] text-gray-500 font-mono">
+          <span className="font-mono text-[10px] text-muted-foreground">
             {isUpdating ? 'update' : isBuilding ? 'build' : 'container'} - logs
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {isBuilding && <span className="text-[10px] text-primary animate-pulse font-mono">{isUpdating ? '● updating' : '● building'}</span>}
-          {!isBuilding && isRunning && isReady && <span className="text-[10px] text-emerald-400 font-mono">● running</span>}
-          {!isBuilding && isRunning && !isReady && <span className="text-[10px] text-amber-400 animate-pulse font-mono">● starting</span>}
+          {isBuilding && <span className="animate-pulse font-mono text-[10px] text-primary">{isUpdating ? '● updating' : '● building'}</span>}
+          {!isBuilding && isRunning && isReady && <span className="font-mono text-[10px] text-success">● running</span>}
+          {!isBuilding && isRunning && !isReady && <span className="animate-pulse font-mono text-[10px] text-warning">● starting</span>}
         </div>
       </div>
 
@@ -1348,24 +1522,24 @@ function TerminalPanel({ lines, isBuilding, isUpdating, isRunning, isReady, hasL
         className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-5 selection:bg-primary/30"
       >
         {showEmpty && (
-          <div className="text-gray-600 italic">No logs. Launch the app to see output here.</div>
+          <div className="italic text-muted-foreground/70">No logs. Launch the app to see output here.</div>
         )}
         {lines.map((l, i) => (
           <div
             key={i}
             className={
               l.includes('[error]') || l.includes('Error') || l.includes('FATAL') || l.includes('Traceback')
-                ? 'text-red-400 whitespace-pre-wrap [tab-size:2]'
+                ? 'whitespace-pre-wrap text-destructive [tab-size:2]'
                 : l.includes('successfully') || l.includes('Started') || l.includes('Running on')
-                ? 'text-emerald-400 whitespace-pre-wrap [tab-size:2]'
-                : 'text-gray-400 whitespace-pre-wrap [tab-size:2]'
+                ? 'whitespace-pre-wrap text-success [tab-size:2]'
+                : 'whitespace-pre-wrap text-muted-foreground [tab-size:2]'
             }
           >
             {l}
           </div>
         ))}
         {(isBuilding || (isRunning && !isReady)) && lines.length > 0 && (
-          <span className="text-primary animate-pulse">▋</span>
+          <span className="animate-pulse text-primary">▋</span>
         )}
       </div>
     </div>

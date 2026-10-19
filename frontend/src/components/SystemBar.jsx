@@ -1,5 +1,10 @@
 import { useStore } from '../store'
+import { cn } from 'cn'
+import { Progress } from '@/components/ui/progress'
 
+/* The header's live figures: what the chip is, how much of its memory is held,
+ * what the GPU is doing and how hot it is. Compact enough to sit between the
+ * tray and the account menu, and it never wraps. */
 export default function SystemBar() {
   const metrics = useStore((s) => s.metrics)
 
@@ -8,31 +13,34 @@ export default function SystemBar() {
   const ramPct = ramTotal > 0 ? (ramUsed / ramTotal) * 100 : 0
 
   return (
-    <div className="flex items-center gap-3 text-xs text-text-dim">
+    <div className="flex items-center gap-3 text-xs text-muted-foreground">
       <div className="flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-        <span className="text-text-muted hidden xl:inline">{metrics?.gpu_name || 'GB10'}</span>
+        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="hidden text-muted-foreground xl:inline">{metrics?.gpu_name || 'GB10'}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="hidden lg:inline">RAM</span>
-        <div className="w-16 h-1.5 bg-outline-dim rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${ramPct}%`,
-              background: ramPct > 80 ? 'var(--error)' : 'var(--primary)',
-            }}
-          />
-        </div>
-        <span className="hidden lg:inline">{ramUsed}/{ramTotal}GB</span>
+        <Progress
+          value={ramPct}
+          className={cn(
+            'h-1.5 w-16',
+            ramPct > 80 && '[&>[data-slot=progress-indicator]]:bg-error',
+          )}
+        />
+        <span className="hidden font-mono tabular-nums lg:inline">{ramUsed}/{ramTotal}GB</span>
       </div>
       <div className="flex items-center gap-1">
         <span className="hidden lg:inline">GPU</span>
-        <span className="text-primary font-medium">{metrics?.gpu_utilization ?? 0}%</span>
+        <span className="font-mono font-medium tabular-nums text-primary">{metrics?.gpu_utilization ?? 0}%</span>
       </div>
       {metrics?.gpu_temperature > 0 && (
-        <div className="hidden xl:flex items-center gap-1">
-          <span className={metrics.gpu_temperature > 80 ? 'text-error' : 'text-primary'}>
+        <div className="hidden items-center gap-1 xl:flex">
+          <span
+            className={cn(
+              'font-mono tabular-nums',
+              metrics.gpu_temperature > 80 ? 'text-error' : 'text-primary',
+            )}
+          >
             {metrics.gpu_temperature}°C
           </span>
         </div>

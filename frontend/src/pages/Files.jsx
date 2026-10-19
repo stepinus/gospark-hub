@@ -1,6 +1,53 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  FolderOpen,
+  Info,
+  Link2,
+  MoreHorizontal,
+  Music,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { copyText } from '../lib/clipboard'
 import { size } from '../lib/size'
+import { PageHeader, EmptyState } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const MeshView = lazy(() => import('../components/MeshView'))
 
@@ -25,6 +72,9 @@ const FILTERS = [
 
 const KIND_LABEL = { image: 'Image', video: 'Video', mesh: '3D model', audio: 'Song' }
 
+const headCell =
+  'h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground'
+
 export default function Files() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -35,6 +85,7 @@ export default function Files() {
   const [dragging, setDragging] = useState(false)
   const [viewing, setViewing] = useState(null)  // the file name open in the viewer
   const [details, setDetails] = useState(false)  // the viewer's details panel, kept while on the page
+  const [deleting, setDeleting] = useState(null)  // the names waiting on the delete dialog
   const picker = useRef(null)
 
   const load = useCallback(async () => {
@@ -101,13 +152,20 @@ export default function Files() {
   }, [upload])
 
   const remove = async (names) => {
-    const what = names.length === 1 ? 'this file' : `${names.length} files`
-    if (!window.confirm(`Delete ${what}?\n\nLinks to it stop working. This cannot be undone.`)) return
     for (const name of names) {
       await fetch(`/api/media/${name}`, { method: 'DELETE' })
     }
     setSelected(new Set())
     load()
+  }
+
+  // Deleting always asks first, in the AlertDialog below.
+  const askRemove = (names) => setDeleting(names)
+  const confirmRemove = async () => {
+    if (!deleting) return
+    const names = deleting
+    setDeleting(null)
+    await remove(names)
   }
 
   const toggle = (name) => setSelected((s) => {
@@ -116,8 +174,34 @@ export default function Files() {
     return next
   })
 
-  if (error) return <div className="px-6 py-20 text-center text-text-dim text-sm">{error}</div>
-  if (!data) return <div className="px-6 py-20 text-center text-text-dim text-sm">Loading files…</div>
+  if (error) {
+    return (
+      <div className="page">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="m-0 text-sm leading-relaxed text-destructive">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="page flex flex-col gap-3">
+        <p className="m-0 text-sm text-muted-foreground">Loading files…</p>
+        <Card className="gap-0 p-0 shadow-none">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 border-b border-border px-3 py-3 last:border-0">
+              <Skeleton className="size-4 rounded-[4px]" />
+              <Skeleton className="size-12 shrink-0" />
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="ml-auto h-5 w-16" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+          ))}
+        </Card>
+      </div>
+    )
+  }
 
   const test = FILTERS.find((f) => f.id === filter).test
   const shown = data.files.filter(test)
@@ -125,97 +209,164 @@ export default function Files() {
   const allShown = shown.length > 0 && shown.every((f) => selected.has(f.name))
   const viewable = shown.filter((f) => f.kind !== 'audio')
   const viewIndex = viewable.findIndex((f) => f.name === viewing)
+  const deleteWhat = deleting ? (deleting.length === 1 ? 'this file' : `${deleting.length} files`) : ''
 
   return (
     <div
-      className="px-6 py-6 pb-12 animate-fadeIn flex flex-col gap-4"
+      className="page flex flex-col gap-6"
       onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false) }}
       onDrop={(e) => { e.preventDefault(); setDragging(false); upload([...e.dataTransfer.files]) }}
     >
-      <div className="flex items-end justify-between gap-3 flex-wrap mb-1">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight font-display m-0">My files</h1>
-          <p className="text-sm text-text-dim m-0 mt-1">
-            Images, videos, 3D models and songs you made with the Hub, and files you uploaded for it. Only you can
-            open them. Upload a file to get a link you can give the image and video tools. Everything here
-            stays until you delete it.
-          </p>
-        </div>
-        <input
-          ref={picker}
-          type="file"
-          multiple
-          accept="image/*,video/mp4,video/quicktime,audio/*"
-          className="hidden"
-          onChange={(e) => { upload([...e.target.files]); e.target.value = '' }}
-        />
-      </div>
+      <PageHeader
+        title="My files"
+        description="Images, videos, 3D models and songs you made with the Hub, and files you uploaded for it. Only you can open them. Upload a file to get a link you can give the image and video tools. Everything here stays until you delete it."
+        actions={
+          <>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              accept="image/*,video/mp4,video/quicktime,audio/*"
+              className="hidden"
+              onChange={(e) => { upload([...e.target.files]); e.target.value = '' }}
+            />
+            <Button onClick={() => picker.current?.click()}>
+              <Upload />
+              Upload files
+            </Button>
+          </>
+        }
+      />
 
       {failures.map((msg) => (
-        <div key={msg} className="text-xs text-error bg-error-surface rounded-xl px-3 py-2.5">{msg}</div>
+        <div key={msg} className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="m-0 text-xs leading-relaxed text-destructive">{msg}</p>
+        </div>
       ))}
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 ${
-              filter === f.id
-                ? 'border-primary bg-primary text-primary-on shadow-md shadow-primary/15'
-                : 'border-outline bg-transparent text-text-muted hover:border-text-dim hover:text-text'
-            }`}
-          >
-            {f.label} <span className="opacity-70">{data.files.filter(f.test).length}</span>
-          </button>
-        ))}
+      {/* toolbar: the kind filters and, on the right, the bulk selection toggle */}
+      <div className="flex flex-wrap items-center gap-3">
+        <ToggleGroup
+          type="single"
+          value={filter}
+          onValueChange={(next) => { if (next) setFilter(next) }}
+          variant="outline"
+          size="sm"
+          className="max-w-full overflow-x-auto"
+        >
+          {FILTERS.map((f) => (
+            <ToggleGroupItem
+              key={f.id}
+              value={f.id}
+              className="shrink-0 whitespace-nowrap data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+            >
+              {f.label}
+              <span className="ml-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                {data.files.filter(f.test).length}
+              </span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
         {shown.length > 1 && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-muted-foreground hover:text-foreground"
             onClick={() => setSelected(allShown
               ? new Set([...selected].filter((name) => !shown.some((f) => f.name === name)))
               : new Set([...selected, ...shown.map((f) => f.name)]))}
-            className={`${btnQuiet} ml-auto self-center`}
           >
             {allShown ? 'Deselect all' : `Select all ${shown.length}`}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Songs cannot be uploaded, so the Music filter gets no upload tile. */}
-      {shown.length === 0 && filter === 'audio' ? (
-        <div className="text-center py-14 text-text-dim">
-          <div className="text-4xl mb-3">🗂️</div>
-          <div className="text-base font-semibold font-display">Nothing here yet</div>
-          <div className="text-sm mt-1">Songs you make with the Hub&apos;s music tool show up here.</div>
-        </div>
-      ) : (
-        <FileGrid
-          files={shown}
-          selected={selected}
-          onToggle={toggle}
-          onDelete={remove}
-          onOpen={setViewing}
-          lead={filter !== 'audio' && (
-            <UploadTile dragging={dragging} sending={sending} onPick={() => picker.current?.click()} />
-          )}
-        />
+      {filter !== 'audio' && (
+        <UploadTile dragging={dragging} sending={sending} onPick={() => picker.current?.click()} />
       )}
-      {shown.length === 0 && filter !== 'audio' && (
-        <p className="text-sm text-text-dim m-0">
-          {filter === 'upload'
+
+      {shown.length === 0 && filter === 'audio' ? (
+        <EmptyState
+          icon={<Music className="h-6 w-6" />}
+          title="Nothing here yet"
+          description="Songs you make with the Hub's music tool show up here."
+        />
+      ) : shown.length === 0 ? (
+        <EmptyState
+          icon={<FolderOpen className="h-6 w-6" />}
+          description={filter === 'upload'
             ? 'No uploads yet.'
             : 'Nothing here yet. What you make with the Hub’s image, video and music tools shows up here too.'}
-        </p>
+        />
+      ) : (
+        <>
+          <Card className="hidden gap-0 overflow-hidden p-0 shadow-none md:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={`w-9 pl-3 pr-0 ${headCell}`}>
+                    <span className="sr-only">Select</span>
+                  </TableHead>
+                  <TableHead className={`w-14 pl-1 ${headCell}`}>
+                    <span className="sr-only">Preview</span>
+                  </TableHead>
+                  <TableHead className={headCell}>File</TableHead>
+                  <TableHead className={`hidden sm:table-cell ${headCell}`}>Kind</TableHead>
+                  <TableHead className={`text-right ${headCell}`}>Size</TableHead>
+                  <TableHead className={`hidden lg:table-cell ${headCell}`}>Made</TableHead>
+                  <TableHead className={`hidden xl:table-cell ${headCell}`}>Details</TableHead>
+                  <TableHead className={`pr-3 text-right ${headCell}`}>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {shown.map((f) => (
+                  <FileRow
+                    key={f.name}
+                    file={f}
+                    picked={selected.has(f.name)}
+                    selecting={selected.size > 0}
+                    onToggle={toggle}
+                    onDelete={askRemove}
+                    onOpen={setViewing}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          <div className="grid gap-3 md:hidden">
+            {shown.map((f) => (
+              <FileCard
+                key={f.name}
+                file={f}
+                picked={selected.has(f.name)}
+                selecting={selected.size > 0}
+                onToggle={toggle}
+                onDelete={askRemove}
+                onOpen={setViewing}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {chosen.length > 0 && (
-        <div className="sticky bottom-4 self-center flex items-center gap-3 bg-surface-high border border-outline-dim rounded-2xl px-4 py-2.5 shadow-xl">
-          <span className="text-sm font-label">
+        <div className="sticky bottom-4 z-10 mx-auto flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2 shadow-none">
+          <span className="font-mono text-xs tabular-nums text-foreground">
             {chosen.length} selected · {size(chosen.reduce((sum, f) => sum + f.bytes, 0))}
           </span>
-          <button onClick={() => setSelected(new Set())} className={btnQuiet}>Clear</button>
-          <button onClick={() => remove(chosen.map((f) => f.name))} className={btnReject}>Delete selected</button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear</Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => askRemove(chosen.map((f) => f.name))}
+          >
+            Delete selected
+          </Button>
         </div>
       )}
 
@@ -229,37 +380,137 @@ export default function Files() {
           onDetails={setDetails}
         />
       )}
+
+      {deleting && (
+        <AlertDialog open onOpenChange={(open) => { if (!open) setDeleting(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{`Delete ${deleteWhat}?`}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Links to it stop working. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleting(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={confirmRemove}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }
 
-function FileGrid({ files, selected, onToggle, onDelete, onOpen, lead }) {
-  const selecting = selected.size > 0
+/* ── one file, as a table row (desktop) ──────────────────────────────────── */
+
+function FileRow({ file, picked, selecting, onToggle, onDelete, onOpen }) {
+  const { copied, copy } = useCopyLink(file)
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
-      {lead}
-      {files.map((f) => (
-        <FileCard
-          key={f.name}
-          file={f}
-          picked={selected.has(f.name)}
-          selecting={selecting}
-          onToggle={onToggle}
-          onDelete={onDelete}
-          onOpen={onOpen}
+    <TableRow className={picked ? 'bg-muted/50' : undefined}>
+      <TableCell className="pl-3 pr-0">
+        <Checkbox
+          checked={picked}
+          onCheckedChange={() => onToggle(file.name)}
+          title={picked ? 'Unselect' : 'Select'}
         />
-      ))}
-    </div>
+      </TableCell>
+      <TableCell className="pl-1">
+        <Preview file={file} selecting={selecting} onToggle={onToggle} onOpen={onOpen} compact />
+      </TableCell>
+      <TableCell className="whitespace-normal">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="truncate font-mono text-xs text-foreground" title={file.name}>{file.name}</span>
+          {file.model && (
+            <span className="truncate text-[11px] text-muted-foreground" title={file.model}>{file.model}</span>
+          )}
+          {file.kind === 'audio' && (
+            <audio controls preload="none" src={file.path} className="h-8 w-56 max-w-full" />
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="text-[10px] uppercase tracking-[0.12em]">
+            {KIND_LABEL[file.kind]}
+          </Badge>
+          {file.upload && (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">upload</Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums text-foreground">
+        {size(file.bytes)}
+      </TableCell>
+      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+        {when(file.created)}
+      </TableCell>
+      <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
+        {[shapeOf(file), file.seconds != null ? `Took ${took(file.seconds)}` : null].filter(Boolean).join(' · ')}
+      </TableCell>
+      <TableCell className="pr-3 text-right">
+        <FileActions
+          file={file}
+          copied={copied}
+          onCopy={copy}
+          onDelete={() => onDelete([file.name])}
+        />
+      </TableCell>
+    </TableRow>
   )
 }
 
-/* Hover shows a card's checkbox and actions; a touch screen, which cannot
- * hover, always shows them. Once anything is selected every checkbox shows and
- * a click on a thumbnail selects instead of opening, so picking many is quick.
- * The footer always toggles the checkbox. */
-const onHover = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity'
+/* ── the same file as a card, for phones ─────────────────────────────────── */
 
 function FileCard({ file, picked, selecting, onToggle, onDelete, onOpen }) {
+  const { copied, copy } = useCopyLink(file)
+  return (
+    <Card className={`gap-0 p-0 shadow-none ${picked ? 'ring-primary/40' : ''}`}>
+      <Preview file={file} selecting={selecting} onToggle={onToggle} onOpen={onOpen} />
+      <div className="flex items-start gap-2 p-3">
+        <Checkbox
+          checked={picked}
+          onCheckedChange={() => onToggle(file.name)}
+          title={picked ? 'Unselect' : 'Select'}
+          className="mt-0.5"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate font-mono text-xs text-foreground" title={file.name}>{file.name}</span>
+          {file.model && (
+            <span className="truncate text-[11px] text-muted-foreground" title={file.model}>{file.model}</span>
+          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="text-[10px] uppercase tracking-[0.12em]">
+              {KIND_LABEL[file.kind]}
+            </Badge>
+            {file.upload && (
+              <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">upload</Badge>
+            )}
+            <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+              {size(file.bytes)}
+            </span>
+          </div>
+          <div className="text-[11px] text-muted-foreground">{when(file.created)}</div>
+          {shapeOf(file) && (
+            <div className="truncate text-[11px] text-muted-foreground">{shapeOf(file)}</div>
+          )}
+          {file.seconds != null && (
+            <div className="truncate text-[11px] text-muted-foreground">Took {took(file.seconds)}</div>
+          )}
+        </div>
+        <FileActions
+          file={file}
+          copied={copied}
+          onCopy={copy}
+          onDelete={() => onDelete([file.name])}
+        />
+      </div>
+    </Card>
+  )
+}
+
+/* Copy the absolute link, then tick the icon for a moment. Shared by the row
+ * and the card so both speak the same "Copy link" / "Link copied". */
+function useCopyLink(file) {
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     if (await copyText(window.location.origin + file.path)) {
@@ -267,80 +518,64 @@ function FileCard({ file, picked, selecting, onToggle, onDelete, onOpen }) {
       setTimeout(() => setCopied(false), 1500)
     }
   }
+  return { copied, copy }
+}
 
+/* The quick action is the one people came for (download); everything else
+ * lives in the menu beside it. */
+function FileActions({ file, copied, onCopy, onDelete }) {
   return (
-    <div className={`group relative bg-surface rounded-2xl overflow-hidden flex flex-col card-hover ${picked ? 'outline-2 outline-primary' : ''}`}>
-      <Preview file={file} selecting={selecting} onToggle={onToggle} onOpen={onOpen} />
-      <input
-        type="checkbox"
-        checked={picked}
-        onChange={() => onToggle(file.name)}
-        title="Select"
-        className={`absolute top-2.5 left-2.5 w-4 h-4 cursor-pointer accent-[var(--primary)] ${picked || selecting ? '' : onHover}`}
-      />
-      <div className={`absolute top-2 right-2 flex gap-1 ${selecting ? 'hidden' : onHover}`}>
-        {file.kind !== 'audio' && (
-          <a href={file.path} target="_blank" rel="noopener noreferrer" title="Open in a new tab" className={iconBtn}>
-            <NewTabIcon />
-          </a>
-        )}
-        <a href={file.path} download={file.name} title="Download" className={iconBtn}>
-          <DownloadIcon />
+    <div className="flex shrink-0 items-center justify-end gap-1">
+      <Button variant="ghost" size="icon-sm" asChild title="Download">
+        <a href={file.path} download={file.name}>
+          <Download />
         </a>
-        <button onClick={copy} title={copied ? 'Link copied' : 'Copy link'} className={iconBtn}>
-          {copied ? <CheckIcon /> : <LinkIcon />}
-        </button>
-        <button onClick={() => onDelete([file.name])} title="Delete" className={`${iconBtn} hover:!bg-error hover:!text-white`}>
-          <TrashIcon />
-        </button>
-      </div>
-      <div
-        onClick={() => onToggle(file.name)}
-        title={picked ? 'Unselect' : 'Select'}
-        className="px-3.5 pt-3 pb-3.5 flex flex-col gap-0.5 flex-1 cursor-pointer select-none"
-      >
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold font-display">{KIND_LABEL[file.kind]}</span>
-          {file.upload && (
-            <span className="text-[10px] font-label font-medium text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">upload</span>
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Actions">
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-44">
+          {file.kind !== 'audio' && (
+            <DropdownMenuItem asChild>
+              <a href={file.path} target="_blank" rel="noopener noreferrer">
+                <ExternalLink /> Open in a new tab
+              </a>
+            </DropdownMenuItem>
           )}
-          <span className="text-xs text-text-dim font-label ml-auto">{size(file.bytes)}</span>
-        </div>
-        {file.model && (
-          <div className="text-xs text-text-muted truncate" title={file.model}>{file.model}</div>
-        )}
-        <div className="text-xs text-text-dim">{when(file.created)}</div>
-        {shapeOf(file) && (
-          <div className="text-sm font-semibold font-label text-text whitespace-nowrap truncate">{shapeOf(file)}</div>
-        )}
-        {file.seconds != null && <div className="text-xs text-text-dim whitespace-nowrap truncate">Took {took(file.seconds)}</div>}
-      </div>
+          <DropdownMenuItem onClick={onCopy}>
+            {copied ? <Check /> : <Link2 />} {copied ? 'Link copied' : 'Copy link'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2 /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
 
-/* The first tile of the grid: where a new upload lands, newest first. A file
- * can be dropped anywhere on the page or pasted; the tile lights up while one
- * is dragged over. */
+/* A file can be dropped anywhere on the page or pasted; this panel is where a
+ * new upload lands and it lights up while one is dragged over. */
 function UploadTile({ dragging, sending, onPick }) {
   return (
     <button
       onClick={onPick}
-      className={`min-h-[200px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 px-4 text-center cursor-pointer transition-colors ${
+      className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-5 text-center transition-colors ${
         dragging
-          ? 'border-primary bg-primary/5 text-text'
-          : 'border-outline-dim bg-transparent text-text-dim hover:border-outline hover:text-text-muted'
+          ? 'border-primary/40 bg-primary/5 text-foreground'
+          : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
       }`}
     >
-      <span className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-        dragging ? 'bg-primary text-primary-on' : 'bg-surface-high text-text'
+      <span className={`flex size-9 items-center justify-center rounded-md border transition-colors ${
+        dragging ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground'
       }`}>
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <Upload className="size-4" />
       </span>
-      <span className="text-sm font-semibold font-display text-text">
+      <span className="text-sm font-medium text-foreground">
         {sending ? (sending > 1 ? `Uploading ${sending} files…` : 'Uploading…') : 'Drop or paste an image or MP4'}
       </span>
       <span className="text-xs">{sending ? 'It shows up here when it is done' : 'or click to choose files'}</span>
@@ -348,16 +583,25 @@ function UploadTile({ dragging, sending, onPick }) {
   )
 }
 
-function Preview({ file, selecting, onToggle, onOpen }) {
+/* The still of a file: a 48px thumb in the table, a wide preview on a card.
+ * A plain click opens the viewer; Ctrl/Cmd/middle click still opens a new tab. */
+function Preview({ file, selecting, onToggle, onOpen, compact }) {
+  const box = compact ? 'size-12' : 'aspect-video w-full'
   if (file.kind === 'audio') {
+    if (compact) {
+      return (
+        <div className={`flex ${box} items-center justify-center rounded-md border border-border bg-muted`}>
+          <Music className="size-4 text-muted-foreground" />
+        </div>
+      )
+    }
     return (
-      <div className="aspect-square bg-surface-high flex flex-col items-center justify-center gap-4 px-4">
-        <div className="text-4xl">🎵</div>
+      <div className={`flex ${box} flex-col items-center justify-center gap-3 bg-muted px-4`}>
+        <Music className="size-5 text-muted-foreground" />
         <audio controls preload="none" src={file.path} className="w-full" />
       </div>
     )
   }
-  // A plain click opens the viewer; Ctrl/Cmd/middle click still opens a new tab.
   const pick = (e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) return
     e.preventDefault()
@@ -365,17 +609,17 @@ function Preview({ file, selecting, onToggle, onOpen }) {
   }
   return (
     <a href={file.path} target="_blank" rel="noopener noreferrer" onClick={pick}
-       className="relative block aspect-square overflow-hidden bg-surface-high">
+       className={`relative block ${box} overflow-hidden rounded-md border border-border bg-muted`}>
       {file.kind === 'video' ? (
-        <video src={`${file.path}#t=0.5`} preload="metadata" muted className="w-full h-full object-cover block" />
+        <video src={`${file.path}#t=0.5`} preload="metadata" muted className="size-full object-cover" />
       ) : (
         // A 3D model's is a still of the model once one is drawn (above), and
         // a fresh URL then, so the cached picture it was made from goes.
         <img src={`/api/media/${file.name}/thumb${file.rendered ? '?render' : ''}`} alt="" loading="lazy"
-             className="w-full h-full object-cover block" />
+             className="size-full object-cover" />
       )}
       {(file.orbit || file.kind === 'mesh') && (
-        <span className="absolute bottom-2 left-2 text-xs font-semibold font-label text-white bg-black/60 px-2 py-0.5 rounded-full">
+        <span className="absolute bottom-1 left-1 rounded-full bg-black/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">
           {file.orbit ? '360°' : '3D'}
         </span>
       )}
@@ -414,7 +658,7 @@ function Viewer({ files, index, onIndex, onClose, details, onDetails }) {
   const onMesh = useCallback((counts) => setMesh({ name: file.name, ...counts }), [file.name])
   const known = mesh?.name === file.name ? mesh : null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fadeIn" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
       {file.kind === 'image' ? (
         <img key={file.name} src={file.path} alt="" onClick={stop} className={fit} />
       ) : file.kind === 'mesh' ? (
@@ -428,35 +672,55 @@ function Viewer({ files, index, onIndex, onClose, details, onDetails }) {
                className={fit} />
       )}
 
-      <span className="absolute top-4 left-4 text-sm font-label text-white/80">{index + 1} / {files.length}</span>
-      <div className="absolute top-3 right-3 flex gap-2" onClick={stop}>
-        <button
+      <span className="absolute left-4 top-4 font-mono text-xs tabular-nums text-white/80">
+        {index + 1} / {files.length}
+      </span>
+      <div className="absolute right-3 top-3 flex gap-2" onClick={stop}>
+        <Button
+          variant="ghost"
+          size="icon-lg"
           onClick={() => onDetails(!details)}
           title={details ? 'Hide details' : 'Show details'}
-          className={`${bigIconBtn} ${details ? '!bg-white !text-black' : ''}`}
+          className={overlayBtn}
         >
-          <InfoIcon />
-        </button>
-        <a href={file.path} target="_blank" rel="noopener noreferrer" title="Open in a new tab" className={bigIconBtn}>
-          <NewTabIcon />
-        </a>
-        <button onClick={onClose} title="Close" className={bigIconBtn}><CloseIcon /></button>
+          <Info />
+        </Button>
+        <Button variant="ghost" size="icon-lg" asChild title="Open in a new tab" className={overlayBtn}>
+          <a href={file.path} target="_blank" rel="noopener noreferrer">
+            <ExternalLink />
+          </a>
+        </Button>
+        <Button variant="ghost" size="icon-lg" onClick={onClose} title="Close" className={overlayBtn}>
+          <X />
+        </Button>
       </div>
       {files.length > 1 && (
         <>
-          <button onClick={(e) => { stop(e); step(-1) }} title="Previous" className={`${bigIconBtn} absolute left-3 top-1/2 -translate-y-1/2`}>
-            <ArrowIcon flip />
-          </button>
-          <button onClick={(e) => { stop(e); step(1) }} title="Next" className={`${bigIconBtn} absolute right-3 top-1/2 -translate-y-1/2`}>
-            <ArrowIcon />
-          </button>
+          <Button
+            variant="ghost"
+            size="icon-lg"
+            onClick={(e) => { stop(e); step(-1) }}
+            title="Previous"
+            className={`${overlayBtn} absolute left-3 top-1/2 -translate-y-1/2`}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-lg"
+            onClick={(e) => { stop(e); step(1) }}
+            title="Next"
+            className={`${overlayBtn} absolute right-3 top-1/2 -translate-y-1/2`}
+          >
+            <ChevronRight />
+          </Button>
         </>
       )}
 
       {details && (
         <dl
           onClick={stop}
-          className="absolute bottom-4 left-4 m-0 max-w-[calc(100vw-2rem)] grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-white bg-black/75 backdrop-blur-sm rounded-xl px-4 py-3"
+          className="absolute bottom-4 left-4 m-0 grid max-w-[calc(100vw-2rem)] grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-white/15 bg-black/75 px-4 py-3 text-sm text-white backdrop-blur-sm"
         >
           <Detail label="Type" value={`${KIND_LABEL[file.kind]}${file.orbit ? ' · 360° orbit' : ''}${file.upload ? ' · upload' : ''}`} />
           {file.model && <Detail label="Model" value={file.model} />}
@@ -539,79 +803,14 @@ function Orbit({ file, className }) {
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={up}
-        className={`${className} cursor-grab active:cursor-grabbing touch-none select-none`}
+        className={`${className} cursor-grab touch-none select-none active:cursor-grabbing`}
       />
       {!turned && (
-        <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-sm font-semibold text-white bg-black/60 px-3 py-1.5 rounded-full">
+        <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white">
           Drag to turn it
         </span>
       )}
     </div>
-  )
-}
-
-function DownloadIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" />
-    </svg>
-  )
-}
-
-function InfoIcon() {
-  return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" />
-    </svg>
-  )
-}
-
-function NewTabIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 4h6v6" /><path d="M20 4 11 13" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <path d="M6 6l12 12" /><path d="M18 6 6 18" />
-    </svg>
-  )
-}
-
-function ArrowIcon({ flip }) {
-  return (
-    <svg className={`w-6 h-6 ${flip ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 5 7 7-7 7" />
-    </svg>
-  )
-}
-
-function LinkIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" />
-    </svg>
   )
 }
 
@@ -645,7 +844,6 @@ function when(seconds) {
   return new Date(seconds * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-const btnReject = 'px-3 py-1.5 rounded-lg bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50 transition-colors whitespace-nowrap'
-const iconBtn = 'w-8 h-8 rounded-lg flex items-center justify-center bg-black/55 text-white backdrop-blur-sm border-none cursor-pointer no-underline hover:bg-black/75 transition-colors'
-const bigIconBtn = 'w-11 h-11 rounded-full flex items-center justify-center bg-black/55 text-white backdrop-blur-sm border-none cursor-pointer no-underline hover:bg-black/80 transition-colors'
-const btnQuiet = 'px-3 py-1.5 rounded-lg bg-surface-high text-text border border-outline-dim text-xs font-semibold cursor-pointer hover:bg-surface-highest transition-colors whitespace-nowrap'
+// The viewer sits on a black scrim, so its controls are the one place the
+// neutral palette inverts: same Button, dark glass ground.
+const overlayBtn = 'border border-white/15 bg-black/60 text-white backdrop-blur-sm hover:bg-black/80 hover:text-white'

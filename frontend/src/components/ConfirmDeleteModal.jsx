@@ -1,4 +1,13 @@
-import { useEffect, useRef } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 /* Deleting a local recipe removes files, so it never happens on one click.
  *
@@ -13,69 +22,40 @@ import { useEffect, useRef } from 'react'
  * about a local recipe folder, which is the common case.
  */
 export default function ConfirmDeleteModal({ name, slug, busy, error, title, children, onCancel, onConfirm }) {
-  const cancelRef = useRef(null)
-
-  useEffect(() => {
-    cancelRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn px-4"
-      onClick={onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-delete-title"
-        aria-describedby="confirm-delete-text"
-        onClick={(e) => e.stopPropagation()}
-        className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim"
-      >
-        <h3 id="confirm-delete-title" className="text-lg font-bold text-text font-display m-0">
-          {title || `Delete recipe ${name || slug}?`}
-        </h3>
-        <p id="confirm-delete-text" className="text-sm text-text-dim mt-2 mb-0 leading-relaxed">
-          {children || (
-            <>
-              The files will be deleted from{' '}
-              {/* One path, broken after its slashes rather than mid-word. */}
-              <span className="font-mono text-text-muted break-words">
-                ~/.config/gospark/registry/<wbr />local/<wbr />{slug}
-              </span>
-              .
-            </>
-          )}
-        </p>
+    <AlertDialog open onOpenChange={(open) => { if (!open) onCancel() }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title || `Delete recipe ${name || slug}?`}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-sm leading-relaxed text-muted-foreground">
+              {children || (
+                <>
+                  The files will be deleted from{' '}
+                  {/* One path, broken after its slashes rather than mid-word. */}
+                  <span className="break-words font-mono text-xs text-foreground">
+                    ~/.config/gospark/registry/<wbr />local/<wbr />{slug}
+                  </span>
+                  .
+                </>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-        {error && <p className="text-xs text-error mt-3 mb-0 leading-relaxed">{error}</p>}
+        {error && <p className="m-0 text-xs leading-relaxed text-destructive">{error}</p>}
 
-        <div className="flex justify-end gap-3 mt-5">
-          <button
-            ref={cancelRef}
-            onClick={onCancel}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy} onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
             disabled={busy}
-            className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={busy}
-            className="px-5 py-2 bg-error text-white border-none rounded-xl text-sm font-bold cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-default"
+            onClick={(e) => { e.preventDefault(); onConfirm() }}
+            className="bg-destructive text-white hover:bg-destructive/90"
           >
             {busy ? 'Deleting…' : 'Delete'}
-          </button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

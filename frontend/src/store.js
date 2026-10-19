@@ -81,6 +81,7 @@ export const useStore = create((set, get) => ({
     const next = get().theme === 'dark' ? 'light' : 'dark'
     localStorage.setItem('spark-ai-hub-theme', next)
     document.documentElement.setAttribute('data-theme', next)
+    document.documentElement.classList.toggle('dark', next === 'dark')
     set({ theme: next })
   },
 

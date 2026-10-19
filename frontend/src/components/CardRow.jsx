@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 // A shelf of cards. By default it scrolls horizontally with arrow controls that
 // hide when there is nothing further to scroll to; with `wrap` it lays every
@@ -33,11 +36,11 @@ export default function CardRow({ title, subtitle, actions, wrap = false, childr
   const canScroll = !wrap && !(atStart && atEnd)
 
   return (
-    <section className="group/row">
-      <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-1 px-6">
+    <Card className="mx-6 gap-0 border-border bg-card p-0 shadow-none [--card-spacing:0px]">
+      <div className="flex flex-wrap items-end gap-x-3 gap-y-2 px-4 pb-3 pt-3.5">
         <div className="min-w-0">
-          <h2 className="m-0 font-display text-base font-bold tracking-tight text-text">{title}</h2>
-          {subtitle && <p className="m-0 mt-0.5 text-xs text-text-dim">{subtitle}</p>}
+          <h2 className="m-0 font-display text-sm font-semibold tracking-tight text-foreground">{title}</h2>
+          {subtitle && <p className="m-0 mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
         {canScroll && (
@@ -49,37 +52,32 @@ export default function CardRow({ title, subtitle, actions, wrap = false, childr
       </div>
 
       {wrap ? (
-        <div className="flex flex-wrap gap-3 px-6 pb-2">{children}</div>
+        <div className="flex flex-wrap gap-3 px-4 pb-4">{children}</div>
       ) : (
-        <div className="relative">
-          <div
-            ref={scroller}
-            onScroll={sync}
-            className="row-scroller flex gap-3 overflow-x-auto scroll-smooth px-6 pb-2"
-          >
-            {children}
-          </div>
-          {/* Edge fades hint that the shelf continues. */}
-          {!atStart && <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-bg to-transparent" />}
-          {!atEnd && <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-bg to-transparent" />}
+        <div
+          ref={scroller}
+          onScroll={sync}
+          className="row-scroller flex gap-3 overflow-x-auto scroll-smooth px-4 pb-4"
+        >
+          {children}
         </div>
       )}
-    </section>
+    </Card>
   )
 }
 
 function ArrowButton({ dir, disabled, onClick }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-sm"
       onClick={onClick}
       disabled={disabled}
       aria-label={dir === 'left' ? 'Scroll left' : 'Scroll right'}
-      className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-dim bg-surface-high text-text-muted transition-all hover:border-text-dim hover:text-text disabled:cursor-default disabled:opacity-25 disabled:hover:border-outline-dim disabled:hover:text-text-muted"
+      className="text-muted-foreground hover:text-foreground"
     >
-      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        {dir === 'left' ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
-      </svg>
-    </button>
+      {dir === 'left' ? <ChevronLeft /> : <ChevronRight />}
+    </Button>
   )
 }

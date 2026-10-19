@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useStore } from '../store'
 import RecipeCard from '../components/RecipeCard'
 import PosterCard from '../components/PosterCard'
@@ -7,6 +8,9 @@ import CardRow from '../components/CardRow'
 import { byLab, byRelease } from '../components/ModelShelves'
 import { isModel } from '../models'
 import Hero from '../components/Hero'
+import { EmptyState } from '@/components/page-shell'
+import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -84,42 +88,44 @@ export default function Catalog({ search = '' }) {
       {isBrowsing && heroPicks.length > 0 && <Hero picks={heroPicks} />}
 
       {/* ─── Category filters ─── */}
-      <div className={`flex gap-2 overflow-x-auto px-6 pb-2 ${isBrowsing ? 'pt-2' : 'pt-6'}`}>
-        {CATEGORIES.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setCategory(c.id)}
-            className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 ${
-              category === c.id
-                ? 'border-primary bg-primary text-primary-on shadow-md shadow-primary/15'
-                : 'border-outline bg-transparent text-text-muted hover:border-text-dim hover:text-text'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className={`flex overflow-x-auto px-6 pb-2 ${isBrowsing ? 'pt-2' : 'pt-6'}`}>
+        <ToggleGroup
+          type="single"
+          value={category}
+          onValueChange={(next) => { if (next) setCategory(next) }}
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+        >
+          {CATEGORIES.map((c) => (
+            <ToggleGroupItem key={c.id} value={c.id} className="whitespace-nowrap data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-primary">
+              {c.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
 
       {hidden.size > 0 && (
         <div className="px-6 pt-2">
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className="rounded-full border border-outline bg-transparent px-3 py-1.5 text-[11px] font-semibold text-text-muted transition-colors hover:border-text-dim hover:text-text cursor-pointer"
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowHidden(!showHidden)}>
             {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
-          </button>
+          </Button>
         </div>
       )}
 
       {agentHits > 0 && (
         <div className="px-6 pt-3">
-          <Link
-            to="/agents"
-            className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary no-underline transition-colors hover:bg-primary/15"
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="gap-2 border-primary/30 text-primary hover:text-primary"
           >
-            {agentHits} matching model{agentHits > 1 ? 's' : ''} for agents
-            <span aria-hidden>→</span>
-          </Link>
+            <Link to="/agents">
+              {agentHits} matching model{agentHits > 1 ? 's' : ''} for agents
+              <span aria-hidden>→</span>
+            </Link>
+          </Button>
         </div>
       )}
 
@@ -128,7 +134,7 @@ export default function Catalog({ search = '' }) {
       {!isBrowsing ? (
         <ResultsGrid recipes={filtered} search={search} />
       ) : (
-        <div className="space-y-9 pt-4">
+        <div className="space-y-6 pt-5">
           {shelves.spark.length > 0 && (
             <CardRow title="Spark-Optimized" subtitle="Built & tested for DGX Spark" wrap>
               {shelves.spark.map((r) => <PosterCard key={r.slug} recipe={r} />)}
@@ -152,11 +158,13 @@ function ResultsGrid({ recipes, search }) {
   const sorted = useMemo(() => [...recipes].sort(byLab), [recipes])
   if (sorted.length === 0) return <Empty />
   return (
-    <div className="px-6 pt-4">
-      <h2 className="m-0 mb-4 font-display text-base font-bold tracking-tight text-text">
-        {sorted.length} {sorted.length === 1 ? 'result' : 'results'}
-        {search && <span className="text-text-dim font-normal"> for “{search}”</span>}
-      </h2>
+    <div className="px-6 pt-6">
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <h2 className="m-0 font-display text-base font-semibold tracking-tight text-foreground">
+          {sorted.length} {sorted.length === 1 ? 'result' : 'results'}
+        </h2>
+        {search && <span className="text-sm text-muted-foreground">for “{search}”</span>}
+      </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
         {sorted.map((r) => <RecipeCard key={r.slug} recipe={r} />)}
       </div>
@@ -166,10 +174,12 @@ function ResultsGrid({ recipes, search }) {
 
 function Empty() {
   return (
-    <div className="animate-fadeIn py-20 text-center text-text-dim">
-      <div className="mb-3 text-4xl">🔍</div>
-      <div className="font-display text-base font-semibold">No apps found</div>
-      <div className="mt-1 text-sm">Try a different search or category</div>
+    <div className="px-6 pt-4">
+      <EmptyState
+        icon={<Search className="h-6 w-6" />}
+        title="No apps found"
+        description="Try a different search or category"
+      />
     </div>
   )
 }

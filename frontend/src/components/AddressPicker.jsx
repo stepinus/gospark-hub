@@ -3,6 +3,7 @@
  * asks mDNS, Tailscale and the routing table), so the browser and the server
  * agree on the list; these helpers only turn it into URLs.
  */
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export const KIND_LABEL = {
   // "origin" is the address this page was actually loaded from. The daemon
@@ -53,22 +54,28 @@ export default function AddressPicker({ addresses, address, onPick }) {
   if (addresses.length < 2) return null
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <span className="text-xs text-text-dim">Address:</span>
-      <div className="flex flex-wrap gap-1 rounded-xl border border-outline-dim bg-surface-high p-0.5">
+      <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Address:</span>
+      <ToggleGroup
+        type="single"
+        value={address.url}
+        // Clicking the active item reports "" — an address is always picked,
+        // so an empty next value is ignored rather than clearing the choice.
+        onValueChange={(next) => { if (next) onPick(next) }}
+        variant="outline"
+        size="sm"
+        className="flex-wrap"
+      >
         {addresses.map((a) => (
-          <button
+          <ToggleGroupItem
             key={a.url}
-            type="button"
-            onClick={() => onPick(a.url)}
+            value={a.url}
             title={a.note}
-            className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${
-              address.url === a.url ? 'bg-primary text-primary-on' : 'bg-transparent text-text-muted hover:text-text'
-            }`}
+            className="font-mono text-[11px] font-medium whitespace-nowrap data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:data-[state=on]:bg-primary/90"
           >
             {a.label}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
     </div>
   )
 }

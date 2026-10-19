@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '../store'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 // The companion to HfTokenModal, for the half of the problem a token cannot
 // solve. A gated repo needs the account holding the token to have accepted
@@ -11,10 +20,10 @@ export default function HfAccessModal() {
   // Keyed on the slug so a second app's gate opens with a clean dialog rather
   // than the previous one's error still on screen — a remount instead of an
   // effect that resets state on the way back in.
-  return request ? <Dialog key={request.slug} request={request} /> : null
+  return request ? <AccessDialog key={request.slug} request={request} /> : null
 }
 
-function Dialog({ request }) {
+function AccessDialog({ request }) {
   const recheckHfAccess = useStore((s) => s.recheckHfAccess)
   const cancelHfAccess = useStore((s) => s.cancelHfAccess)
   const recipes = useStore((s) => s.recipes)
@@ -36,45 +45,45 @@ function Dialog({ request }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-surface-high rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-dim">
-        <h3 className="text-lg font-bold text-text font-display m-0">HuggingFace Access Required</h3>
-        <p className="text-sm text-text-dim mt-2 mb-4 leading-relaxed">
-          {recipe?.name || request.slug} needs weights behind a terms gate. Your token is saved, but the
-          account holding it has not accepted the agreement yet, so the download would fail. Open the
-          {repos.length > 1 ? ' pages' : ' page'} below, accept the terms, then check again to {verb} it.
-        </p>
-        <ul className="list-none p-0 m-0 flex flex-col gap-2">
+    <Dialog open onOpenChange={(next) => { if (!next) cancelHfAccess() }}>
+      <DialogContent className="gap-4 border-border bg-card p-5 shadow-none sm:max-w-md">
+        <DialogHeader className="gap-1.5">
+          <DialogTitle className="font-display text-base font-semibold tracking-tight">
+            HuggingFace Access Required
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            {recipe?.name || request.slug} needs weights behind a terms gate. Your token is saved, but the
+            account holding it has not accepted the agreement yet, so the download would fail. Open the
+            {repos.length > 1 ? ' pages' : ' page'} below, accept the terms, then check again to {verb} it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {repos.map((repo) => (
             <li key={repo.repo_id}>
               <a
                 href={repo.url}
                 target="_blank"
                 rel="noreferrer"
-                className="block px-4 py-2.5 rounded-xl bg-surface-low border border-outline-dim text-sm font-mono text-primary hover:underline break-all"
+                className="block break-all rounded-lg border border-border bg-muted px-3 py-2 font-mono text-xs text-primary transition-colors hover:bg-accent hover:underline"
               >
                 {repo.repo_id}
               </a>
             </li>
           ))}
         </ul>
-        {error && <p className="text-xs text-error mt-2 m-0">{error}</p>}
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={cancelHfAccess}
-            className="px-4 py-2 bg-transparent text-text-muted border border-outline-dim rounded-xl text-sm font-semibold cursor-pointer hover:text-text transition-colors"
-          >
+
+        {error && <p className="m-0 text-xs leading-relaxed text-destructive">{error}</p>}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={cancelHfAccess}>
             Cancel
-          </button>
-          <button
-            onClick={recheck}
-            disabled={checking}
-            className="px-5 py-2 bg-primary text-white border-none rounded-xl text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-default"
-          >
+          </Button>
+          <Button onClick={recheck} disabled={checking}>
             {checking ? 'Checking...' : `Check & ${verb.charAt(0).toUpperCase() + verb.slice(1)}`}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
