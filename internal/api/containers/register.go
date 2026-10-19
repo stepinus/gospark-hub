@@ -70,6 +70,7 @@ func Register(r *web.Router, deps Deps) {
 	}
 
 	r.Handle("POST", "/api/recipes/{slug}/install", h.install)
+	r.Handle("DELETE", "/api/recipes/{slug}/install", h.removeInstall)
 	r.Handle("POST", "/api/recipes/{slug}/update", h.update)
 	r.Handle("GET", "/api/recipes/{slug}/build-status", h.buildStatus)
 	r.Handle("GET", "/api/recipes/{slug}/launch-plan", h.launchPlan)
@@ -176,11 +177,34 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 		notFound(w, "Recipe not found")
 		return
 	}
-	// A native recipe has nothing to install: the engine is installed once on
-	// the Engines page. The response keeps the shape the UI expects so its
-	// install button does not change behaviour.
+	// A native recipe has nothing to install unless it declares an engine
+	// build: then the client directory is assembled from the model's image.
+	// Without one the engine is installed once on the Engines page, and the
+	// response keeps the shape the UI expects so its install button does not
+	// change behaviour.
 	if rec.IsNative() {
-		writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
+		if rec.Native == nil || rec.Native.EngineBuild == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
+			return
+		}
+		build, err := h.ensureEngineBuild(r.Context(), rec)
+		switch {
+		case errors.Is(err, engines.ErrImageNotBuilt):
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"detail": fmt.Sprintf("Engine image %s is not built", rec.Native.EngineBuild.Image),
+			})
+		case errors.Is(err, engines.ErrUnknownEngine):
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"detail": fmt.Sprintf("Engine %s is not installed", rec.Native.Engine),
+			})
+		case err != nil:
+			h.log.Error("install engine build", "slug", slug, "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+		default:
+			writeJSON(w, http.StatusOK, map[string]any{
+				"slug": slug, "status": "installed", "engine_build": build.Path,
+			})
+		}
 		return
 	}
 	// Already building, or left pending=installing by a restored daemon
@@ -206,6 +230,54 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	writeJSON(w, http.StatusOK, map[string]any{"status": "building", "slug": slug})
+}
+
+// ensureEngineBuild assembles the patched engine client a native recipe runs
+// on. The recipe's directory is the build command's working directory and the
+// slug names the client directory.
+func (h *handler) ensureEngineBuild(ctx context.Context, rec registry.Recipe) (engines.Build, error) {
+	if h.engines == nil {
+		return engines.Build{}, errors.New("engine builds are not configured")
+	}
+	eb := rec.Native.EngineBuild
+	dir, _ := h.reg.Dir(rec.Slug)
+	return h.engines.EnsureBuild(ctx, engines.BuildSpec{
+		Recipe:    rec.Slug,
+		Engine:    rec.Native.Engine,
+		Image:     eb.Image,
+		Artifacts: eb.Artifacts,
+		Command:   eb.Command,
+		Dir:       dir,
+	})
+}
+
+// removeInstall deletes the engine client a native recipe was built with: the
+// process runs the binary that is about to disappear, so it stops first.
+func (h *handler) removeInstall(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	rec, ok := h.reg.Get(slug)
+	if !ok {
+		notFound(w, "Recipe not found")
+		return
+	}
+	if !rec.IsNative() || rec.Native == nil || rec.Native.EngineBuild == nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"detail": "Recipe has no engine build"})
+		return
+	}
+	if h.engines == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": "Engine builds are not configured"})
+		return
+	}
+	if err := h.stopNative(r.Context(), slug); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+		return
+	}
+	if err := h.engines.RemoveBuild(rec.Native.Engine, slug); err != nil {
+		h.log.Error("remove engine build", "slug", slug, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "removed"})
 }
 
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
@@ -368,16 +440,42 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": "Native runtime is not configured"})
 		return
 	}
-	enginePath, err := h.engines.Path(rec.Native.Engine)
-	if errors.Is(err, engines.ErrNotInstalled) || errors.Is(err, engines.ErrUnknownEngine) {
-		writeJSON(w, http.StatusConflict, map[string]string{
-			"detail": fmt.Sprintf("Engine %s is not installed", rec.Native.Engine),
-		})
-		return
+	// A recipe with an engine build runs the client built for it, not the
+	// engine release under current: the two are different binaries.
+	enginePath := ""
+	env := make(map[string]string, len(rec.Native.Env))
+	for k, v := range rec.Native.Env {
+		env[k] = v
 	}
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
-		return
+	if eb := rec.Native.EngineBuild; eb != nil {
+		path, err := h.engines.BuildPath(rec.Native.Engine, rec.Slug)
+		if errors.Is(err, engines.ErrClientNotBuilt) || errors.Is(err, engines.ErrUnknownEngine) {
+			writeJSON(w, http.StatusConflict, map[string]string{"detail": "Engine client is not built"})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		enginePath = path
+		// The block's env values are paths inside the client directory; the
+		// runner needs them absolute.
+		for k, v := range engines.ExpandEnv(eb.Env, h.engines.BuildDir(rec.Native.Engine, rec.Slug)) {
+			env[k] = v
+		}
+	} else {
+		path, err := h.engines.Path(rec.Native.Engine)
+		if errors.Is(err, engines.ErrNotInstalled) || errors.Is(err, engines.ErrUnknownEngine) {
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"detail": fmt.Sprintf("Engine %s is not installed", rec.Native.Engine),
+			})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		enginePath = path
 	}
 	model, err := h.natives.ResolveModel(rec.Native.Model)
 	if err != nil {
@@ -397,10 +495,13 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 		EnginePath: enginePath,
 		Model:      model,
 		Args:       rec.Native.Args,
-		Env:        rec.Native.Env,
+		Env:        env,
 		Port:       port,
 		ServedName: served,
 		LogPath:    filepath.Join(h.cfg.DataDir, "logs", rec.Slug+".log"),
+	}
+	if len(spec.Env) == 0 {
+		spec.Env = nil
 	}
 	// systemd-run talks to the user manager and returns at once; the request
 	// context must not kill it halfway through the handoff.

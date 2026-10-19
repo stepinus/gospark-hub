@@ -129,3 +129,81 @@ func TestNativeRecipeJSONHasKindAndBlock(t *testing.T) {
 		t.Fatalf("native block = %+v", got.Native)
 	}
 }
+
+// nativeBuildYAML is the block the model repository ships: the patched engine
+// image, the artifacts that make the client, the script that builds the image
+// and the env the client needs.
+const nativeBuildYAML = `name: Qwen3.8 Flash Next Patched
+slug: qwen38-flash-next-native
+kind: native
+category: llm
+ui:
+  type: api-only
+  port: 8888
+native:
+  engine: tensorfold
+  model: "hf:nvidia/Qwen3.8-Flash-Next@b9ce18a6"
+  args: ["--context", "262144"]
+  engine_build:
+    image: "tensorfold-qwen38:zig-db28187"
+    artifacts: ["native/bin", "share", "python", "fatbin"]
+    command: "scripts/prepare.sh"
+    env:
+      TENSORFOLD_CUDA_KERNELS: "share/tensorfold/cuda/sm121"
+      PYTHONPATH: "python"
+`
+
+func TestParseNativeEngineBuild(t *testing.T) {
+	rec, err := parseRecipe([]byte(nativeBuildYAML), t.TempDir())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if rec.Native == nil || rec.Native.EngineBuild == nil {
+		t.Fatalf("engine_build block is nil: %+v", rec.Native)
+	}
+	eb := rec.Native.EngineBuild
+	if eb.Image != "tensorfold-qwen38:zig-db28187" {
+		t.Errorf("image = %q", eb.Image)
+	}
+	want := []string{"native/bin", "share", "python", "fatbin"}
+	if len(eb.Artifacts) != len(want) {
+		t.Fatalf("artifacts = %v", eb.Artifacts)
+	}
+	for i, a := range want {
+		if eb.Artifacts[i] != a {
+			t.Errorf("artifact %d = %q, want %q", i, eb.Artifacts[i], a)
+		}
+	}
+	if eb.Command != "scripts/prepare.sh" {
+		t.Errorf("command = %q", eb.Command)
+	}
+	if eb.Env["TENSORFOLD_CUDA_KERNELS"] != "share/tensorfold/cuda/sm121" || eb.Env["PYTHONPATH"] != "python" {
+		t.Errorf("env = %v", eb.Env)
+	}
+	// The block is part of the recipe JSON, so the UI can show the image even
+	// before anything is built.
+	body, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(body), `"engine_build":{`) || !strings.Contains(string(body), `"image":"tensorfold-qwen38:zig-db28187"`) {
+		t.Fatalf("JSON = %s", body)
+	}
+}
+
+func TestParseNativeWithoutEngineBuild(t *testing.T) {
+	rec, err := parseRecipe([]byte(nativeRecipeYAML), t.TempDir())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if rec.Native.EngineBuild != nil {
+		t.Fatalf("engine_build = %+v, want nil", rec.Native.EngineBuild)
+	}
+	body, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(body), `"engine_build"`) {
+		t.Fatalf("recipe without a build carries engine_build: %s", body)
+	}
+}

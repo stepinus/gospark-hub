@@ -34,6 +34,10 @@ import (
 // TensorFold is the only engine the Hub knows about.
 const TensorFold = "tensorfold"
 
+// TensorFoldBinary is the executable inside a TensorFold release and inside a
+// patched engine client (bin/tensorfold-native).
+const TensorFoldBinary = "tensorfold-native"
+
 const (
 	defaultGitHubAPI    = "https://api.github.com"
 	defaultDownloadBase = "https://github.com"
@@ -75,7 +79,7 @@ var known = []Engine{{
 	Name:         TensorFold,
 	Repo:         "ashhart/TensorFold",
 	AssetPattern: "tensorfold-%s-%s.tar.gz",
-	Binary:       "tensorfold-native",
+	Binary:       TensorFoldBinary,
 }}
 
 // Status is one row of GET /api/engines.
@@ -85,6 +89,10 @@ type Status struct {
 	Version   string `json:"version,omitempty"`
 	Latest    string `json:"latest,omitempty"`
 	Path      string `json:"path,omitempty"`
+	// Builds are the patched clients assembled for individual recipes, the
+	// ones built from the release under current/. Always present: the UI
+	// iterates it without a nil check.
+	Builds []Build `json:"builds"`
 }
 
 // Manager owns the on-disk engine home and talks to GitHub. The zero HTTP and
@@ -97,6 +105,14 @@ type Manager struct {
 	// DownloadBase is the web base release assets are fetched from (default
 	// github.com). It is a field so a test can serve a tarball locally.
 	DownloadBase string
+
+	// LookPath resolves the docker binary before a client build; nil means
+	// exec.LookPath.
+	LookPath func(string) (string, error)
+	// Run executes one build command in dir (empty means the process's own
+	// working directory) and returns the combined output and exit code. A
+	// non-zero exit is code, not err. Nil means the real process runner.
+	Run func(ctx context.Context, dir string, args ...string) (string, int, error)
 
 	mu     sync.Mutex
 	latest map[string]latestEntry
@@ -162,7 +178,7 @@ func (m *Manager) List(ctx context.Context) ([]Status, error) {
 	}
 	out := make([]Status, 0, len(known))
 	for _, e := range known {
-		st := Status{Name: e.Name, Latest: latest[e.Name]}
+		st := Status{Name: e.Name, Latest: latest[e.Name], Builds: m.ListBuilds(e.Name)}
 		if version, ok := m.Installed(e.Name); ok {
 			st.Installed = true
 			st.Version = version

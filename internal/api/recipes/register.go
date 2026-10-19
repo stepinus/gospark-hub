@@ -240,9 +240,25 @@ func (h *handler) applyNativeRuntime(ctx context.Context, rec registry.Recipe) r
 	rec.Starting = false
 	rec.HasLeftovers = false
 	rec.Installed = false
-	if h.deps.Engines != nil && rec.Native != nil {
-		if _, err := h.deps.Engines.Path(rec.Native.Engine); err == nil {
-			rec.Installed = true
+	if rec.Native != nil {
+		if eb := rec.Native.EngineBuild; eb != nil && h.deps.Engines != nil {
+			// This recipe runs a client built for it, so the engine release
+			// under current/ is irrelevant: the client directory is what
+			// must exist.
+			rec.EngineBuild = &registry.RecipeEngineBuildStatus{Image: eb.Image}
+			if build, ok := h.deps.Engines.Build(rec.Native.Engine, rec.Slug); ok {
+				rec.EngineBuild.Image = build.Image
+				rec.EngineBuild.Path = build.Path
+			}
+			if _, err := h.deps.Engines.BuildPath(rec.Native.Engine, rec.Slug); err == nil {
+				rec.EngineBuild.Ready = true
+				rec.Installed = true
+			}
+		}
+		if !rec.Installed && rec.Native.EngineBuild == nil && h.deps.Engines != nil {
+			if _, err := h.deps.Engines.Path(rec.Native.Engine); err == nil {
+				rec.Installed = true
+			}
 		}
 	}
 	running := false

@@ -211,3 +211,207 @@ func TestNativeRecipeJSONKind(t *testing.T) {
 		t.Fatalf("native JSON = %s", raw)
 	}
 }
+
+// nativeBuildRecipe is the recipe whose engine is a client built from the
+// model repository's image, not the release installed on the host.
+const nativeBuildRecipe = `name: Qwen Native Patched
+slug: qwen-native-patched
+kind: native
+category: llm
+ui:
+  type: api-only
+  port: 8888
+native:
+  engine: tensorfold
+  model: "hf:nvidia/Qwen3.8-Flash-Next@b9ce18a6"
+  args: ["--context", "262144"]
+  env:
+    TF_FLASHNEXT_DRAFTS: "6"
+  engine_build:
+    image: "tensorfold-qwen38:zig-db28187"
+    artifacts: ["native/bin", "share", "python", "fatbin"]
+    env:
+      TENSORFOLD_CUDA_KERNELS: "share/tensorfold/cuda/sm121"
+      PYTHONPATH: "python"
+`
+
+// engineDocker answers the docker commands a client build issues, so the
+// install route runs without a daemon.
+type engineDocker struct {
+	images map[string]bool
+	calls  [][]string
+}
+
+func (d *engineDocker) manager(home string) *engines.Manager {
+	m := engines.NewManager(home)
+	m.LookPath = func(string) (string, error) { return "/usr/bin/docker", nil }
+	m.Run = func(_ context.Context, _ string, args ...string) (string, int, error) {
+		d.calls = append(d.calls, args)
+		switch {
+		case len(args) >= 4 && args[0] == "docker" && args[1] == "image" && args[2] == "inspect":
+			if d.images[args[3]] {
+				return "sha256:abc", 0, nil
+			}
+			return "no such image", 1, nil
+		case len(args) >= 3 && args[0] == "docker" && args[1] == "create":
+			return "container123\n", 0, nil
+		case len(args) >= 4 && args[0] == "docker" && args[1] == "cp":
+			src := strings.TrimPrefix(strings.TrimPrefix(args[2], "container123:"), "/")
+			if err := os.MkdirAll(args[3], 0o755); err != nil {
+				return "", -1, err
+			}
+			name := "marker"
+			if filepath.Base(src) == "bin" {
+				name = "tensorfold-native"
+			}
+			if err := os.WriteFile(filepath.Join(args[3], name), []byte("#!/bin/sh\n"), 0o755); err != nil {
+				return "", -1, err
+			}
+			return "", 0, nil
+		}
+		return "", 0, nil
+	}
+	return m
+}
+
+// newBuildServer mounts the container routes over a registry holding the
+// patched recipe and a container recipe, with docker faked out.
+func newBuildServer(t *testing.T, engineHome string, dock *engineDocker) (*httptest.Server, *systemdStub) {
+	t.Helper()
+	regDir := t.TempDir()
+	writeRecipe(t, regDir, "qwen-native-patched", nativeBuildRecipe, "")
+	writeRecipe(t, regDir, "demo", "name: Demo\nslug: demo\ncategory: image-gen\n", "")
+
+	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	stub := &systemdStub{}
+	r := web.NewRouter()
+	Register(r, Deps{
+		Config: config.Config{
+			Project:          "testproj",
+			AppProjectPrefix: "testproj",
+			AppNetwork:       "testproj-net",
+			DataDir:          t.TempDir(),
+			RegistryPath:     regDir,
+		},
+		Registry: registry.NewCache(regDir),
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DB:       db,
+		Engines:  dock.manager(engineHome),
+		Native:   stub.runner(),
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+	return srv, stub
+}
+
+func TestEngineBuildInstallWithoutImageIsConflict(t *testing.T) {
+	engineHome := filepath.Join(t.TempDir(), "engines")
+	dock := &engineDocker{images: map[string]bool{}}
+	srv, _ := newBuildServer(t, engineHome, dock)
+
+	code, body := getJSON(t, srv, http.MethodPost, "/api/recipes/qwen-native-patched/install", "")
+	if code != http.StatusConflict {
+		t.Fatalf("install without image: %d %s", code, body)
+	}
+	if !strings.Contains(string(body), "Engine image tensorfold-qwen38:zig-db28187 is not built") {
+		t.Fatalf("detail = %s", body)
+	}
+	if _, err := os.Stat(filepath.Join(engineHome, "tensorfold", "builds", "qwen-native-patched")); !os.IsNotExist(err) {
+		t.Fatalf("client dir created without an image: %v", err)
+	}
+
+	// Launch has nothing to run either, and says so specifically.
+	code, body = getJSON(t, srv, http.MethodPost, "/api/recipes/qwen-native-patched/launch", "")
+	if code != http.StatusConflict || !strings.Contains(string(body), "Engine client is not built") {
+		t.Fatalf("launch without client: %d %s", code, body)
+	}
+}
+
+func TestEngineBuildLifecycle(t *testing.T) {
+	t.Setenv("HF_HUB_CACHE", t.TempDir())
+	engineHome := filepath.Join(t.TempDir(), "engines")
+	dock := &engineDocker{images: map[string]bool{"tensorfold-qwen38:zig-db28187": true}}
+	srv, stub := newBuildServer(t, engineHome, dock)
+
+	buildDir := filepath.Join(engineHome, "tensorfold", "builds", "qwen-native-patched")
+	code, body := getJSON(t, srv, http.MethodPost, "/api/recipes/qwen-native-patched/install", "")
+	if code != http.StatusOK {
+		t.Fatalf("install: %d %s", code, body)
+	}
+	var installed struct {
+		Slug        string `json:"slug"`
+		Status      string `json:"status"`
+		EngineBuild string `json:"engine_build"`
+	}
+	if err := json.Unmarshal(body, &installed); err != nil {
+		t.Fatalf("install body: %v (%s)", err, body)
+	}
+	if installed.Slug != "qwen-native-patched" || installed.Status != "installed" || installed.EngineBuild != buildDir {
+		t.Fatalf("install = %+v", installed)
+	}
+	if _, err := os.Stat(filepath.Join(buildDir, "build.json")); err != nil {
+		t.Fatalf("build.json: %v", err)
+	}
+
+	// Launch runs the client's binary, not the release under current/, with
+	// the block's env expanded against the client directory.
+	code, body = getJSON(t, srv, http.MethodPost, "/api/recipes/qwen-native-patched/launch", "")
+	if code != http.StatusOK || !strings.Contains(string(body), `"status":"launched"`) {
+		t.Fatalf("launch: %d %s", code, body)
+	}
+	args := stub.last()
+	if args[0] != "systemd-run" {
+		t.Fatalf("launch ran %q", args)
+	}
+	wantBin := filepath.Join(buildDir, "bin", "tensorfold-native")
+	if !slices.Contains(args, wantBin) {
+		t.Fatalf("launch args %q missing client binary %q", args, wantBin)
+	}
+	for _, env := range []string{
+		"--setenv=PYTHONPATH=" + filepath.Join(buildDir, "python"),
+		"--setenv=TENSORFOLD_CUDA_KERNELS=" + filepath.Join(buildDir, "share/tensorfold/cuda/sm121"),
+		"--setenv=TF_FLASHNEXT_DRAFTS=6",
+	} {
+		if !slices.Contains(args, env) {
+			t.Fatalf("launch args %q missing %q", args, env)
+		}
+	}
+	wantModel := filepath.Join(os.Getenv("HF_HUB_CACHE"), "models--nvidia--Qwen3.8-Flash-Next", "snapshots", "b9ce18a6")
+	if !slices.Contains(args, wantModel) {
+		t.Fatalf("launch args %q missing resolved model %q", args, wantModel)
+	}
+
+	// Delete stops the unit and drops the client directory.
+	code, body = getJSON(t, srv, http.MethodDelete, "/api/recipes/qwen-native-patched/install", "")
+	if code != http.StatusOK || !strings.Contains(string(body), `"status":"removed"`) {
+		t.Fatalf("remove install: %d %s", code, body)
+	}
+	if got := stub.last(); !slices.Equal(got, []string{"systemctl", "--user", "stop", "gospark-native-qwen-native-patched"}) {
+		t.Fatalf("remove install ran %q", got)
+	}
+	if _, err := os.Stat(buildDir); !os.IsNotExist(err) {
+		t.Fatalf("client dir survived removal: %v", err)
+	}
+
+	// And the process can no longer be launched from a vanished client.
+	code, body = getJSON(t, srv, http.MethodPost, "/api/recipes/qwen-native-patched/launch", "")
+	if code != http.StatusConflict || !strings.Contains(string(body), "Engine client is not built") {
+		t.Fatalf("launch after removal: %d %s", code, body)
+	}
+}
+
+func TestEngineBuildDeleteRejectsContainerRecipe(t *testing.T) {
+	srv, stub := newBuildServer(t, filepath.Join(t.TempDir(), "engines"), &engineDocker{})
+	code, body := getJSON(t, srv, http.MethodDelete, "/api/recipes/demo/install", "")
+	if code != http.StatusConflict || !strings.Contains(string(body), "Recipe has no engine build") {
+		t.Fatalf("delete install on container recipe: %d %s", code, body)
+	}
+	if stub.last() != nil {
+		t.Fatalf("remove install touched systemd: %q", stub.last())
+	}
+}

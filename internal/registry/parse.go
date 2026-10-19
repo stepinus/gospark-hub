@@ -207,11 +207,29 @@ func parseNative(v any, defaultPort int) *RecipeNative {
 		return nil
 	}
 	return &RecipeNative{
-		Engine: stringField(m, "engine", ""),
-		Model:  stringField(m, "model", ""),
-		Args:   stringSlice(m, "args"),
-		Env:    stringMap(m, "env"),
-		Port:   intField(m, "port", defaultPort),
+		Engine:      stringField(m, "engine", ""),
+		Model:       stringField(m, "model", ""),
+		Args:        stringSlice(m, "args"),
+		Env:         stringMap(m, "env"),
+		Port:        intField(m, "port", defaultPort),
+		EngineBuild: parseEngineBuild(m["engine_build"]),
+	}
+}
+
+// parseEngineBuild reads `native.engine_build`: the image holding the patched
+// engine, the artifacts copied out of it, the optional build script and the
+// env the client needs when it runs. An absent block means "run the engine
+// release under current", which is what every recipe did before.
+func parseEngineBuild(v any) *RecipeEngineBuild {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return &RecipeEngineBuild{
+		Image:     stringField(m, "image", ""),
+		Artifacts: stringSlice(m, "artifacts"),
+		Command:   stringField(m, "command", ""),
+		Env:       stringMap(m, "env"),
 	}
 }
 

@@ -301,3 +301,60 @@ func TestInstallConflictAndUnchangedUpdate(t *testing.T) {
 		t.Fatalf("delete: %d %s", code, body)
 	}
 }
+
+// TestListIncludesEngineBuilds pins the builds array: one entry per patched
+// client, so the Engines page can show what was assembled for which recipe.
+func TestListIncludesEngineBuilds(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "engines")
+	e := newEnv(t, home)
+	jar := adminJar(t, e)
+
+	// Build one client through the real manager with docker faked out.
+	slugs := []string{"qwen-native", "other-native"}
+	for _, slug := range slugs {
+		dir := filepath.Join(home, "tensorfold", "builds", slug)
+		if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+			t.Fatalf("mkdir client: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "bin", "tensorfold-native"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatalf("write binary: %v", err)
+		}
+		record := fmt.Sprintf(`{"recipe":%q,"engine":"tensorfold","image":"tensorfold-qwen38:zig-db28187","built_at":"2026-01-01T00:00:00Z"}`, slug)
+		if err := os.WriteFile(filepath.Join(dir, "build.json"), []byte(record), 0o644); err != nil {
+			t.Fatalf("write build.json: %v", err)
+		}
+	}
+
+	code, body := e.do(t, jar, http.MethodGet, "/api/engines")
+	if code != http.StatusOK {
+		t.Fatalf("list: %d %s", code, body)
+	}
+	var got struct {
+		Engines []struct {
+			Name   string `json:"name"`
+			Builds []struct {
+				Recipe string `json:"recipe"`
+				Path   string `json:"path"`
+				Image  string `json:"image"`
+			} `json:"builds"`
+		} `json:"engines"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal: %v (%s)", err, body)
+	}
+	if len(got.Engines) != 1 || got.Engines[0].Name != "tensorfold" {
+		t.Fatalf("engines = %+v", got.Engines)
+	}
+	builds := got.Engines[0].Builds
+	if len(builds) != 2 {
+		t.Fatalf("builds = %+v", builds)
+	}
+	// Sorted by recipe: "other-native" before "qwen-native".
+	if builds[0].Recipe != "other-native" || builds[1].Recipe != "qwen-native" {
+		t.Fatalf("build order = %+v", builds)
+	}
+	want := filepath.Join(home, "tensorfold", "builds", "qwen-native")
+	if builds[1].Path != want || builds[1].Image != "tensorfold-qwen38:zig-db28187" {
+		t.Fatalf("build entry = %+v", builds[1])
+	}
+}
