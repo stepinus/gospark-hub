@@ -11,12 +11,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
 
 	authapi "gospark-hub/internal/api/auth"
 	containersapi "gospark-hub/internal/api/containers"
+	enginesapi "gospark-hub/internal/api/engines"
 	filesapi "gospark-hub/internal/api/files"
 	mcpapi "gospark-hub/internal/api/mcp"
 	modelsapi "gospark-hub/internal/api/models"
@@ -27,6 +29,8 @@ import (
 	"gospark-hub/internal/auth"
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
+	"gospark-hub/internal/engines"
+	"gospark-hub/internal/native"
 	"gospark-hub/internal/oauth"
 	"gospark-hub/internal/proxy"
 	"gospark-hub/internal/registry"
@@ -123,8 +127,14 @@ func main() {
 	reg.SetRootsProvider(mgr.Roots)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
 
-	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr})
-	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock})
+	// Host engines: one binary on the machine, installed from the Engines page,
+	// that native recipes are launched on through systemd --user.
+	enginesMgr := engines.NewManager(cfg.EngineHome)
+	nativeRunner := native.NewRunner(filepath.Join(cfg.DataDir, "logs"))
+
+	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr, Engines: enginesMgr, Native: nativeRunner})
+	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock, Engines: enginesMgr, Native: nativeRunner})
+	enginesapi.Register(r, enginesapi.Deps{Engines: enginesMgr, Native: nativeRunner, Reg: reg, Logger: slog.Default()})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
 	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock}})

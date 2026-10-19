@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"gospark-hub/internal/config"
+	"gospark-hub/internal/engines"
+	"gospark-hub/internal/native"
 	"gospark-hub/internal/registry"
 	"gospark-hub/internal/web"
 )
@@ -38,6 +40,11 @@ type Deps struct {
 	// Manager owns local/ and the vendored sources. The copy and delete
 	// routes need it; without it they are not mounted (tests, embedders).
 	Manager *registry.Manager
+	// Engines answers "is the engine installed?" for native recipes, and
+	// Native answers "is it running?". Both are optional: a container-only
+	// daemon leaves them nil and native rows simply show as not installed.
+	Engines *engines.Manager
+	Native  *native.Runner
 }
 
 // Register mounts GET /api/recipes, GET /api/recipes/{slug} and — when the
@@ -71,6 +78,27 @@ type recipeResponse struct {
 	// omitempty keeps the JSON byte-for-byte identical to the upstream Hub for
 	// every recipe that comes from a registry; only our own recipes carry it.
 	Local bool `json:"local,omitempty"`
+}
+
+// MarshalJSON writes the recipe object and, for a local copy, one extra key.
+// The manual splice is needed because registry.Recipe has its own MarshalJSON:
+// an embedded marshaler would be promoted to this type and swallow the local
+// field (the same reason the alias type must not be used here).
+func (r recipeResponse) MarshalJSON() ([]byte, error) {
+	base, err := json.Marshal(r.Recipe)
+	if err != nil {
+		return nil, err
+	}
+	if !r.Local {
+		return base, nil
+	}
+	if len(base) < 2 || base[0] != '{' || base[len(base)-1] != '}' {
+		return base, nil
+	}
+	out := make([]byte, 0, len(base)+16)
+	out = append(out, base[:len(base)-1]...)
+	out = append(out, `,"local":true}`...)
+	return out, nil
 }
 
 func (h *handler) respond(rec registry.Recipe) recipeResponse {
@@ -149,6 +177,9 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 	if dir, ok := h.cache.Dir(rec.Slug); ok {
 		rec.RuntimeEnvPath = runtimeEnvPath(dir)
 	}
+	if rec.IsNative() {
+		return h.applyNativeRuntime(ctx, rec)
+	}
 
 	rec.Error = nil
 	pending := ""
@@ -197,6 +228,29 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 			h.leftoverMu.Unlock()
 		}
 	}
+	return rec
+}
+
+// applyNativeRuntime derives the six flags for a recipe that runs on a host
+// engine: there is no container to install, no pending action and no health
+// check — systemd says whether it is up.
+func (h *handler) applyNativeRuntime(ctx context.Context, rec registry.Recipe) registry.Recipe {
+	rec.Error = nil
+	rec.Installing = false
+	rec.Starting = false
+	rec.HasLeftovers = false
+	rec.Installed = false
+	if h.deps.Engines != nil && rec.Native != nil {
+		if _, err := h.deps.Engines.Path(rec.Native.Engine); err == nil {
+			rec.Installed = true
+		}
+	}
+	running := false
+	if rec.Installed && h.deps.Native != nil {
+		running, _ = h.deps.Native.Running(ctx, rec.Slug)
+	}
+	rec.Running = running
+	rec.Ready = running
 	return rec
 }
 
