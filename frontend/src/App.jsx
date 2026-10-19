@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Bot, Cpu, ExternalLink, FolderOpen, Info, LayoutGrid, PanelLeftClose, PanelLeftOpen,
+  Bot, Bug, Cpu, ExternalLink, FolderOpen, Info, LayoutGrid, PanelLeftClose, PanelLeftOpen,
   Play, RefreshCw, Search, SlidersHorizontal, Users,
 } from 'lucide-react'
 import { useStore } from './store'
@@ -367,7 +367,7 @@ function About() {
               rel="noreferrer"
               className="flex items-center gap-3 px-5 py-3 text-sm text-foreground no-underline transition-colors hover:bg-muted/60"
             >
-              <Info className="h-4 w-4 text-muted-foreground" />
+              <Bug className="h-4 w-4 text-muted-foreground" />
               <span>Report an issue</span>
               <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
             </a>
