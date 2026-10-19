@@ -1,0 +1,47 @@
+services:
+  # The locally built ComfyUI (Workspace/ComfyUI/spark-comfyui.sh, image
+  # spark-comfyui:latest): every setting below is what `docker inspect
+  # spark-comfyui` held when the Hub took the card over -- same container name,
+  # so the script's own `service`/`stop` (docker start/stop spark-comfyui) and
+  # anything pointed at it keep working, while the Hub gains launch and stop.
+  #
+  # The five SPARK_* variables are passed as BARE NAMES on purpose: the script
+  # does `-e SPARK_BF16`, docker records them with no value when the host does
+  # not set them, and the entrypoint treats that as "unset". `SPARK_BF16=` would
+  # turn the flag on as an empty string and change how it loads.
+  comfyui:
+    image: spark-comfyui:latest
+    container_name: spark-comfyui
+    ports:
+      - "8188:8188"
+    shm_size: "16g"
+    environment:
+      - SPARK_BF16
+      - SPARK_BF16_VAE
+      - SPARK_STATIC_VRAM
+      - SPARK_RESERVE_VRAM
+      - SPARK_ATTENTION
+    volumes:
+      - spark-comfyui-cache:/home/comfy/.cache
+      - /home/nvidia/.cache/huggingface:/opt/ComfyUI/hf-cache:ro
+      - /home/nvidia/Workspace/ComfyUI/data/user:/opt/ComfyUI/user
+      - /home/nvidia/Workspace/ComfyUI/data/input:/opt/ComfyUI/input
+      - /home/nvidia/Workspace/ComfyUI/data/output:/opt/ComfyUI/output
+      - /home/nvidia/Workspace/ComfyUI/data/custom_nodes:/opt/ComfyUI/custom_nodes
+      - /home/nvidia/Workspace/ComfyUI/comfyui-nodes.list:/opt/spark/comfyui-nodes.list:ro
+      - /home/nvidia/Workspace/ComfyUI/data/models:/opt/ComfyUI/models
+      - /home/nvidia/Workspace/ComfyUI/data/extra_model_paths.yaml:/opt/ComfyUI/extra_model_paths.yaml:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  # The cache volume the script created; external so the card never owns it.
+  spark-comfyui-cache:
+    name: spark-comfyui-cache
+    external: true
