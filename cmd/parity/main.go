@@ -389,12 +389,79 @@ func compareAssets(a, b *side, max int) int {
 	return 0
 }
 
+// sweepEndpoints reads the upstream OpenAPI document and asks our daemon the
+// same paths. A path that answers HTML means it fell through to the SPA — the
+// route does not exist. This is the coverage half of parity: same routes, not
+// just same bytes on the ones we remembered to list.
+func sweepEndpoints(a, b *side) int {
+	_, body, _, err := a.do("GET", "/openapi.json", "")
+	if err != nil {
+		fmt.Println("sweep            DIFF   openapi апстрима недоступен")
+		return 1
+	}
+	var doc struct {
+		Paths map[string]map[string]any `json:"paths"`
+	}
+	if json.Unmarshal(body, &doc) != nil {
+		fmt.Println("sweep            DIFF   openapi не разобран")
+		return 1
+	}
+	subs := map[string]string{
+		"{slug}":    "comfyui-spark",
+		"{user_id}": "1",
+		"{id}":      "1",
+		"{name}":    "nope.jpg",
+		"{token}":   "nope",
+		"{path}":    "models",
+		"{rest}":    "x",
+		"{full_path}": "",
+	}
+	missing := 0
+	checked := 0
+	for path, ops := range doc.Paths {
+		if path == "/{full_path}" {
+			continue
+		}
+		p := path
+		for k, v := range subs {
+			p = strings.ReplaceAll(p, k, v)
+		}
+		method := "GET"
+		for m := range ops {
+			if m == "post" || m == "put" || m == "patch" || m == "delete" {
+				method = strings.ToUpper(m)
+				break
+			}
+		}
+		checked++
+		ct := ""
+		if method == "GET" {
+			_, _, h, _ := b.do("GET", p, "")
+			ct = h.Get("Content-Type")
+		} else {
+			_, _, h, _ := b.do(method, p, "{}")
+			ct = h.Get("Content-Type")
+		}
+		if strings.HasPrefix(ct, "text/html") {
+			missing++
+			fmt.Printf("%-16s DIFF   нет маршрута: %s %s\n", "sweep", method, p)
+		}
+	}
+	if missing > 0 {
+		fmt.Printf("%-16s DIFF   %d из %d путей у нас отсутствуют\n", "sweep", missing, checked)
+		return 1
+	}
+	fmt.Printf("%-16s ok     (%d путей апстрима отвечают у нас)\n", "sweep", checked)
+	return 0
+}
+
 func main() {
 	up := flag.String("upstream", "http://127.0.0.1:9020", "адрес апстрима")
 	ours := flag.String("ours", "http://127.0.0.1:9120", "адрес нашего демона")
 	email := flag.String("email", "parity@example.com", "учётка для входа")
 	password := flag.String("password", "parity-password", "пароль")
 	filter := flag.String("only", "", "подстрока пути: прогнать только совпавшие кейсы")
+	sweep := flag.Bool("sweep", false, "обойти все пути апстрима из openapi и проверить, что у нас они существуют")
 	maxDiff := flag.Int("max-diff", 6, "сколько расхождений печатать на кейс")
 	flag.Parse()
 
@@ -483,6 +550,10 @@ func main() {
 	// Registry assets: every logo and cover the catalog points at must be
 	// served by both sides, or cards render broken only for us.
 	failures += compareAssets(a, b, *maxDiff)
+
+	if *sweep {
+		failures += sweepEndpoints(a, b)
+	}
 
 	// WebSocket frames: same shape, live values masked.
 	for _, path := range []string{"/ws/metrics"} {
