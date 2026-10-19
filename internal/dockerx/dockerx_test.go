@@ -379,8 +379,9 @@ func TestMemoryPlan(t *testing.T) {
 	t.Cleanup(func() { MeminfoPath = old })
 
 	regDir := t.TempDir()
+	// Memory lives under `requirements`, exactly as upstream's Recipe model reads it.
 	llm := func(slug string, mem int) string {
-		return "name: " + slug + "\nslug: " + slug + "\ncategory: llm\nmin_memory_gb: " + itoa(mem) + "\nui:\n  type: api-only\n"
+		return "name: " + slug + "\nslug: " + slug + "\ncategory: llm\nrequirements:\n  min_memory_gb: " + itoa(mem) + "\nui:\n  type: api-only\n"
 	}
 	writeRecipe(t, regDir, "a", llm("a", 8), "services:\n  app:\n    image: testproj-a\n")
 	writeRecipe(t, regDir, "b", llm("b", 20), "services:\n  app:\n    image: testproj-b\n")
