@@ -22,7 +22,24 @@ import YamlEditor from '../components/YamlEditor'
  * The groups board is the point — dragging a model between groups changes
  * which models evict each other, and the memory row tells you what a group
  * will cost once its members have been measured.
+ *
+ * Three conveniences keep a long catalogue usable: a search box that filters
+ * by name or id, a per-card hide that is remembered in the browser, and the
+ * Ungrouped column, which is both a drop target and what the × button on a
+ * card does — a model can always be taken out of a group again.
  */
+
+const HIDDEN_KEY = 'llamaswap-hidden'
+
+function loadHidden() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')
+    return new Set(Array.isArray(raw) ? raw : [])
+  } catch {
+    return new Set()
+  }
+}
+
 export default function LlamaSwap() {
   const user = useAuth((s) => s.user)
   const isAdmin = !user || user.role === 'admin'
@@ -36,6 +53,9 @@ export default function LlamaSwap() {
   const [notice, setNotice] = useState('')
   const [dragging, setDragging] = useState(null)
   const [measuring, setMeasuring] = useState({})
+  const [query, setQuery] = useState('')
+  const [showHidden, setShowHidden] = useState(false)
+  const [hidden, setHidden] = useState(loadHidden)
 
   const load = useCallback(async () => {
     const res = await getLlamaswap()
@@ -95,15 +115,15 @@ export default function LlamaSwap() {
   }
 
   // Drag and drop: a model belongs to the group it is dropped in and no other,
-  // which is how llama-swap's own config models it. Dropping on Ungrouped
-  // removes it from every group.
+  // which is how llama-swap's own config models it. Dropping on Ungrouped — or
+  // pressing × on a card — removes it from every group.
   const moveModel = async (model, groupName) => {
     const groups = state?.config?.groups || {}
     const next = {}
     for (const [name, group] of Object.entries(groups)) {
       const members = (group.members || []).filter((m) => m !== model)
       if (name === groupName) members.push(model)
-      next[name] = { ...group, members: members.length ? members : [] }
+      next[name] = { ...group, members }
     }
     if (groupName && !next[groupName]) {
       next[groupName] = { ...emptyGroup(), members: [model] }
@@ -143,6 +163,35 @@ export default function LlamaSwap() {
     setError('')
     await load()
   }
+
+  // Hiding is a local preference, not a config change: the catalogue belongs to
+  // the machine, "out of my way" belongs to this browser.
+  const toggleHidden = (id) => {
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      try {
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]))
+      } catch {
+        /* private window: the choice lasts for this visit */
+      }
+      return next
+    })
+  }
+
+  const matches = useCallback((id, name) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    return id.toLowerCase().includes(q) || (name || '').toLowerCase().includes(q)
+  }, [query])
+
+  // visible = matches the search AND is not hidden (or hidden cards are shown)
+  const isVisible = useCallback(
+    (id) => matches(id, state?.config?.models?.[id]?.name || state?.recipes?.find((r) => r.slug === id)?.name) &&
+      (showHidden || !hidden.has(id)),
+    [matches, state, showHidden, hidden],
+  )
 
   const recipesBySlug = useMemo(() => {
     const map = new Map()
@@ -317,21 +366,37 @@ export default function LlamaSwap() {
 
       {/* ─── Groups board ─── */}
       <section className="bg-surface rounded-2xl p-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-sm font-display m-0">Groups</h2>
             <p className="text-[11px] text-text-dim m-0 mt-1">
-              Drag a model into a group: members of one swap group evict each other. Memory is what
-              the last measurement saw.
+              Drag a model into a group: members of one swap group evict each other. Drop it on
+              Ungrouped (or press ×) to take it out again.
             </p>
           </div>
-          <button
-            onClick={addGroup}
-            disabled={busy !== null}
-            className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-          >
-            + Group
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter by name or id…"
+              className="w-56 bg-surface-high border border-outline-dim rounded-lg px-2.5 py-1.5 text-[11px] text-text placeholder:text-text-dim"
+            />
+            {hidden.size > 0 && (
+              <button
+                onClick={() => setShowHidden((v) => !v)}
+                className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer"
+              >
+                {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
+              </button>
+            )}
+            <button
+              onClick={addGroup}
+              disabled={busy !== null}
+              className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+            >
+              + Group
+            </button>
+          </div>
         </div>
 
         {(state?.recipes || []).length > 0 && (
@@ -342,20 +407,28 @@ export default function LlamaSwap() {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {(state.recipes || [])
                 .filter((r) => !groupedSet.has(r.slug))
-                .slice(0, 60)
+                .filter((r) => isVisible(r.slug))
+                .slice(0, 80)
                 .map((r) => (
                   <div
                     key={r.slug}
                     draggable
                     onDragStart={() => setDragging(r.slug)}
                     onDragEnd={() => setDragging(null)}
-                    className="cursor-grab rounded-lg border border-outline-dim bg-surface-high/40 px-2 py-1"
+                    className="flex cursor-grab items-center gap-1.5 rounded-lg border border-outline-dim bg-surface-high/40 px-2 py-1"
                     title={r.slug}
                   >
                     <span className="text-[11px] text-text">{r.name}</span>
-                    <span className="ml-1.5 text-[10px] text-text-dim">
+                    <span className="text-[10px] text-text-dim">
                       {r.memory_gb ? `${r.memory_gb} GB` : '—'}
                     </span>
+                    <button
+                      onClick={() => toggleHidden(r.slug)}
+                      title="Hide this card"
+                      className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-text"
+                    >
+                      ⊘
+                    </button>
                   </div>
                 ))}
             </div>
@@ -374,8 +447,11 @@ export default function LlamaSwap() {
               memory={state?.memory}
               running={running}
               dragging={dragging}
+              isVisible={isVisible}
               onDragStart={setDragging}
               onDropModel={(model) => moveModel(model, name)}
+              onRemove={(model) => moveModel(model, '')}
+              onToggleHidden={toggleHidden}
             />
           ))}
           <GroupColumn
@@ -388,8 +464,11 @@ export default function LlamaSwap() {
             memory={state?.memory}
             running={running}
             dragging={dragging}
+            isVisible={isVisible}
+            hidden={hidden}
             onDragStart={setDragging}
             onDropModel={(model) => moveModel(model, '')}
+            onToggleHidden={toggleHidden}
             ungrouped
           />
         </div>
@@ -449,10 +528,29 @@ export default function LlamaSwap() {
   )
 }
 
-function GroupColumn({ name, title, group, models, measurements, recipes, memory, running, dragging, onDragStart, onDropModel, ungrouped }) {
+function GroupColumn({
+  name,
+  title,
+  group,
+  models,
+  measurements,
+  recipes,
+  memory,
+  running,
+  dragging,
+  isVisible,
+  onDragStart,
+  onDropModel,
+  onRemove,
+  onToggleHidden,
+  ungrouped,
+}) {
   const members = group?.members || []
+  const visible = members.filter((id) => isVisible(id))
+  const hiddenHere = members.length - visible.length
   // Expected load: a Hub recipe knows its memory_gb, anything else falls back
-  // to the last measurement.
+  // to the last measurement. Hiding a card does not take it out of a group, so
+  // the totals still count every member.
   const loads = members.map((id) => {
     const fromRecipe = recipes?.get(id)?.memory_gb
     if (fromRecipe) return fromRecipe
@@ -490,6 +588,7 @@ function GroupColumn({ name, title, group, models, measurements, recipes, memory
         {totalGB ? ` of ${totalGB} GB` : ''}
         {freeGB > 0 ? ` · ${freeGB.toFixed(0)} GB free now` : ''}
         {unknown > 0 ? ` · ${unknown} unknown` : ''}
+        {hiddenHere > 0 ? ` · ${hiddenHere} hidden` : ''}
         {name && group?.swap === false ? ' · swap off' : ''}
         {name && group?.persistent ? ' · persistent' : ''}
       </p>
@@ -502,17 +601,35 @@ function GroupColumn({ name, title, group, models, measurements, recipes, memory
         </div>
       )}
       <div className="mt-2 flex flex-col gap-1.5">
-        {members.map((id) => (
+        {visible.map((id) => (
           <div
             key={id}
             draggable
             onDragStart={() => onDragStart(id)}
             onDragEnd={() => onDragStart(null)}
-            className="cursor-grab rounded-lg border border-outline-dim bg-surface px-2 py-1.5"
+            className="group cursor-grab rounded-lg border border-outline-dim bg-surface px-2 py-1.5"
           >
             <div className="flex items-center gap-1.5">
               {running.has(id) && <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />}
               <span className="text-[11px] text-text truncate">{models[id]?.name || id}</span>
+              <div className="ml-auto flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleHidden(id) }}
+                  title="Hide this card"
+                  className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-text"
+                >
+                  ⊘
+                </button>
+                {!ungrouped && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemove(id) }}
+                    title="Take out of the group"
+                    className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-error"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-text-dim">
               <code className="font-mono">{id}</code>
@@ -525,6 +642,11 @@ function GroupColumn({ name, title, group, models, measurements, recipes, memory
             </div>
           </div>
         ))}
+        {visible.length === 0 && (
+          <p className="text-[10px] text-text-dim m-0 py-2">
+            {members.length === 0 ? 'Nothing here.' : `All ${members.length} hidden or filtered out.`}
+          </p>
+        )}
       </div>
     </div>
   )
