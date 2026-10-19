@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -394,7 +395,7 @@ func (h *handler) getCompose(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defaultContent, err := defaultComposeContent(compose)
+	defaultContent, err := h.defaultComposeContent(slug)
 	if err != nil {
 		defaultContent = string(content)
 	}
@@ -427,8 +428,12 @@ func (h *handler) resetCompose(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	defaultContent, err := defaultComposeContent(compose)
-	if err != nil {
+	defaultContent, err := h.defaultComposeContent(slug)
+	switch {
+	case errors.Is(err, errNoSource):
+		writeJSON(w, http.StatusConflict, map[string]string{"detail": "Local recipe has no source, reset is not available"})
+		return
+	case err != nil:
 		notFound(w, "Default docker-compose.yml not available")
 		return
 	}
@@ -439,12 +444,24 @@ func (h *handler) resetCompose(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "reset", "content": defaultContent})
 }
 
-// defaultComposeContent returns the file as committed at HEAD. The recipe
-// lives at <repo>/registry/recipes/<slug>/docker-compose.yml, so the repo root
-// is four directories up.
-func defaultComposeContent(composeFile string) (string, error) {
-	root := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(composeFile))))
-	rel, err := filepath.Rel(root, composeFile)
+// errNoSource marks a local recipe: there is no checkout to restore a file
+// from, so reset is refused instead of silently doing nothing.
+var errNoSource = errors.New("local recipe has no source")
+
+// defaultComposeContent returns the file as committed at HEAD of the checkout
+// that owns the recipe. The root comes from the cache origin — the nearest
+// git checkout above the recipe — so recipes under any source subpath, and a
+// local recipe that inherited a repository, both resolve without counting
+// parent directories.
+func (h *handler) defaultComposeContent(slug string) (string, error) {
+	root, dir, ok := h.reg.Origin(slug)
+	if !ok {
+		return "", fmt.Errorf("recipe %s not found", slug)
+	}
+	if h.reg.IsLocal(slug) {
+		return "", errNoSource
+	}
+	rel, err := filepath.Rel(root, filepath.Join(dir, "docker-compose.yml"))
 	if err != nil {
 		return "", err
 	}

@@ -30,14 +30,18 @@ type Runtime interface {
 	StartHealthCheck(ctx context.Context, slug string)
 }
 
-// Deps supplies the runtime state and the one recipe cache shared with the
-// rest of the daemon.
+// Deps supplies the runtime state, the one recipe cache shared with the rest
+// of the daemon, and the source manager that owns local/.
 type Deps struct {
 	Runtime Runtime
 	Cache   *registry.Cache
+	// Manager owns local/ and the vendored sources. The copy and delete
+	// routes need it; without it they are not mounted (tests, embedders).
+	Manager *registry.Manager
 }
 
-// Register mounts GET /api/recipes and GET /api/recipes/{slug}.
+// Register mounts GET /api/recipes, GET /api/recipes/{slug} and — when the
+// source manager is wired in — the copy and delete routes of local.go.
 func Register(r *web.Router, deps Deps) {
 	cache := deps.Cache
 	if cache == nil {
@@ -53,6 +57,22 @@ func Register(r *web.Router, deps Deps) {
 	}
 	r.API("/api/recipes", h.list)
 	r.API("/api/recipes/{slug}", h.detail)
+	if deps.Manager != nil {
+		r.Handle("POST", "/api/recipes/{slug}/fork", h.fork)
+		r.Handle("DELETE", "/api/recipes/{slug}/local", h.deleteLocal)
+	}
+}
+
+// recipeResponse is registry.Recipe plus where it came from: "local" marks a
+// copy under local/, which the UI shows as a badge and which is the only kind
+// that can be deleted.
+type recipeResponse struct {
+	registry.Recipe
+	Local bool `json:"local"`
+}
+
+func (h *handler) respond(rec registry.Recipe) recipeResponse {
+	return recipeResponse{Recipe: rec, Local: h.cache.IsLocal(rec.Slug)}
 }
 
 type handler struct {
@@ -75,7 +95,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	q := strings.ToLower(search)
 
-	out := make([]registry.Recipe, 0, len(recipes))
+	out := make([]recipeResponse, 0, len(recipes))
 	for _, rec := range recipes {
 		resp := h.applyRuntime(r.Context(), rec, installed)
 
@@ -91,11 +111,10 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		out = append(out, resp)
+		out = append(out, h.respond(resp))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(out)
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +129,7 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 	installed := h.installed(r.Context())
 	resp := h.applyRuntime(r.Context(), rec, installed)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	writeJSON(w, http.StatusOK, h.respond(resp))
 }
 
 func (h *handler) installed(ctx context.Context) map[string]struct{} {
@@ -189,6 +207,17 @@ func runtimeEnvPath(dir string) string {
 		return envFile
 	}
 	return ""
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeErr is the {"detail": …} shape the frontend expects on every error.
+func writeErr(w http.ResponseWriter, status int, detail string) {
+	writeJSON(w, status, map[string]string{"detail": detail})
 }
 
 func tagContains(tags []string, q string) bool {
