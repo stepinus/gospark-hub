@@ -78,6 +78,8 @@ func parseRecipe(data []byte, dir string) (Recipe, error) {
 		Arena:                   parseArena(raw["arena"]),
 		ContextTokens:           intPtrField(raw, "context_tokens"),
 		ReservedGB:              0.0,
+		Kind:                    stringField(raw, "kind", "container"),
+		Native:                  parseNative(raw["native"], intField(nestedMap(raw, "ui"), "port", 8080)),
 	}
 
 	// context_tokens: first the raw context_length key (unknown to Pydantic),
@@ -193,6 +195,23 @@ func parseAudioDefaults(v any) *RecipeAudioDefaults {
 		Seconds: intPtrField(m, "seconds"),
 		Notes:   stringField(m, "notes", ""),
 		Source:  stringField(m, "source", ""),
+	}
+}
+
+// parseNative reads the `native:` block. An absent block means a container
+// recipe (nil), and a missing port falls back to the UI port, which is what
+// the Caddy upstream points at.
+func parseNative(v any, defaultPort int) *RecipeNative {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return &RecipeNative{
+		Engine: stringField(m, "engine", ""),
+		Model:  stringField(m, "model", ""),
+		Args:   stringSlice(m, "args"),
+		Env:    stringMap(m, "env"),
+		Port:   intField(m, "port", defaultPort),
 	}
 }
 
@@ -370,6 +389,22 @@ func stringSlice(m map[string]any, key string) []string {
 		if s, ok := item.(string); ok {
 			out = append(out, s)
 		}
+	}
+	return out
+}
+
+func stringMap(m map[string]any, key string) map[string]string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return nil
+	}
+	src, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := make(map[string]string, len(src))
+	for k, val := range src {
+		out[k] = fmt.Sprint(val)
 	}
 	return out
 }

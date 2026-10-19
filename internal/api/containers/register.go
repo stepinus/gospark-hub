@@ -26,6 +26,8 @@ import (
 	"gospark-hub/internal/auth"
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
+	"gospark-hub/internal/engines"
+	"gospark-hub/internal/native"
 	"gospark-hub/internal/registry"
 	"gospark-hub/internal/store"
 	"gospark-hub/internal/web"
@@ -41,6 +43,10 @@ type Deps struct {
 	// actions, readiness, startup errors) must be the same one the recipes
 	// list reads, so the caller passes its instance in.
 	Docker *dockerx.Docker
+	// Engines and Native serve the recipes that have no container at all.
+	// Both are optional: a container-only deployment leaves them nil.
+	Engines *engines.Manager
+	Native  *native.Runner
 }
 
 // Register mounts the container routes. The caller owns the middleware.
@@ -54,11 +60,13 @@ func Register(r *web.Router, deps Deps) {
 		dock = dockerx.New(deps.Config, deps.Registry, deps.DB, logger)
 	}
 	h := &handler{
-		cfg:    deps.Config,
-		reg:    deps.Registry,
-		log:    logger,
-		d:      dock,
-		builds: map[string]*buildState{},
+		cfg:     deps.Config,
+		reg:     deps.Registry,
+		log:     logger,
+		d:       dock,
+		engines: deps.Engines,
+		natives: deps.Native,
+		builds:  map[string]*buildState{},
 	}
 
 	r.Handle("POST", "/api/recipes/{slug}/install", h.install)
@@ -95,10 +103,12 @@ var (
 )
 
 type handler struct {
-	cfg config.Config
-	reg *registry.Cache
-	log *slog.Logger
-	d   *dockerx.Docker
+	cfg     config.Config
+	reg     *registry.Cache
+	log     *slog.Logger
+	d       *dockerx.Docker
+	engines *engines.Manager
+	natives *native.Runner
 
 	mu     sync.Mutex
 	builds map[string]*buildState
@@ -161,8 +171,16 @@ func (h *handler) buildSnapshot(slug string) (lines []string, done bool, ok bool
 
 func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	if _, ok := h.reg.Get(slug); !ok {
+	rec, ok := h.reg.Get(slug)
+	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	// A native recipe has nothing to install: the engine is installed once on
+	// the Engines page. The response keeps the shape the UI expects so its
+	// install button does not change behaviour.
+	if rec.IsNative() {
+		writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
 		return
 	}
 	// Already building, or left pending=installing by a restored daemon
@@ -192,8 +210,15 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	if _, ok := h.reg.Get(slug); !ok {
+	rec, ok := h.reg.Get(slug)
+	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	// Updating a native recipe means updating its engine, which the Engines
+	// page does; nothing to rebuild here.
+	if rec.IsNative() {
+		writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
 		return
 	}
 	// clear_ready happens before the guard upstream, deliberately.
@@ -295,6 +320,10 @@ func (h *handler) launch(w http.ResponseWriter, r *http.Request) {
 		notFound(w, "Recipe not found")
 		return
 	}
+	if rec.IsNative() {
+		h.launchNative(w, r, rec)
+		return
+	}
 	h.d.SetPending(slug, "launching")
 	h.d.ClearReady(slug)
 	h.d.ClearStartupError(slug)
@@ -327,10 +356,86 @@ func (h *handler) launch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": result})
 }
 
+// launchNative starts a recipe on its host engine. The unit survives the
+// daemon, so there is no pending action, no build log and no health check: the
+// first connection either works or the log explains why.
+func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec registry.Recipe) {
+	if rec.Native == nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"detail": "Recipe has no native block"})
+		return
+	}
+	if h.engines == nil || h.natives == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": "Native runtime is not configured"})
+		return
+	}
+	enginePath, err := h.engines.Path(rec.Native.Engine)
+	if errors.Is(err, engines.ErrNotInstalled) || errors.Is(err, engines.ErrUnknownEngine) {
+		writeJSON(w, http.StatusConflict, map[string]string{
+			"detail": fmt.Sprintf("Engine %s is not installed", rec.Native.Engine),
+		})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+		return
+	}
+	model, err := h.natives.ResolveModel(rec.Native.Model)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
+		return
+	}
+
+	port := rec.Native.Port
+	if port == 0 {
+		port = rec.UI.Port
+	}
+	served := rec.Name
+	if served == "" {
+		served = rec.Slug
+	}
+	spec := native.Spec{
+		EnginePath: enginePath,
+		Model:      model,
+		Args:       rec.Native.Args,
+		Env:        rec.Native.Env,
+		Port:       port,
+		ServedName: served,
+		LogPath:    filepath.Join(h.cfg.DataDir, "logs", rec.Slug+".log"),
+	}
+	// systemd-run talks to the user manager and returns at once; the request
+	// context must not kill it halfway through the handoff.
+	if err := h.natives.Start(context.WithoutCancel(r.Context()), rec.Slug, spec); err != nil {
+		if errors.Is(err, native.ErrAlreadyRunning) {
+			writeJSON(w, http.StatusConflict, map[string]string{"detail": "Recipe is already running"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"slug": rec.Slug, "status": "launched"})
+}
+
+// stopNative stops the unit. Stopping what is already stopped is a no-op.
+func (h *handler) stopNative(ctx context.Context, slug string) error {
+	if h.natives == nil {
+		return errors.New("native runtime is not configured")
+	}
+	return h.natives.Stop(ctx, slug)
+}
+
 func (h *handler) stop(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	if _, ok := h.reg.Get(slug); !ok {
+	rec, ok := h.reg.Get(slug)
+	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	if rec.IsNative() {
+		if err := h.stopNative(r.Context(), slug); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "stopped", "slug": slug})
 		return
 	}
 	h.d.SetPending(slug, "stopping")
@@ -343,8 +448,19 @@ func (h *handler) stop(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) remove(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	if _, ok := h.reg.Get(slug); !ok {
+	rec, ok := h.reg.Get(slug)
+	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	if rec.IsNative() {
+		// No image, no volume, no compose project: stopping the unit is the
+		// whole of "remove" for a native recipe.
+		if err := h.stopNative(r.Context(), slug); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "removed"})
 		return
 	}
 	h.d.SetPending(slug, "removing")
@@ -356,8 +472,17 @@ func (h *handler) remove(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) purge(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	if _, ok := h.reg.Get(slug); !ok {
+	rec, ok := h.reg.Get(slug)
+	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	if rec.IsNative() {
+		if err := h.stopNative(r.Context(), slug); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "removed"})
 		return
 	}
 	result, _ := h.d.PurgeRecipe(r.Context(), slug)

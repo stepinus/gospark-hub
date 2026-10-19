@@ -44,6 +44,15 @@ func Render(cfg config.Config, recipes []registry.Recipe) string {
 	for _, recipe := range proxiedRecipes(recipes) {
 		slug := recipe.Slug
 		upstream := fmt.Sprintf("%s:%d", containerName(cfg, slug), recipe.UI.Port)
+		if recipe.IsNative() {
+			// A native recipe has no container to dial: it listens on the host,
+			// which Caddy reaches through the host-gateway alias it already has.
+			port := recipe.UI.Port
+			if recipe.Native != nil && recipe.Native.Port != 0 {
+				port = recipe.Native.Port
+			}
+			upstream = fmt.Sprintf("host.docker.internal:%d", port)
+		}
 		lines = append(lines, "\t# "+slug)
 		// The daemon's own health probe, before the guarded route so it wins.
 		lines = append(lines,

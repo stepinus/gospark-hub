@@ -1,5 +1,7 @@
 package registry
 
+import "encoding/json"
+
 // Recipe mirrors daemon/models/recipe.py:Recipe as closely as possible.
 // Computed fields are populated by the loader so the JSON response is a
 // plain struct marshal with no extra logic in the HTTP handler.
@@ -51,6 +53,12 @@ type Recipe struct {
 	ContextTokens           *int                   `json:"context_tokens"`
 	ReservedGB              float64                `json:"reserved_gb"`
 
+	// Kind is "container" (the default) or "native". It is serialized only
+	// for native recipes so container recipes keep upstream's JSON.
+	Kind string `json:"kind,omitempty"`
+	// Native is the launch config for a native recipe; nil for containers.
+	Native *RecipeNative `json:"native,omitempty"`
+
 	// Computed fields (Pydantic computed_field in the upstream model).
 	MemoryGB          float64  `json:"memory_gb"`
 	Capabilities      []string `json:"capabilities"`
@@ -70,6 +78,36 @@ type Recipe struct {
 // IsLLM is the upstream is_llm property; it is intentionally not serialized.
 func (r Recipe) IsLLM() bool {
 	return r.Category == "llm" && r.UI.Type == "api-only"
+}
+
+// IsNative reports whether the recipe runs on a host engine instead of in a
+// container (no docker-compose.yml, a `native:` block).
+func (r Recipe) IsNative() bool { return r.Kind == "native" }
+
+// MarshalJSON keeps the wire format byte-compatible with upstream: `kind` and
+// `native` are native-only fields, even though the Go value carries the
+// canonical "container" for ordinary recipes. The alias type is load-bearing —
+// marshaling Recipe itself would recurse forever.
+func (r Recipe) MarshalJSON() ([]byte, error) {
+	type alias Recipe
+	a := alias(r)
+	if !r.IsNative() {
+		a.Kind = ""
+		a.Native = nil
+	}
+	return json.Marshal(a)
+}
+
+// RecipeNative is the `native:` block: which host engine serves the recipe,
+// where its checkpoint is and which flags the launch adds.
+//
+// Port is the host port the app listens on; it defaults to ui.port.
+type RecipeNative struct {
+	Engine string            `json:"engine"`
+	Model  string            `json:"model"`
+	Args   []string          `json:"args,omitempty"`
+	Env    map[string]string `json:"env,omitempty"`
+	Port   int               `json:"port,omitempty"`
 }
 
 type RecipeRequirements struct {
