@@ -15,6 +15,14 @@ import {
 import YamlEditor from '../components/YamlEditor'
 import CopyField from '../components/CopyField'
 import AddressPicker, { hostOptions } from '../components/AddressPicker'
+import { PageHeader, SectionTitle } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /* llama-swap, as a sidecar of the Hub.
  *
@@ -193,7 +201,7 @@ export default function LlamaSwap() {
       // An IPv6 literal needs its brackets before a port.
       url: `http://${o.host.includes(':') ? `[${o.host}]` : o.host}:${state.port}/v1`,
     }))
-  }, [connect, state?.port])
+  }, [connect, state])
   const picked = addresses.find((a) => a.url === address) || addresses[0]
   const measurements = state?.measurements || {}
   const running = useMemo(() => {
@@ -215,140 +223,146 @@ export default function LlamaSwap() {
   }, [groups, models])
 
   if (!isAdmin) {
-    return <div className="px-6 py-20 text-center text-text-dim text-sm">Administrator rights required.</div>
+    return (
+      <div className="page">
+        <p className="m-0 text-sm text-muted-foreground">Administrator rights required.</p>
+      </div>
+    )
   }
 
   const updateAvailable = Boolean(state?.installed && state?.latest && state.latest !== state.version)
   const uiURL = state?.port ? `${window.location.protocol}//${window.location.hostname}:${state.port}/ui/` : ''
 
   return (
-    <div className="px-4 sm:px-6 py-6 pb-12 max-w-6xl mx-auto animate-fadeIn flex flex-col gap-4">
-      <div className="mb-1">
-        <h1 className="text-2xl font-bold tracking-tight font-display m-0">llama-swap</h1>
-        <p className="text-sm text-text-dim m-0 mt-1">
-          One address for many models: llama-swap keeps them warm and swaps on demand. The Hub
-          installs the binary, runs it as a sidecar and edits the config here.
-        </p>
-      </div>
-
-      {error && (
-        <div className="rounded-2xl border border-error/30 bg-error-surface px-4 py-3">
-          <p className="text-sm text-error m-0 leading-relaxed">{error}</p>
-        </div>
-      )}
-      {notice && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3">
-          <p className="text-sm text-primary m-0 leading-relaxed">{notice}</p>
-        </div>
-      )}
-
-      {/* ─── The sidecar itself ─── */}
-      <section className="bg-surface rounded-2xl p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${state?.running ? 'bg-primary' : 'bg-text-dim'}`} />
-              <h2 className="font-semibold text-sm font-display m-0">
-                {state?.running ? 'Running' : state?.installed ? 'Stopped' : 'Not installed'}
-              </h2>
-              {updateAvailable && (
-                <span className="text-[10px] font-label font-semibold text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full">
-                  Update to {state.latest}
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-text-dim m-0 mt-1">
-              {state?.installed ? `Version ${state.version}` : 'The release binary is not downloaded yet'}
-              {state?.latest && !updateAvailable && state?.installed ? ' · up to date' : ''}
-              {state?.sidecar_version ? ` · reported ${state.sidecar_version}` : ''}
-            </p>
-            {state?.config_path && (
-              <p className="text-[11px] text-text-dim font-mono m-0 mt-1 break-all">{state.config_path}</p>
-            )}
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        title="llama-swap"
+        description="One address for many models: llama-swap keeps them warm and swaps on demand. The Hub installs the binary, runs it as a sidecar and edits the config here."
+        actions={
+          <>
             {!state?.installed && (
-              <button
+              <Button
                 onClick={() => act('install', () => installLlamaswap(), 'Binary installed.')}
                 disabled={busy !== null}
-                className="btn-primary px-4 py-2 text-sm font-bold disabled:opacity-50"
               >
                 {busy === 'install' ? '⟳ Installing…' : 'Install'}
-              </button>
+              </Button>
             )}
             {state?.installed && (
               <>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => act('update', updateLlamaswap, 'Updated to the latest release.')}
                   disabled={busy !== null || !updateAvailable}
-                  className="px-3.5 py-2 rounded-xl bg-surface-high text-text border border-outline-dim text-xs font-semibold cursor-pointer hover:bg-surface-highest disabled:opacity-50 disabled:cursor-default"
+                  className="whitespace-nowrap"
                 >
                   {busy === 'update' ? '⟳ Updating…' : 'Update'}
-                </button>
+                </Button>
                 {state?.running ? (
-                  <button
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={() => act('stop', stopLlamaswap, 'Sidecar stopped.')}
                     disabled={busy !== null}
-                    className="px-3.5 py-2 rounded-xl bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50"
+                    className="whitespace-nowrap"
                   >
                     {busy === 'stop' ? '⟳ Stopping…' : 'Stop'}
-                  </button>
+                  </Button>
                 ) : (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={() => act('start', startLlamaswap, 'Sidecar started.')}
                     disabled={busy !== null}
-                    className="btn-primary px-3.5 py-2 text-xs font-bold disabled:opacity-50"
+                    className="whitespace-nowrap"
                   >
                     {busy === 'start' ? '⟳ Starting…' : 'Start'}
-                  </button>
+                  </Button>
                 )}
-                <a
-                  href={uiURL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3.5 py-2 rounded-xl bg-surface-high text-text border border-outline-dim text-xs font-semibold no-underline hover:bg-surface-highest"
-                >
-                  Open UI ↗
-                </a>
+                <Button variant="outline" size="sm" asChild className="whitespace-nowrap">
+                  <a href={uiURL} target="_blank" rel="noreferrer">
+                    Open UI ↗
+                  </a>
+                </Button>
               </>
             )}
-          </div>
+          </>
+        }
+      >
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="gap-1.5 font-normal">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${state?.running ? 'bg-success' : 'bg-muted-foreground'}`}
+            />
+            {state?.running ? 'Running' : state?.installed ? 'Stopped' : 'Not installed'}
+          </Badge>
+          {updateAvailable && (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              Update to {state.latest}
+            </Badge>
+          )}
+          <span className="text-[11px] text-muted-foreground">
+            {state?.installed ? `Version ${state.version}` : 'The release binary is not downloaded yet'}
+            {state?.latest && !updateAvailable && state?.installed ? ' · up to date' : ''}
+            {state?.sidecar_version ? ` · reported ${state.sidecar_version}` : ''}
+          </span>
+          {state?.config_path && (
+            <span className="w-full break-all font-mono text-[11px] text-muted-foreground">
+              {state.config_path}
+            </span>
+          )}
         </div>
+      </PageHeader>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-outline-dim/40 pt-4">
-          <label className="text-[11px] text-text-dim">Port</label>
-          <input
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="m-0 text-sm leading-relaxed text-destructive">{error}</p>
+        </div>
+      )}
+      {notice && (
+        <div className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
+          <p className="m-0 text-sm leading-relaxed text-primary">{notice}</p>
+        </div>
+      )}
+
+      {/* ─── Settings: the sidecar's port ─── */}
+      <Card className="gap-0 p-5 shadow-none">
+        <div className="flex flex-wrap items-center gap-3">
+          <Label
+            htmlFor="llamaswap-port"
+            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            Port
+          </Label>
+          <Input
+            id="llamaswap-port"
             value={port}
             onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ''))}
-            className="w-20 bg-surface-high border border-outline-dim rounded-lg px-2 py-1 text-xs font-mono text-text"
+            className="h-8 w-20 font-mono text-xs tabular-nums"
           />
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => act('port', () => saveLlamaswapSettings({ port: Number(port) }), 'Port saved; restart to apply.')}
             disabled={busy !== null || !port || Number(port) === state?.port}
-            className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer disabled:opacity-50"
           >
             Save port
-          </button>
-          <button
-            onClick={editing ? () => setEditing(false) : openConfig}
-            disabled={busy !== null || !state?.config_exists}
-            className="ml-auto px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-          >
-            {editing ? 'Close editor' : 'Edit YAML'}
-          </button>
+          </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ─── One-click connect ─── */}
-      <section className="bg-surface rounded-2xl p-5">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="font-semibold text-sm font-display m-0">Connect</h2>
-          <span className="text-[11px] text-text-dim">
-            {state?.running ? 'What a client needs' : 'The sidecar is stopped: these work once it runs'}
-          </span>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <Card className="gap-0 p-5 shadow-none">
+        <SectionTitle
+          right={
+            <span className="text-[11px] text-muted-foreground">
+              {state?.running ? 'What a client needs' : 'The sidecar is stopped: these work once it runs'}
+            </span>
+          }
+        >
+          Connect
+        </SectionTitle>
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <CopyField
               label="API endpoint"
@@ -367,8 +381,8 @@ export default function LlamaSwap() {
           />
         </div>
         {modelIds.length > 0 && (
-          <div className="mt-4 border-t border-outline-dim/40 pt-3">
-            <span className="text-[10px] uppercase tracking-[0.16em] text-text-dim font-label">
+          <div className="mt-4 border-t border-border pt-4">
+            <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               Models {running.size > 0 && <span className="normal-case tracking-normal">· {running.size} warm now</span>}
             </span>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -383,160 +397,197 @@ export default function LlamaSwap() {
             </div>
           </div>
         )}
-      </section>
+      </Card>
 
-      {/* ─── The YAML editor ─── */}
-      {editing && (
-        <section className="bg-surface rounded-2xl p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-sm font-display m-0">config.yaml</h2>
-            <button
-              onClick={saveConfig}
-              disabled={busy !== null}
-              className="btn-primary px-3.5 py-1.5 text-xs font-bold disabled:opacity-50"
-            >
-              {busy === 'config' ? '⟳ Saving…' : 'Save'}
-            </button>
-          </div>
-          <div className="mt-3 h-[28rem] overflow-hidden rounded-xl border border-outline-dim">
-            <YamlEditor value={yaml} onChange={setYaml} />
-          </div>
-        </section>
-      )}
-
-      {/* ─── Groups board ─── */}
-      <section className="bg-surface rounded-2xl p-5">
+      {/* ─── YAML editor / groups board ─── */}
+      <Tabs
+        value={editing ? 'yaml' : 'groups'}
+        onValueChange={(next) => {
+          if (next === 'yaml') {
+            if (!editing) openConfig()
+          } else if (editing) {
+            setEditing(false)
+          }
+        }}
+        className="gap-4"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-semibold text-sm font-display m-0">Groups</h2>
-            <p className="text-[11px] text-text-dim m-0 mt-1">
-              Drag a model into a group: members of one swap group evict each other. Drop it on
-              Ungrouped (or press ×) to take it out again.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter by name or id…"
-              className="w-56 bg-surface-high border border-outline-dim rounded-lg px-2.5 py-1.5 text-[11px] text-text placeholder:text-text-dim"
-            />
-            <button
-              onClick={addGroup}
-              disabled={busy !== null}
-              className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+          <TabsList variant="line">
+            <TabsTrigger
+              value="yaml"
+              disabled={busy !== null || !state?.config_exists}
+              className="px-2 text-xs font-medium"
             >
-              + Group
-            </button>
-          </div>
+              config.yaml
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="px-2 text-xs font-medium">
+              Groups
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={editing ? () => setEditing(false) : openConfig}
+            disabled={busy !== null || !state?.config_exists}
+          >
+            {editing ? 'Close editor' : 'Edit YAML'}
+          </Button>
         </div>
 
-        {(state?.recipes || []).length > 0 && (
-          <div className="mt-4">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted m-0">
-              Hub recipes · drag into a group
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {(state.recipes || [])
-                .filter((r) => !groupedSet.has(r.slug))
-                .filter((r) => isVisible(r.slug))
-                .slice(0, 80)
-                .map((r) => (
-                  <div
-                    key={r.slug}
-                    draggable
-                    onDragStart={() => setDragging(r.slug)}
-                    onDragEnd={() => setDragging(null)}
-                    className="flex cursor-grab items-center gap-1.5 rounded-lg border border-outline-dim bg-surface-high/40 px-2 py-1"
-                    title={r.slug}
-                  >
-                    <span className="text-[11px] text-text">{r.name}</span>
-                    <span className="text-[10px] text-text-dim">
-                      {r.memory_gb ? `${r.memory_gb} GB` : '—'}
-                    </span>
-                  </div>
-                ))}
+        <TabsContent value="yaml" className="mt-0">
+          <Card className="gap-0 p-5 shadow-none">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="m-0 font-display text-sm font-semibold text-foreground">config.yaml</h2>
+              <Button size="sm" onClick={saveConfig} disabled={busy !== null}>
+                {busy === 'config' ? '⟳ Saving…' : 'Save'}
+              </Button>
+            </div>
+            <YamlEditor value={yaml} onChange={setYaml} className="mt-3 h-[28rem]" />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="groups" className="mt-0">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="m-0 font-display text-sm font-semibold text-foreground">Groups</h2>
+                <p className="m-0 mt-1 max-w-xl text-[11px] leading-relaxed text-muted-foreground">
+                  Drag a model into a group: members of one swap group evict each other. Drop it on
+                  Ungrouped (or press ×) to take it out again.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter by name or id…"
+                  className="h-8 w-56 text-xs"
+                />
+                <Button variant="outline" size="sm" onClick={addGroup} disabled={busy !== null}>
+                  + Group
+                </Button>
+              </div>
+            </div>
+
+            {(state?.recipes || []).length > 0 && (
+              <div>
+                <p className="m-0 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  Hub recipes · drag into a group
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(state.recipes || [])
+                    .filter((r) => !groupedSet.has(r.slug))
+                    .filter((r) => isVisible(r.slug))
+                    .slice(0, 80)
+                    .map((r) => (
+                      <div
+                        key={r.slug}
+                        draggable
+                        onDragStart={() => setDragging(r.slug)}
+                        onDragEnd={() => setDragging(null)}
+                        className="flex cursor-grab items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1"
+                        title={r.slug}
+                      >
+                        <span className="text-[11px] text-foreground">{r.name}</span>
+                        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {r.memory_gb ? `${r.memory_gb} GB` : '—'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {Object.entries(groups).map(([name, group]) => (
+                <GroupColumn
+                  key={name}
+                  name={name}
+                  group={group}
+                  models={models}
+                  measurements={measurements}
+                  recipes={recipesBySlug}
+                  memory={state?.memory}
+                  running={running}
+                  dragging={dragging}
+                  isVisible={isVisible}
+                  onDragStart={setDragging}
+                  onDropModel={(model) => moveModel(model, name)}
+                  onRemove={(model) => moveModel(model, '')}
+                />
+              ))}
+              <GroupColumn
+                name=""
+                title="Ungrouped"
+                group={{ members: grouped }}
+                models={models}
+                measurements={measurements}
+                recipes={recipesBySlug}
+                memory={state?.memory}
+                running={running}
+                dragging={dragging}
+                isVisible={isVisible}
+                onDragStart={setDragging}
+                onDropModel={(model) => moveModel(model, '')}
+                ungrouped
+              />
             </div>
           </div>
-        )}
-
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Object.entries(groups).map(([name, group]) => (
-            <GroupColumn
-              key={name}
-              name={name}
-              group={group}
-              models={models}
-              measurements={measurements}
-              recipes={recipesBySlug}
-              memory={state?.memory}
-              running={running}
-              dragging={dragging}
-              isVisible={isVisible}
-              onDragStart={setDragging}
-              onDropModel={(model) => moveModel(model, name)}
-              onRemove={(model) => moveModel(model, '')}
-            />
-          ))}
-          <GroupColumn
-            name=""
-            title="Ungrouped"
-            group={{ members: grouped }}
-            models={models}
-            measurements={measurements}
-            recipes={recipesBySlug}
-            memory={state?.memory}
-            running={running}
-            dragging={dragging}
-            isVisible={isVisible}
-            onDragStart={setDragging}
-            onDropModel={(model) => moveModel(model, '')}
-            ungrouped
-          />
-        </div>
-      </section>
+        </TabsContent>
+      </Tabs>
 
       {/* ─── Running models ─── */}
-      <section className="bg-surface rounded-2xl p-5">
-        <h2 className="font-semibold text-sm font-display m-0">Running now</h2>
+      <Card className="gap-0 p-5 shadow-none">
+        <SectionTitle>Running now</SectionTitle>
         {(state?.running_models || []).length === 0 ? (
-          <p className="text-[11px] text-text-dim m-0 mt-1">
+          <p className="m-0 text-[11px] leading-relaxed text-muted-foreground">
             Nothing is up. A request through the sidecar starts the model it names.
           </p>
         ) : (
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
             {state.running_models.map((model) => {
               const measurement = measurements[model.model]
               return (
-                <div key={model.model} className="rounded-xl border border-outline-dim bg-surface-high/40 px-3 py-2">
+                <div key={model.model} className="rounded-lg border border-border bg-muted/40 px-3 py-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-text">{model.name || model.model}</span>
-                    <code className="text-[10px] text-text-dim font-mono">{model.model}</code>
-                    <span className="text-[10px] text-text-dim">{model.state}</span>
-                    <button
+                    <span className="text-xs font-semibold text-foreground">{model.name || model.model}</span>
+                    <code className="font-mono text-[10px] text-muted-foreground">{model.model}</code>
+                    <span className="text-[10px] text-muted-foreground">{model.state}</span>
+                    <Button
+                      variant="outline"
+                      size="xs"
                       onClick={() => measure(model.model)}
                       disabled={Boolean(measuring[model.model])}
-                      className="ml-auto px-2.5 py-1 rounded-lg bg-surface-high border border-outline-dim text-[10px] font-semibold cursor-pointer disabled:opacity-50"
+                      className="ml-auto"
                     >
                       {measuring[model.model] ? '⟳ Measuring…' : 'Measure'}
-                    </button>
+                    </Button>
                   </div>
                   {measurement && (
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-dim">
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                       <span>
-                        prefill <b className="text-text">{fmt(measurement.prefill_tps)}</b> tok/s
-                        <span className="text-text-dim">
+                        prefill{' '}
+                        <b className="font-mono font-semibold tabular-nums text-foreground">{fmt(measurement.prefill_tps)}</b>{' '}
+                        tok/s
+                        <span className="text-muted-foreground">
                           {' '}({measurement.prompt_tokens} tok / {measurement.ttft_ms} ms
                           {measurement.prefill_naive_tps ? `, naive ${fmt(measurement.prefill_naive_tps)}` : ''})
                         </span>
                       </span>
                       <span>
-                        decode <b className="text-text">{fmt(measurement.decode_tps)}</b> tok/s
-                        <span className="text-text-dim"> ({measurement.decode_tokens} tok / {measurement.total_ms} ms)</span>
+                        decode{' '}
+                        <b className="font-mono font-semibold tabular-nums text-foreground">{fmt(measurement.decode_tps)}</b>{' '}
+                        tok/s
+                        <span className="text-muted-foreground">
+                          {' '}({measurement.decode_tokens} tok / {measurement.total_ms} ms)
+                        </span>
                       </span>
                       <span>
-                        memory <b className="text-text">{gb(measurement.memory_bytes)}</b>
-                        {measurement.memory_source ? <span className="text-text-dim"> · {measurement.memory_source}</span> : null}
+                        memory{' '}
+                        <b className="font-mono font-semibold tabular-nums text-foreground">{gb(measurement.memory_bytes)}</b>
+                        {measurement.memory_source ? (
+                          <span className="text-muted-foreground"> · {measurement.memory_source}</span>
+                        ) : null}
                       </span>
                     </div>
                   )}
@@ -545,7 +596,7 @@ export default function LlamaSwap() {
             })}
           </div>
         )}
-      </section>
+      </Card>
     </div>
   )
 }
@@ -587,23 +638,30 @@ function GroupColumn({
   // something else or fail to load: that is the number that matters, not just
   // the total.
   const overFree = freeGB > 0 && usedGB > freeGB
+  const fillTone = overFree
+    ? '[&_[data-slot=progress-indicator]]:bg-error'
+    : fill > 70
+      ? '[&_[data-slot=progress-indicator]]:bg-tertiary'
+      : ''
 
   return (
-    <div
+    <Card
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
         if (dragging) onDropModel(dragging)
       }}
-      className={`rounded-xl border p-3 min-h-[7rem] ${ungrouped ? 'border-dashed border-outline' : 'border-outline-dim bg-surface-high/30'}`}
+      className={`min-h-[7rem] gap-0 p-3 shadow-none ${
+        ungrouped ? 'border border-dashed border-border bg-transparent ring-0' : ''
+      }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-text-muted m-0">
+        <h3 className="m-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           {title || name}
         </h3>
-        <span className="text-[10px] text-text-dim">{members.length}</span>
+        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{members.length}</span>
       </div>
-      <p className="text-[10px] text-text-dim m-0 mt-0.5">
+      <p className="m-0 mt-1 text-[10px] leading-relaxed text-muted-foreground">
         {usedGB > 0 ? `≈ ${usedGB.toFixed(0)} GB` : 'no memory data'}
         {totalGB ? ` of ${totalGB} GB` : ''}
         {freeGB > 0 ? ` · ${freeGB.toFixed(0)} GB free now` : ''}
@@ -611,39 +669,35 @@ function GroupColumn({
         {name && group?.swap === false ? ' · swap off' : ''}
         {name && group?.persistent ? ' · persistent' : ''}
       </p>
-      {totalGB > 0 && (
-        <div className="mt-1.5 h-1.5 w-full rounded-full bg-surface-highest overflow-hidden">
-          <div
-            className={`h-full rounded-full ${overFree ? 'bg-error' : fill > 70 ? 'bg-tertiary' : 'bg-primary'}`}
-            style={{ width: `${fill}%` }}
-          />
-        </div>
-      )}
+      {totalGB > 0 && <Progress value={fill} className={`mt-1.5 h-1.5 ${fillTone}`} />}
       <div className="mt-2 flex flex-col gap-1.5">
         {visible.map((id) => (
-          <div
+          <Card
             key={id}
+            size="sm"
             draggable
             onDragStart={() => onDragStart(id)}
             onDragEnd={() => onDragStart(null)}
-            className="group cursor-grab rounded-lg border border-outline-dim bg-surface px-2 py-1.5"
+            className="group cursor-grab gap-0 px-2 py-1.5 shadow-none"
           >
             <div className="flex items-center gap-1.5">
-              {running.has(id) && <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />}
-              <span className="text-[11px] text-text truncate">{models[id]?.name || id}</span>
+              {running.has(id) && <span className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-success" />}
+              <span className="truncate text-[11px] text-foreground">{models[id]?.name || id}</span>
               <div className="ml-auto flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
                 {!ungrouped && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={(e) => { e.stopPropagation(); onRemove(id) }}
                     title="Take out of the group"
-                    className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-error"
+                    className="text-[10px] text-muted-foreground hover:text-destructive"
                   >
                     ×
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-text-dim">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <code className="font-mono">{id}</code>
               {measurements[id]?.decode_tps ? <span>{fmt(measurements[id].decode_tps)} tok/s</span> : null}
               {measurements[id]?.memory_bytes
@@ -652,15 +706,15 @@ function GroupColumn({
                   ? <span>{recipes.get(id).memory_gb} GB</span>
                   : null}
             </div>
-          </div>
+          </Card>
         ))}
         {visible.length === 0 && (
-          <p className="text-[10px] text-text-dim m-0 py-2">
+          <p className="m-0 py-2 text-[10px] text-muted-foreground">
             {members.length === 0 ? 'Nothing here.' : `All ${members.length} filtered out by the search.`}
           </p>
         )}
       </div>
-    </div>
+    </Card>
   )
 }
 

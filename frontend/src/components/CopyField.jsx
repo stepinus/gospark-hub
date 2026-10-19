@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { copyText } from '../lib/clipboard'
+import { Button } from '@/components/ui/button'
 
 /* One label/value row with a copy button.
  *
@@ -17,25 +19,27 @@ export default function CopyField({ label, value, secret = false, hint }) {
     }
   }
   return (
-    <div className="flex items-center justify-between gap-3 min-w-0">
+    <div className="flex min-w-0 items-center justify-between gap-3 py-1.5">
       <div className="min-w-0">
-        <span className="text-[10px] text-text-dim font-label block">{label}</span>
-        <code className={`text-xs text-text-muted font-mono break-all ${secret ? 'blur-[3px] hover:blur-none transition' : ''}`}>
+        <span className="block text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <code
+          className={`break-all font-mono text-xs text-foreground ${secret ? 'blur-[3px] transition hover:blur-none' : ''}`}
+        >
           {text}
         </code>
-        {hint && <span className="text-[10px] text-text-dim block mt-0.5">{hint}</span>}
+        {hint && <span className="mt-0.5 block text-[10px] text-muted-foreground">{hint}</span>}
       </div>
-      <button
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
         onClick={copy}
-        className="shrink-0 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors"
         title="Copy"
+        aria-label={`Copy ${label}`}
+        className="shrink-0 text-muted-foreground hover:text-primary"
       >
-        {copied ? (
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-        ) : (
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-        )}
-      </button>
+        {copied ? <Check className="text-primary" /> : <Copy />}
+      </Button>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bot } from 'lucide-react'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
 import { useApiKey } from '../hooks/useApiKey'
@@ -11,6 +12,12 @@ import AddressPicker, { KIND_LABEL } from '../components/AddressPicker'
 import { groupModels, isAgentModel, isMediaModel, speedLabel } from '../models'
 import { formatContext } from '../components/ModelList'
 import ModelShelves from '../components/ModelShelves'
+import { PageHeader, SectionTitle, EmptyState } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 // Everything an agent needs from this Spark, on one page: what is serving
 // right now, the two ways to connect (sah, or plain OpenAI/Anthropic
@@ -107,55 +114,33 @@ export default function Agents({ search = '' }) {
   const scrollToModels = () => document.getElementById('agent-models')?.scrollIntoView({ behavior: 'smooth' })
 
   return (
-    <div className="pb-14 animate-fadeIn">
-      {/* ─── Hero: what this is, and what is serving right now ─── */}
-      <section className="relative overflow-hidden border-b border-outline-dim">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            background: 'radial-gradient(60% 90% at 0% 0%, color-mix(in srgb, var(--secondary) 22%, transparent), transparent 70%),'
-              + 'radial-gradient(50% 80% at 100% 100%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%)',
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage: 'linear-gradient(var(--outline-dim) 1px, transparent 1px), linear-gradient(90deg, var(--outline-dim) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-            maskImage: 'linear-gradient(to bottom, black, transparent 85%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, black, transparent 85%)',
-          }}
-        />
-        <div className="relative grid grid-cols-1 items-start gap-6 px-4 pb-8 pt-7 sm:px-6 sm:pt-9 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <div className="min-w-0">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-label text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
-              <AgentIcon className="h-3.5 w-3.5" />
-              Agents
-            </span>
-            <h1 className="m-0 mt-4 font-display text-[clamp(28px,3.4vw,44px)] font-bold leading-[1.08] tracking-tight text-text">
-              Your Spark, behind
-              <br />
-              <span className="bg-gradient-to-r from-primary to-tertiary bg-clip-text text-transparent">every coding agent.</span>
-            </h1>
-            <p className="m-0 mt-4 max-w-xl text-[15px] leading-7 text-text-muted">
-              Every model here speaks the OpenAI and Anthropic APIs at one address, signed with
-              your key. Wire an agent with a single <code className="font-mono text-text">sah</code>{' '}
-              command, or paste three settings into anything else. Launch a different model and
-              connected agents pick it up without being touched.
-            </p>
-          </div>
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Agents"
+        title={
+          <span className="inline-flex items-center gap-2.5">
+            <AgentIcon className="h-5 w-5 text-primary" />
+            Your Spark, behind every coding agent.
+          </span>
+        }
+        description={
+          <>
+            Every model here speaks the OpenAI and Anthropic APIs at one address, signed with
+            your key. Wire an agent with a single <code className="font-mono text-foreground">sah</code>{' '}
+            command, or paste three settings into anything else. Launch a different model and
+            connected agents pick it up without being touched.
+          </>
+        }
+      />
 
-          <ServingPanel
-            served={served}
-            starting={starting}
-            tools={tools}
-            recipes={recipes}
-            onBrowse={scrollToModels}
-          />
-        </div>
-      </section>
+      {/* ─── Serving now ─── */}
+      <ServingPanel
+        served={served}
+        starting={starting}
+        tools={tools}
+        recipes={recipes}
+        onBrowse={scrollToModels}
+      />
 
       {/* ─── Connect: one question, then the steps for the answer ─── */}
       <ConnectAgent info={info} apiKey={apiKey} keyValue={key} modelId={modelId} hasModel={Boolean(served?.length)} />
@@ -168,16 +153,13 @@ export default function Agents({ search = '' }) {
         ]}
       />
       {hidden.size > 0 && (
-        <div className="px-4 pt-6 sm:px-6">
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className="rounded-full border border-outline bg-transparent px-3 py-1.5 text-[11px] font-semibold text-text-muted transition-colors hover:border-text-dim hover:text-text cursor-pointer"
-          >
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setShowHidden(!showHidden)}>
             {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
-          </button>
+          </Button>
         </div>
       )}
-      <div className="pt-8">
+      <div className="-mx-6">
         <ModelShelves
           id="agent-models"
           models={models}
@@ -186,7 +168,7 @@ export default function Agents({ search = '' }) {
           title="Language models"
         />
       </div>
-      <div className="mt-14 border-t border-outline-dim pt-10">
+      <div className="-mx-6 border-t border-border pt-6">
         <ModelShelves
           id="media-models"
           models={media}
@@ -211,32 +193,22 @@ function ServingPanel({ served, starting, tools, recipes, onBrowse }) {
   const pending = starting.filter((r) => !liveSlugs.has(r.slug))
 
   return (
-    <div className="rounded-2xl border border-outline-dim bg-surface/80 p-4 shadow-xl shadow-black/10 backdrop-blur-md">
+    <Card className="gap-0 p-5 shadow-none">
       <div className="mb-3 flex items-center gap-2">
-        <span className="relative flex h-2.5 w-2.5">
-          {live.length > 0 && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />}
-          <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${live.length > 0 ? 'bg-primary' : 'bg-text-dim'}`} />
-        </span>
-        <h2 className="m-0 font-display text-sm font-bold tracking-tight text-text">Serving now</h2>
-        <code className="ml-auto rounded-md bg-surface-high px-2 py-0.5 font-mono text-[11px] text-text-muted">/v1</code>
+        <span className={`h-1.5 w-1.5 rounded-full ${live.length > 0 ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
+        <h2 className="m-0 font-display text-sm font-semibold tracking-tight text-foreground">Serving now</h2>
+        <Badge variant="outline" className="ml-auto font-mono text-[10px] text-muted-foreground">/v1</Badge>
       </div>
 
       {served === null ? (
-        <p className="m-0 py-6 text-center text-sm text-text-dim">Asking the Hub…</p>
+        <p className="m-0 py-6 text-center text-sm text-muted-foreground">Asking the Hub…</p>
       ) : live.length === 0 && pending.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-outline px-4 py-6 text-center">
-          <p className="m-0 font-display text-sm font-semibold text-text">No model is running yet</p>
-          <p className="m-0 mx-auto mt-1 max-w-sm text-xs leading-5 text-text-dim">
-            Launch one below. Agents you have already connected pick it up as it comes up,
-            with nothing to change on their side.
-          </p>
-          <button
-            onClick={onBrowse}
-            className="mt-4 cursor-pointer rounded-xl border-none bg-primary px-4 py-2 text-xs font-bold text-primary-on transition-opacity hover:opacity-90"
-          >
-            Choose a model ↓
-          </button>
-        </div>
+        <EmptyState
+          icon={<Bot className="h-6 w-6" />}
+          title="No model is running yet"
+          description="Launch one below. Agents you have already connected pick it up as it comes up, with nothing to change on their side."
+          action={<Button onClick={onBrowse}>Choose a model ↓</Button>}
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {live.map((m, i) => (
@@ -245,7 +217,7 @@ function ServingPanel({ served, starting, tools, recipes, onBrowse }) {
           {pending.map((r) => (
             <ServedRow key={r.slug} recipe={r} pending />
           ))}
-          <p className="m-0 mt-1 text-[11px] leading-5 text-text-dim">
+          <p className="m-0 mt-1 text-[11px] leading-5 text-muted-foreground">
             {live.length > 1
               ? 'A request goes to the model it names. Anything else goes to the default, the largest one up.'
               : 'Requests go here whatever model they name. Launch more and they run side by side when they fit.'}
@@ -254,7 +226,7 @@ function ServingPanel({ served, starting, tools, recipes, onBrowse }) {
       )}
 
       {tools.length > 0 && <ToolModels tools={tools} />}
-    </div>
+    </Card>
   )
 }
 
@@ -263,22 +235,23 @@ function ServingPanel({ served, starting, tools, recipes, onBrowse }) {
 function ToolModels({ tools }) {
   const selectRecipe = useStore((s) => s.selectRecipe)
   return (
-    <div className="mt-3 border-t border-outline-dim pt-3">
+    <div className="mt-3 border-t border-border pt-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="font-label text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Ready as tools</span>
-        <code className="ml-auto rounded-md bg-surface-high px-2 py-0.5 font-mono text-[11px] text-text-muted">/mcp</code>
+        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Ready as tools</span>
+        <Badge variant="outline" className="ml-auto font-mono text-[10px] text-muted-foreground">/mcp</Badge>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {tools.map((r) => (
-          <button
+          <Button
             key={r.slug}
             type="button"
+            variant="outline"
+            size="xs"
             onClick={() => selectRecipe(r.slug)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-outline-dim bg-surface-high/60 px-2.5 py-1 text-[11px] font-semibold text-text-muted transition-colors hover:border-text-dim hover:text-text"
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${r.running && r.ready ? 'bg-primary' : 'bg-warning animate-pulse'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${r.running && r.ready ? 'bg-success' : 'bg-warning'}`} />
             {r.name}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -304,26 +277,30 @@ function CatalogNav({ sections }) {
     return () => io.disconnect()
   }, [ids])
 
+  const go = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+
   return (
-    <nav className="sticky top-0 z-20 mt-10 border-y border-outline-dim bg-bg/85 px-4 py-2.5 backdrop-blur-md sm:px-6">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 hidden font-label text-[10px] font-bold uppercase tracking-[0.14em] text-text-dim sm:inline">Catalog</span>
-        {sections.map((x) => (
-          <button
-            key={x.id}
-            type="button"
-            onClick={() => document.getElementById(x.id)?.scrollIntoView({ behavior: 'smooth' })}
-            className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
-              active === x.id
-                ? 'border-primary/40 bg-primary/10 text-text'
-                : 'border-transparent bg-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {x.label}
-            <span className="rounded-md bg-surface-high px-1.5 py-0.5 font-label text-[10px] tabular-nums text-text-dim">{x.count}</span>
-            <code className="hidden font-mono text-[10px] text-text-dim sm:inline">{x.where}</code>
-          </button>
-        ))}
+    <nav className="sticky top-0 z-20 -mx-6 border-y border-border bg-background/90 px-6 py-2.5 backdrop-blur">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="hidden text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:inline">Catalog</span>
+        <Tabs value={active} onValueChange={go}>
+          <TabsList variant="line" className="h-8">
+            {sections.map((x) => (
+              <TabsTrigger
+                key={x.id}
+                value={x.id}
+                onClick={() => go(x.id)}
+                className="gap-2 px-2 text-xs font-medium"
+              >
+                {x.label}
+                <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
+                  {x.count}
+                </Badge>
+                <code className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{x.where}</code>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
     </nav>
   )
@@ -346,39 +323,37 @@ function ServedRow({ model, recipe, isDefault = false, pending = false }) {
     <button
       type="button"
       onClick={() => recipe && selectRecipe(recipe.slug)}
-      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border bg-surface-high/60 px-3 py-2.5 text-left transition-colors hover:border-text-dim ${
-        isDefault ? 'border-primary/40' : 'border-outline-dim'
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2.5 text-left transition-colors hover:bg-muted ${
+        isDefault ? 'border-primary/40' : 'border-border'
       }`}
     >
       {logoUrl && !logoFailed ? (
-        <img src={logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-8 w-8 shrink-0 rounded-lg bg-surface p-1 object-contain" />
+        <img src={logoUrl} alt="" onError={() => setLogoFailed(true)} className="h-8 w-8 shrink-0 rounded-md bg-background p-1 object-contain" />
       ) : (
-        <span className="h-8 w-8 shrink-0 rounded-lg bg-surface" />
+        <span className="h-8 w-8 shrink-0 rounded-md bg-background" />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-text">{recipe?.name || model?.id}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{recipe?.name || model?.id}</span>
           {isDefault && (
-            <span className="shrink-0 rounded bg-primary px-1.5 py-0.5 font-label text-[9px] font-bold uppercase tracking-wide text-primary-on">
-              Default
-            </span>
+            <Badge className="text-[9px] uppercase tracking-wide">Default</Badge>
           )}
           {pending && (
-            <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 font-label text-[9px] font-bold uppercase tracking-wide text-warning">
+            <Badge variant="outline" className="border-warning/30 bg-warning/10 text-[9px] uppercase tracking-wide text-warning">
               Starting
-            </span>
+            </Badge>
           )}
         </div>
-        <div className="mt-0.5 truncate font-mono text-[11px] text-text-dim">{model?.id || recipe?.slug}</div>
+        <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{model?.id || recipe?.slug}</div>
       </div>
       <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-        {meta.length > 0 && <span className="font-label text-[10px] tabular-nums text-text-muted">{meta.join(' · ')}</span>}
+        {meta.length > 0 && <span className="text-[10px] tabular-nums text-muted-foreground">{meta.join(' · ')}</span>}
         {caps.length > 0 && (
           <span className="flex gap-1">
             {caps.map((c) => (
-              <span key={c} className="rounded-full bg-surface px-1.5 py-0.5 font-label text-[9px] text-text-muted">
+              <Badge key={c} variant="outline" className="text-[9px] text-muted-foreground">
                 {CAPABILITY_LABEL[c]}
-              </span>
+              </Badge>
             ))}
           </span>
         )}
@@ -398,6 +373,7 @@ function ServedRow({ model, recipe, isDefault = false, pending = false }) {
 
 const OTHER = { id: 'other', name: 'Any other app', kind: 'Other' }
 const MCP = { id: 'mcp', name: 'MCP tools', kind: 'Other' }
+
 const EXTRAS = [OTHER, MCP]
 
 // Agents that are apps of this Hub: nothing to install on your computer, the
@@ -426,16 +402,18 @@ function ConnectAgent({ info, apiKey, keyValue, modelId, hasModel }) {
   const desktop = agents.filter((a) => a.kind === 'Desktop')
 
   return (
-    <section className="px-4 pt-10 sm:px-6">
-      <div className="font-label text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Connect an agent</div>
-      <h2 className="m-0 mt-1 font-display text-2xl font-bold tracking-tight text-text sm:text-3xl">
-        Which agent do you want to use?
-      </h2>
+    <section className="flex flex-col gap-4">
+      <div>
+        <SectionTitle>Connect an agent</SectionTitle>
+        <h2 className="m-0 font-display text-lg font-semibold tracking-tight text-foreground">
+          Which agent do you want to use?
+        </h2>
+      </div>
 
       {!info ? (
-        <p className="m-0 mt-6 text-sm text-text-dim">Loading…</p>
+        <p className="m-0 text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-5">
             <TileGroup label="In the terminal" agents={terminal} selected={choice?.id} onPick={pick} />
             {desktop.length > 0 && (
@@ -465,26 +443,32 @@ function ConnectAgent({ info, apiKey, keyValue, modelId, hasModel }) {
 function TileGroup({ label, agents, selected, onPick }) {
   return (
     <div>
-      <div className="mb-2 text-sm font-semibold text-text-muted">{label}</div>
+      <div className="mb-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5">
-        {agents.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => onPick(a.id)}
-            aria-pressed={selected === a.id}
-            className={`flex h-[96px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border px-2 text-center transition-all ${
-              selected === a.id
-                ? 'border-primary bg-primary/10 ring-2 ring-primary/40'
-                : 'border-outline-dim bg-surface hover:border-text-dim hover:bg-surface-high'
-            }`}
-          >
-            <AgentLogo agent={a} size={36} />
-            <span className={`line-clamp-2 text-[12px] font-semibold leading-tight ${selected === a.id ? 'text-text' : 'text-text-muted'}`}>
-              {a.name}
-            </span>
-          </button>
-        ))}
+        {agents.map((a) => {
+          const on = selected === a.id
+          return (
+            <Card
+              key={a.id}
+              className={`gap-0 p-0 shadow-none ${
+                on ? 'border border-primary/40 ring-1 ring-primary' : 'border border-border'
+              }`}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                aria-pressed={on}
+                onClick={() => onPick(a.id)}
+                className="h-[96px] w-full flex-col gap-2 whitespace-normal rounded-lg px-2 text-center"
+              >
+                <AgentLogo agent={a} size={36} />
+                <span className={`line-clamp-2 text-[12px] font-semibold leading-tight ${on ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {a.name}
+                </span>
+              </Button>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )
@@ -492,30 +476,30 @@ function TileGroup({ label, agents, selected, onPick }) {
 
 function StepsCard({ agent, title, children }) {
   return (
-    <div className="rounded-2xl border border-outline-dim bg-surface p-5 sm:p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <AgentLogo agent={agent} size={44} />
-        <h3 className="m-0 font-display text-xl font-bold tracking-tight text-text">{title}</h3>
+    <Card className="gap-0 p-5 shadow-none sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <AgentLogo agent={agent} size={40} />
+        <h3 className="m-0 font-display text-base font-semibold tracking-tight text-foreground">{title}</h3>
       </div>
-      <ol className="m-0 flex list-none flex-col gap-6 p-0">{children}</ol>
-    </div>
+      <ol className="m-0 flex list-none flex-col gap-5 p-0">{children}</ol>
+    </Card>
   )
 }
 
 function BigStep({ n, title, sub, children }) {
   const done = n === '✓'
   return (
-    <li className="flex gap-4">
+    <li className="flex gap-3">
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold ${
-          done ? 'bg-primary text-primary-on' : 'bg-primary/15 text-primary ring-1 ring-primary/40'
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border font-mono text-[11px] font-semibold tabular-nums ${
+          done ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground'
         }`}
       >
         {n}
       </span>
-      <div className="min-w-0 flex-1 pt-0.5">
-        <div className="text-base font-semibold text-text">{title}</div>
-        {sub && <p className="m-0 mt-0.5 text-sm leading-6 text-text-muted">{sub}</p>}
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-foreground">{title}</div>
+        {sub && <p className="m-0 mt-0.5 text-xs leading-relaxed text-muted-foreground">{sub}</p>}
         {children && <div className="mt-3">{children}</div>}
       </div>
     </li>
@@ -529,12 +513,12 @@ function SahSteps({ agent, info, apiKey }) {
     <StepsCard agent={agent} title={`Use ${agent.name} with this Spark`}>
       <BigStep n="1" title="Install sah on your computer" sub="Only once per computer. sah is the small helper that connects your agents to this Spark.">
         <CopyCode text={info.commands.install} secret={apiKey} large />
-        <p className="m-0 mt-2 text-xs leading-5 text-text-dim">
+        <p className="m-0 mt-2 text-[11px] leading-relaxed text-muted-foreground">
           It includes your personal key, so run it only on your own computers.
         </p>
         <details className="group mt-2">
-          <summary className="cursor-pointer list-none text-xs font-semibold text-text-dim hover:text-text">
-            <span className="inline-block transition-transform group-open:rotate-90">›</span>{' '}
+          <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground hover:text-foreground">
+            <span className="inline-block group-open:rotate-90">›</span>{' '}
             Already have sah? Point it at this Spark instead
           </summary>
           <div className="mt-2 flex flex-col gap-2">
@@ -559,7 +543,7 @@ function SahSteps({ agent, info, apiKey }) {
         title="That's it"
         sub={`${agent.name} now runs on the models of this Spark. Every running model shows up in ${agent.name}'s own model menu, the largest first.`}
       >
-        <p className="m-0 text-xs leading-5 text-text-dim">{agentNote(agent)}</p>
+        <p className="m-0 text-[11px] leading-relaxed text-muted-foreground">{agentNote(agent)}</p>
       </BigStep>
     </StepsCard>
   )
@@ -575,7 +559,6 @@ function HubAppSteps({ agent }) {
   if (!recipe) return null
   const installed = recipe.installed && !building
   const up = recipe.running && recipe.ready
-  const button = 'inline-flex cursor-pointer items-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-on transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60'
   return (
     <StepsCard agent={agent} title={`Use ${agent.name} with this Spark`}>
       <BigStep
@@ -584,9 +567,9 @@ function HubAppSteps({ agent }) {
         sub={installed ? 'Installed.' : 'Only once. It runs here on the Spark, so there is nothing to put on your computer.'}
       >
         {!installed && (
-          <button type="button" className={button} disabled={building} onClick={() => installRecipe(agent.slug)}>
+          <Button type="button" disabled={building} onClick={() => installRecipe(agent.slug)}>
             {building ? 'Installing…' : 'Install'}
-          </button>
+          </Button>
         )}
       </BigStep>
       <BigStep
@@ -595,13 +578,15 @@ function HubAppSteps({ agent }) {
         sub={up ? 'Open it in your browser.' : 'It starts already connected to this Spark.'}
       >
         {up ? (
-          <a href={openUrl(recipe)} target="_blank" rel="noopener noreferrer" className={`${button} no-underline`}>
-            Open {agent.name} ↗
-          </a>
+          <Button asChild>
+            <a href={openUrl(recipe)} target="_blank" rel="noopener noreferrer">
+              Open {agent.name} ↗
+            </a>
+          </Button>
         ) : (
-          <button type="button" className={button} disabled={!installed || recipe.starting || recipe.running} onClick={() => requestLaunch(agent.slug)}>
+          <Button type="button" disabled={!installed || recipe.starting || recipe.running} onClick={() => requestLaunch(agent.slug)}>
             {recipe.starting || recipe.running ? 'Starting…' : 'Launch'}
-          </button>
+          </Button>
         )}
       </BigStep>
       <BigStep
@@ -651,10 +636,10 @@ const AGENT_LOGOS = {
 function AgentLogo({ agent, size = 20 }) {
   const box = { width: size, height: size }
   const inner = { width: Math.round(size * 0.66), height: Math.round(size * 0.66) }
-  const shell = `flex shrink-0 items-center justify-center overflow-hidden ${size >= 32 ? 'rounded-xl' : 'rounded-md'}`
+  const shell = 'flex shrink-0 items-center justify-center overflow-hidden rounded-md'
   if (agent.id === OTHER.id) {
     return (
-      <span className={`${shell} bg-surface-highest text-text-muted`} style={box}>
+      <span className={`${shell} bg-muted text-muted-foreground`} style={box}>
         <PlugIcon style={inner} />
       </span>
     )
@@ -674,7 +659,7 @@ function AgentLogo({ agent, size = 20 }) {
   }
   // A client sah gains later shows its initial until its mark is added.
   return (
-    <span className={`${shell} bg-surface-highest font-display font-bold text-text`} style={{ ...box, fontSize: size * 0.45 }}>
+    <span className={`${shell} bg-muted font-display font-semibold text-foreground`} style={{ ...box, fontSize: size * 0.45 }}>
       {agent.name[0]}
     </span>
   )
@@ -795,6 +780,17 @@ function claudeConnectorLink(url) {
     + `&connectorName=${encodeURIComponent('Spark AI Hub')}&connectorUrl=${encodeURIComponent(url)}`
 }
 
+// A new tab opened through an anchor rather than window.open: the only URL
+// this ever receives is Claude's own connector page, with the Hub's address
+// travelling inside it as a query parameter.
+function openInNewTab(href) {
+  const a = document.createElement('a')
+  a.href = href
+  a.target = '_blank'
+  a.rel = 'noopener'
+  a.click()
+}
+
 function McpSteps({ info, apiKey, keyValue }) {
   const [addresses, address, setBase] = useAddresses(info)
   const [opened, setOpened] = useState(null)
@@ -815,55 +811,47 @@ function McpSteps({ info, apiKey, keyValue }) {
       <BigStep n="1" title="One click, if your app is here" sub="It opens the app with everything filled in, your key included.">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {MCP_CLIENTS.map((c) => (
-            <button
+            <Button
               key={c.id}
               type="button"
+              variant={opened === c.id ? 'secondary' : 'outline'}
               onClick={() => open(c)}
-              className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-all ${
-                opened === c.id
-                  ? 'border-primary bg-primary/10 text-text'
-                  : 'border-outline-dim bg-surface-high/50 text-text-muted hover:border-text-dim hover:text-text'
-              }`}
+              className="h-auto justify-start gap-2.5 px-3 py-2.5"
             >
-              <img src={`/logos/agents/${c.id}.png`} alt="" className="h-7 w-7 shrink-0 rounded-lg object-contain" />
-              <span className="min-w-0">
-                <span className="block truncate">{c.name}</span>
-                <span className="block text-[11px] font-normal text-text-dim">Add to {c.name}</span>
+              <img src={`/logos/agents/${c.id}.png`} alt="" className="h-7 w-7 shrink-0 rounded-md object-contain" />
+              <span className="min-w-0 text-left">
+                <span className="block truncate text-sm font-semibold">{c.name}</span>
+                <span className="block text-[11px] font-normal text-muted-foreground">Add to {c.name}</span>
               </span>
-            </button>
+            </Button>
           ))}
-          <button
+          <Button
             type="button"
+            variant={opened === 'claude' ? 'secondary' : 'outline'}
             disabled={!publicUrl}
-            onClick={() => { setOpened('claude'); window.open(claudeConnectorLink(publicUrl), '_blank', 'noopener') }}
-            className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-all ${
-              !publicUrl
-                ? 'cursor-not-allowed border-outline-dim bg-transparent text-text-dim opacity-60'
-                : opened === 'claude'
-                  ? 'cursor-pointer border-primary bg-primary/10 text-text'
-                  : 'cursor-pointer border-outline-dim bg-surface-high/50 text-text-muted hover:border-text-dim hover:text-text'
-            }`}
+            onClick={() => { setOpened('claude'); openInNewTab(claudeConnectorLink(publicUrl)) }}
+            className="h-auto justify-start gap-2.5 px-3 py-2.5"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white">
               <ClaudeMark style={{ width: 18, height: 18 }} className="text-[#D97757]" />
             </span>
-            <span className="min-w-0">
-              <span className="block truncate">Claude</span>
-              <span className="block text-[11px] font-normal text-text-dim">{publicUrl ? 'Add connector' : 'Needs public HTTPS'}</span>
+            <span className="min-w-0 text-left">
+              <span className="block truncate text-sm font-semibold">Claude</span>
+              <span className="block text-[11px] font-normal text-muted-foreground">{publicUrl ? 'Add connector' : 'Needs public HTTPS'}</span>
             </span>
-          </button>
+          </Button>
         </div>
 
         {opened && opened !== 'claude' && (
-          <p className="m-0 mt-3 text-xs leading-5 text-text-dim">
+          <p className="m-0 mt-3 text-[11px] leading-relaxed text-muted-foreground">
             Nothing happened? The app isn't installed on this computer, or it is too old for
             one-click installs. Add it by hand below.
           </p>
         )}
         {opened === 'claude' && publicUrl && (
-          <div className="mt-3 rounded-xl border border-outline-dim bg-surface-high/40 p-3">
-            <div className="text-sm font-semibold text-text">In Claude: Add, then Connect</div>
-            <p className="m-0 mt-1 text-xs leading-5 text-text-muted">
+          <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+            <div className="text-sm font-semibold text-foreground">In Claude: Add, then Connect</div>
+            <p className="m-0 mt-1 text-[11px] leading-relaxed text-muted-foreground">
               Keep the form's defaults and click <strong>Add</strong>, then <strong>Connect</strong>.
               Claude opens this Hub: sign in if asked and click <strong>Allow</strong>. No key to
               paste. It works in Claude Desktop too, on the same account.
@@ -871,7 +859,7 @@ function McpSteps({ info, apiKey, keyValue }) {
           </div>
         )}
         {!publicUrl && (
-          <p className="m-0 mt-3 text-xs leading-5 text-text-dim">
+          <p className="m-0 mt-3 text-[11px] leading-relaxed text-muted-foreground">
             Claude connects from Anthropic's cloud, so it needs the Hub's public HTTPS address.
             Open this page through that address to add it.
           </p>
@@ -879,23 +867,23 @@ function McpSteps({ info, apiKey, keyValue }) {
       </BigStep>
 
       <BigStep n="2" title="Any other app: add it by hand" sub="In its “MCP servers”, “Connectors” or “Tools” settings.">
-        <div className="overflow-hidden rounded-xl border border-outline-dim">
+        <div className="overflow-hidden rounded-lg border border-border">
           <SettingRow label="URL" value={mcpUrl} />
           <SettingRow label="Header" value={`Authorization: Bearer ${keyValue}`} secret={apiKey} />
           <SettingRow label="Transport" value="Streamable HTTP" />
         </div>
         <AddressPicker addresses={addresses} address={address} onPick={setBase} />
-        <div className="mt-4 mb-2 text-xs font-semibold text-text-muted">Or paste it as JSON</div>
+        <div className="mt-4 mb-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Or paste it as JSON</div>
         <CopyCode text={mcpJson({ base: address.url, key: keyValue })} secret={apiKey} multiline />
       </BigStep>
 
       <BigStep n="✓" title="That's it" sub="Your app can now use:">
         <div className="flex flex-wrap gap-1.5">
           {MCP_TOOLS.map((t) => (
-            <span key={t} className="rounded-full bg-surface-high px-3 py-1 text-xs font-semibold text-text-muted">{t}</span>
+            <Badge key={t} variant="outline" className="text-[11px] text-muted-foreground">{t}</Badge>
           ))}
         </div>
-        <p className="m-0 mt-3 text-xs leading-5 text-text-dim">
+        <p className="m-0 mt-3 text-[11px] leading-relaxed text-muted-foreground">
           Agents set up with sah already have these. Give tool calls at least 900 seconds: a video render takes minutes.
         </p>
       </BigStep>
@@ -918,7 +906,7 @@ function OtherAppSteps({ info, apiKey, keyValue, modelId, hasModel }) {
       />
 
       <BigStep n="2" title="Paste these three settings">
-        <div className="overflow-hidden rounded-xl border border-outline-dim">
+        <div className="overflow-hidden rounded-lg border border-border">
           <SettingRow label="Base URL" value={`${address.url}/v1`} />
           <SettingRow label="API key" value={keyValue} secret={apiKey} />
           <SettingRow
@@ -932,28 +920,27 @@ function OtherAppSteps({ info, apiKey, keyValue, modelId, hasModel }) {
 
       <BigStep n="✓" title="That's it" sub="The app now talks to the models running on this Spark.">
         <details className="group">
-          <summary className="cursor-pointer list-none text-xs font-semibold text-text-dim hover:text-text">
-            <span className="inline-block transition-transform group-open:rotate-90">›</span>{' '}
+          <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground hover:text-foreground">
+            <span className="inline-block group-open:rotate-90">›</span>{' '}
             More: Anthropic apps and code examples
           </summary>
-          <div className="mt-3 overflow-hidden rounded-xl border border-outline-dim">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border">
             <SettingRow label="Anthropic" value={address.url} hint="Base URL for apps that speak Anthropic's Messages API." />
           </div>
           <div className="mt-3 mb-2 flex flex-wrap gap-1">
-            {SNIPPETS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSnippetId(s.id)}
-                className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                  snippetId === s.id
-                    ? 'border-text-dim bg-surface-highest text-text'
-                    : 'border-transparent bg-transparent text-text-dim hover:text-text'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+            <ToggleGroup
+              type="single"
+              value={snippetId}
+              onValueChange={(next) => { if (next) setSnippetId(next) }}
+              variant="outline"
+              size="sm"
+            >
+              {SNIPPETS.map((s) => (
+                <ToggleGroupItem key={s.id} value={s.id} className="text-[11px]">
+                  {s.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
           <CopyCode text={snippet.body(values)} secret={apiKey} multiline />
         </details>
@@ -964,11 +951,11 @@ function OtherAppSteps({ info, apiKey, keyValue, modelId, hasModel }) {
 
 function SettingRow({ label, value, secret, hint }) {
   return (
-    <div className="flex items-start gap-3 border-b border-outline-dim bg-surface-high/40 px-3 py-3 last:border-b-0">
-      <span className="w-20 shrink-0 pt-1 text-xs font-semibold text-text-muted">{label}</span>
+    <div className="flex items-start gap-3 border-b border-border bg-muted/40 px-3 py-3 last:border-b-0">
+      <span className="w-20 shrink-0 pt-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
       <div className="min-w-0 flex-1">
         <CopyCode text={value} secret={secret} bare />
-        {hint && <p className="m-0 mt-1 text-xs leading-5 text-text-dim">{hint}</p>}
+        {hint && <p className="m-0 mt-1 text-[11px] leading-relaxed text-muted-foreground">{hint}</p>}
       </div>
     </div>
   )
@@ -1004,49 +991,49 @@ function CopyCode({ text, secret, multiline = false, bare = false, large = false
   }
 
   const label = state === 'copied' ? 'Copied' : state === 'failed' ? '⌘/Ctrl+C' : 'Copy'
-  const small = 'shrink-0 cursor-pointer rounded-lg border px-2 py-1 font-label text-[10px] font-semibold transition-colors'
 
   if (bare) {
     return (
       <div className="flex items-center gap-1.5">
-        <code ref={codeRef} className="min-w-0 flex-1 truncate font-mono text-[13px] text-text" title={shown || !carries ? text : undefined}>
+        <code ref={codeRef} className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground" title={shown || !carries ? text : undefined}>
           {display}
         </code>
         {carries && (
-          <button onClick={() => setShown(!shown)} className={`${small} border-outline-dim bg-transparent text-text-dim hover:text-primary`}>
+          <Button variant="ghost" size="xs" onClick={() => setShown(!shown)}>
             {shown ? 'Hide' : 'Show'}
-          </button>
+          </Button>
         )}
-        <button onClick={copy} className={`${small} border-outline-dim bg-surface text-text-muted hover:border-primary hover:text-primary`}>
+        <Button variant="outline" size="xs" onClick={copy}>
           {label}
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className={`relative rounded-xl border border-outline-dim bg-surface-low ${multiline ? 'flex flex-col-reverse sm:block' : 'flex items-center'}`}>
+    <div className={`rounded-lg border border-border bg-muted/40 ${multiline ? 'flex flex-col-reverse sm:block' : 'flex items-center'}`}>
       <code
         ref={codeRef}
-        className={`block min-w-0 flex-1 overflow-x-auto px-3 font-mono text-text ${large ? 'py-3.5 text-sm' : 'py-2.5 text-xs'} ${
+        className={`block min-w-0 flex-1 overflow-x-auto px-3 font-mono text-foreground ${large ? 'py-3 text-[12px]' : 'py-2.5 text-[11px]'} ${
           multiline ? 'whitespace-pre leading-5 sm:pr-28' : 'whitespace-nowrap'
         }`}
       >
         {display}
       </code>
-      <div className={`flex shrink-0 gap-1.5 ${multiline ? 'justify-end border-b border-outline-dim px-2 py-1.5 sm:absolute sm:right-2 sm:top-2 sm:border-0 sm:p-0' : 'pr-2'}`}>
+      <div className={`flex shrink-0 gap-1.5 ${multiline ? 'justify-end border-b border-border px-2 py-1.5 sm:absolute sm:right-2 sm:top-2 sm:border-0 sm:p-0' : 'pr-2'}`}>
         {carries && (
-          <button
+          <Button
+            variant="outline"
+            size="xs"
             onClick={() => setShown(!shown)}
             title={shown ? 'Hide your API key' : 'Reveal your API key'}
-            className={`${small} border-outline-dim bg-surface-low text-text-dim hover:text-primary`}
           >
             {shown ? 'Hide' : 'Show'}
-          </button>
+          </Button>
         )}
-        <button onClick={copy} className={`${small} border-transparent bg-primary text-primary-on hover:opacity-90 ${large ? 'px-3 py-1.5 text-xs' : ''}`}>
+        <Button variant="outline" size="xs" onClick={copy}>
           {label}
-        </button>
+        </Button>
       </div>
     </div>
   )

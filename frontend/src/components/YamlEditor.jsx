@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { cn } from 'cn'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
@@ -15,16 +16,18 @@ const yamlColors = HighlightStyle.define([
   { tag: [t.separator, t.punctuation, t.squareBracket, t.brace], color: '#6E7681' },
 ])
 
+// Chrome of the editor follows the theme tokens (surface, hairline, muted
+// labels); the syntax palette below is unchanged.
 const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '12px', backgroundColor: 'transparent', color: '#E6EDF3' },
+  '&': { height: '100%', fontSize: '12px', backgroundColor: 'transparent', color: 'var(--foreground)' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--font-mono, ui-monospace, monospace)', lineHeight: '1.5rem' },
-  '.cm-content': { padding: '16px 0', caretColor: '#E5E7EB' },
-  '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: '#6E7681' },
-  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.04)' },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: 'rgba(120,140,255,0.3) !important' },
-  '.cm-cursor': { borderLeftColor: '#E5E7EB' },
-  '.cm-matchingBracket': { backgroundColor: 'rgba(255,255,255,0.12)', outline: 'none' },
+  '.cm-content': { padding: '16px 12px', caretColor: 'var(--foreground)' },
+  '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: 'var(--muted-foreground)' },
+  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'color-mix(in oklab, var(--foreground) 6%, transparent)' },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: 'color-mix(in oklab, var(--primary) 30%, transparent) !important' },
+  '.cm-cursor': { borderLeftColor: 'var(--foreground)' },
+  '.cm-matchingBracket': { backgroundColor: 'color-mix(in oklab, var(--foreground) 12%, transparent)', outline: 'none' },
 }, { dark: true })
 
 export default function YamlEditor({ value, onChange, className }) {
@@ -69,5 +72,14 @@ export default function YamlEditor({ value, onChange, className }) {
     }
   }, [value])
 
-  return <div ref={hostRef} className={className} />
+  return (
+    <div
+      ref={hostRef}
+      data-slot="yaml-editor"
+      className={cn(
+        'h-full w-full overflow-hidden rounded-lg border border-border bg-card text-foreground',
+        className,
+      )}
+    />
+  )
 }
