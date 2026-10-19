@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Cpu } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useStore } from '../store'
 import {
@@ -8,7 +9,22 @@ import {
   saveEngineSettings,
   updateEngine,
 } from '../lib/api'
-import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+import { PageHeader, EmptyState } from '@/components/page-shell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 /* Admin-only: the model runtimes installed on this machine.
  *
@@ -113,63 +129,95 @@ export default function Engines() {
 
   if (!isAdmin) {
     return (
-      <div className="px-6 py-20 text-center text-text-dim text-sm">
-        Administrator rights required.
+      <div className="page">
+        <p className="m-0 text-sm text-muted-foreground">Administrator rights required.</p>
       </div>
     )
   }
 
   return (
-    <div className="px-4 sm:px-6 py-6 pb-12 max-w-4xl mx-auto animate-fadeIn flex flex-col gap-4">
-      <div className="mb-1">
-        <h1 className="text-2xl font-bold tracking-tight font-display m-0">Engines</h1>
-        <p className="text-sm text-text-dim m-0 mt-1">
-          Model runtimes are installed once on this machine. Recipes launch on them without
-          containers.
-        </p>
-      </div>
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        title="Engines"
+        description="Model runtimes are installed once on this machine. Recipes launch on them without containers."
+      />
 
       {error && (
-        <div className="rounded-2xl border border-error/30 bg-error-surface px-4 py-3">
-          <p className="text-sm text-error m-0 leading-relaxed">{error}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <p className="m-0 text-sm leading-relaxed text-destructive">{error}</p>
         </div>
       )}
 
       {loading && engines.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-5">
-          <p className="text-sm text-text-dim m-0">Loading engines…</p>
+        <div className="flex flex-col gap-3">
+          <p className="m-0 text-sm text-muted-foreground">Loading engines…</p>
+          <div className="flex flex-col gap-3">
+            {[0, 1].map((i) => (
+              <Card key={i} className="gap-0 p-5 shadow-none">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                  <Skeleton className="h-8 w-24" />
+                </div>
+                <Skeleton className="mt-4 h-3 w-full" />
+                <Skeleton className="mt-2 h-3 w-2/3" />
+              </Card>
+            ))}
+          </div>
         </div>
       ) : engines.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-5">
-          <p className="text-sm text-text-dim m-0">No engines.</p>
-        </div>
+        <EmptyState
+          icon={<Cpu className="h-6 w-6" />}
+          title="No engines."
+        />
       ) : (
-        engines.map((engine) => (
-          <EngineCard
-            key={engine.name}
-            engine={engine}
-            busy={busy?.name === engine.name ? busy.action : null}
-            disabled={busy !== null}
-            error={failures[engine.name] || ''}
-            dashboardPort={dashboardPort(engine)}
-            onToggle={(key, value) => setOption(engine, key, value)}
-            onInstall={() => run(engine, 'install')}
-            onUpdate={() => run(engine, 'update')}
-            onDelete={() => setConfirm(engine)}
-          />
-        ))
+        <div className="flex flex-col gap-3">
+          {engines.map((engine) => (
+            <EngineCard
+              key={engine.name}
+              engine={engine}
+              busy={busy?.name === engine.name ? busy.action : null}
+              disabled={busy !== null}
+              error={failures[engine.name] || ''}
+              dashboardPort={dashboardPort(engine)}
+              onToggle={(key, value) => setOption(engine, key, value)}
+              onInstall={() => run(engine, 'install')}
+              onUpdate={() => run(engine, 'update')}
+              onDelete={() => setConfirm(engine)}
+            />
+          ))}
+        </div>
       )}
 
       {confirm && (
-        <ConfirmDeleteModal
-          title={`Delete engine ${displayName(confirm.name)}?`}
-          busy={busy?.name === confirm.name}
-          onCancel={() => setConfirm(null)}
-          onConfirm={confirmDelete}
-        >
-          Native recipes stop launching on this engine, and the installed runtime is removed from
-          this machine.
-        </ConfirmDeleteModal>
+        <AlertDialog open onOpenChange={(open) => { if (!open) setConfirm(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{`Delete engine ${displayName(confirm.name)}?`}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Native recipes stop launching on this engine, and the installed runtime is removed
+                from this machine.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                disabled={busy?.name === confirm.name}
+                onClick={() => setConfirm(null)}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy?.name === confirm.name}
+                onClick={confirmDelete}
+              >
+                {busy?.name === confirm.name ? 'Deleting…' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   )
@@ -187,59 +235,65 @@ function EngineCard({ engine, busy, disabled, error, dashboardPort, onToggle, on
     : ''
 
   return (
-    <div className="bg-surface rounded-2xl p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <Card className="gap-0 p-5 shadow-none">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-semibold text-sm font-display m-0">{name}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="m-0 font-display text-sm font-semibold text-foreground">{name}</h2>
             {updateAvailable && (
-              <span className="text-[10px] font-label font-semibold text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                 Update to {engine.latest} available
-              </span>
+              </Badge>
             )}
           </div>
-          <p className="text-[11px] text-text-dim m-0 mt-1">
-            {engine.installed ? `Version ${engine.version || 'unknown'}` : 'Not installed'}
-            {engine.installed && engine.latest && !updateAvailable && ` · up to date`}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="font-mono text-[11px] tabular-nums">
+              {engine.installed ? `Version ${engine.version || 'unknown'}` : 'Not installed'}
+            </Badge>
+            {engine.installed && engine.latest && !updateAvailable && (
+              <Badge variant="secondary" className="text-[11px]">
+                up to date
+              </Badge>
+            )}
+          </div>
           {engine.installed && engine.path && (
-            <p className="text-[11px] text-text-dim font-mono m-0 mt-1 break-all">{engine.path}</p>
+            <p className="m-0 mt-2 break-all font-mono text-[11px] text-muted-foreground">{engine.path}</p>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {!engine.installed && (
-            <button
-              onClick={onInstall}
-              disabled={disabled}
-              className="btn-primary px-4 py-2 text-sm font-bold disabled:opacity-50 disabled:cursor-default"
-            >
+            <Button onClick={onInstall} disabled={disabled}>
               {busy === 'install' ? '⟳ Installing…' : 'Install'}
-            </button>
+            </Button>
           )}
           {engine.installed && (
             <>
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={onUpdate}
                 disabled={disabled || !updateAvailable}
-                className="px-3.5 py-2 rounded-xl bg-surface-high text-text border border-outline-dim text-xs font-semibold cursor-pointer hover:bg-surface-highest disabled:opacity-50 disabled:cursor-default transition-colors whitespace-nowrap"
+                className="whitespace-nowrap"
               >
                 {busy === 'update' ? '⟳ Updating…' : 'Update'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={onDelete}
                 disabled={disabled}
-                className="px-3.5 py-2 rounded-xl bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50 disabled:cursor-default transition-colors whitespace-nowrap"
+                className="whitespace-nowrap"
               >
                 {busy === 'delete' ? '⟳ Deleting…' : 'Delete'}
-              </button>
+              </Button>
             </>
           )}
         </div>
       </div>
 
       {engine.installed && (
-        <div className="mt-4 pt-4 border-t border-outline-dim/40 flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
           <Toggle
             label="Cortheon"
             hint="Adds --cortheon: chat requests get Cortheon's reasoning program, it researches the web before building, and cortheon_search / cortheon_fetch run on this engine."
@@ -256,7 +310,7 @@ function EngineCard({ engine, busy, disabled, error, dashboardPort, onToggle, on
               onChange={(v) => onToggle('dashboard', v)}
             />
             {options.dashboard && !dashboardUrl && (
-              <p className="text-[11px] text-text-dim m-0">
+              <p className="m-0 text-[11px] text-muted-foreground">
                 Launch a native recipe on this engine to open the dashboard.
               </p>
             )}
@@ -265,49 +319,40 @@ function EngineCard({ engine, busy, disabled, error, dashboardPort, onToggle, on
                 href={dashboardUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] text-primary font-mono break-all"
+                className="break-all font-mono text-[11px] text-primary hover:underline"
               >
                 {dashboardUrl}
               </a>
             )}
           </div>
-          <p className="text-[11px] text-text-dim m-0">
+          <p className="m-0 text-[11px] text-muted-foreground">
             Flags apply to the next launch of a native recipe on this engine; a running one keeps
             the flags it started with.
           </p>
         </div>
       )}
 
-      {error && <p className="text-xs text-error m-0 mt-3 leading-relaxed">{error}</p>}
-    </div>
+      {error && <p className="m-0 mt-3 text-xs leading-relaxed text-destructive">{error}</p>}
+    </Card>
   )
 }
 
-// Toggle is a switch built from the page's own buttons: no dependency, no
-// hidden input, and the state is announced through aria-checked.
+// Toggle is a labelled row around the shadcn Switch: the label and its hint
+// stay on the left, the control is the primitive's own, and callers still
+// speak in `checked` / `onChange`.
 function Toggle({ label, hint, checked, disabled, onChange }) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <p className="text-xs font-semibold m-0">{label}</p>
-        <p className="text-[11px] text-text-dim m-0 mt-0.5 leading-relaxed">{hint}</p>
+        <p className="m-0 text-xs font-semibold text-foreground">{label}</p>
+        <p className="m-0 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
+      <Switch
+        checked={checked}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`shrink-0 mt-1 w-10 h-6 rounded-full border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default ${
-          checked ? 'bg-primary border-primary' : 'bg-surface-high border-outline-dim'
-        }`}
-      >
-        <span
-          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-5' : 'translate-x-1'
-          }`}
-        />
-      </button>
+        onCheckedChange={(v) => onChange(v)}
+        className="mt-0.5 shrink-0"
+      />
     </div>
   )
 }
