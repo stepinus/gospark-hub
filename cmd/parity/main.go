@@ -10,17 +10,21 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/coder/websocket"
 )
 
 type caseSpec struct {
@@ -93,6 +97,40 @@ func (s *side) do(method, path, body string) (int, []byte, http.Header, error) {
 	return resp.StatusCode, b, resp.Header, err
 }
 
+// ws compares one WebSocket frame sequence: both sides must accept the
+// connection, and the first JSON frame must match in shape (metrics carry live
+// numbers, so values are masked).
+func (s *side) wsFrame(path string) (string, error) {
+	u, err := url.Parse(s.base)
+	if err != nil {
+		return "", err
+	}
+	scheme := "ws"
+	if u.Scheme == "https" {
+		scheme = "wss"
+	}
+	target := scheme + "://" + u.Host + path
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	hdr := http.Header{}
+	for _, c := range s.client.Jar.Cookies(u) {
+		hdr.Add("Cookie", c.Name+"="+c.Value)
+	}
+	conn, _, err := websocket.Dial(ctx, target, &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+	conn.SetReadLimit(1 << 20)
+	_, data, err := conn.Read(ctx)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // login registers the first account on a fresh Hub, otherwise signs in.
 func (s *side) login(email, password string) error {
 	payload, _ := json.Marshal(map[string]string{
@@ -114,6 +152,17 @@ func (s *side) login(email, password string) error {
 		return fmt.Errorf("%s: login %d: %s", s.name, code, truncate(body, 200))
 	}
 	return nil
+}
+
+// shapeEqual decodes two JSON frames and compares them structurally.
+func shapeEqual(a, b string, max int) bool {
+	var ja, jb any
+	if json.Unmarshal([]byte(a), &ja) != nil || json.Unmarshal([]byte(b), &jb) != nil {
+		return false
+	}
+	var d []string
+	diff(shapeOf(ja), shapeOf(jb), "$", &d, max)
+	return len(d) == 0
 }
 
 func truncate(b []byte, n int) string {
@@ -279,6 +328,67 @@ func diff(a, b any, path string, out *[]string, max int) {
 	}
 }
 
+// compareAssets walks the recipe list and HEADs each logo/cover path on both
+// sides. A path that 404s on one side and not the other is a diff; missing on
+// both sides is upstream's own state and not our problem.
+func compareAssets(a, b *side, max int) int {
+	_, body, _, err := a.do("GET", "/api/recipes", "")
+	if err != nil {
+		fmt.Println("assets           DIFF   список рецептов недоступен")
+		return 1
+	}
+	var list []struct {
+		Slug  string `json:"slug"`
+		Logo  string `json:"logo"`
+		Cover struct {
+			Image    string `json:"image"`
+			Backdrop struct {
+				Image string `json:"image"`
+			} `json:"backdrop"`
+		} `json:"cover"`
+	}
+	if json.Unmarshal(body, &list) != nil {
+		fmt.Println("assets           DIFF   список рецептов не разобран")
+		return 1
+	}
+	paths := map[string]bool{}
+	for _, r := range list {
+		if r.Logo != "" {
+			paths[r.Logo] = true
+		}
+		if r.Cover.Image != "" {
+			paths["/covers/"+r.Cover.Image] = true
+		}
+		if r.Cover.Backdrop.Image != "" {
+			paths["/covers/"+r.Cover.Backdrop.Image] = true
+		}
+	}
+	sorted := make([]string, 0, len(paths))
+	for p := range paths {
+		sorted = append(sorted, p)
+	}
+	sort.Strings(sorted)
+
+	bad := 0
+	for _, path := range sorted {
+		// GET, not HEAD: upstream's static mount answers 405 to HEAD.
+		ca, _, _, _ := a.do("GET", path, "")
+		cb, _, _, _ := b.do("GET", path, "")
+		if ca != cb {
+			bad++
+			if bad <= max {
+				fmt.Printf("%-16s DIFF   %s: %d у нас ≠ %d у апстрима\n", "assets", path, cb, ca)
+			}
+		}
+	}
+	if bad > 0 {
+		fmt.Printf("%-16s DIFF   расходится %d из %d файлов\n", "assets", bad, len(sorted))
+		return 1
+	}
+	fmt.Printf("%-16s ok     (%d файлов)\n", "assets", len(sorted))
+	return 0
+}
+
 func main() {
 	up := flag.String("upstream", "http://127.0.0.1:9020", "адрес апстрима")
 	ours := flag.String("ours", "http://127.0.0.1:9120", "адрес нашего демона")
@@ -370,6 +480,26 @@ func main() {
 			fmt.Printf("%-16s ok\n", c.name)
 		}
 	}
+	// Registry assets: every logo and cover the catalog points at must be
+	// served by both sides, or cards render broken only for us.
+	failures += compareAssets(a, b, *maxDiff)
+
+	// WebSocket frames: same shape, live values masked.
+	for _, path := range []string{"/ws/metrics"} {
+		fa, errA := a.wsFrame(path)
+		fb, errB := b.wsFrame(path)
+		switch {
+		case errA != nil || errB != nil:
+			failures++
+			fmt.Printf("%-16s DIFF   ws: %v / %v\n", path, errA, errB)
+		case !shapeEqual(fa, fb, *maxDiff):
+			failures++
+			fmt.Printf("%-16s DIFF   кадр расходится по структуре\n", path)
+		default:
+			fmt.Printf("%-16s ok     (структура кадра)\n", path)
+		}
+	}
+
 	if failures > 0 {
 		fmt.Printf("\nрасхождений: %d\n", failures)
 		os.Exit(1)
