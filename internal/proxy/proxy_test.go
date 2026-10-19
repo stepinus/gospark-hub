@@ -13,6 +13,7 @@ import (
 
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/registry"
+	"gospark-hub/internal/testutil"
 )
 
 // testConfig is the upstream shape: daemon 9110, public 9100, auth on. Ports
@@ -33,7 +34,7 @@ func testConfig(t *testing.T) config.Config {
 		Project:          "gospark-hub",
 		AppNetwork:       "spark-ai-hub-net",
 		AppProjectPrefix: "spark-ai-hub",
-		RegistryPath:     filepath.Join("..", "..", "registry", "recipes"),
+		RegistryPath:     testutil.RecipesDir(t),
 		DataDir:          dataDir,
 	}
 }

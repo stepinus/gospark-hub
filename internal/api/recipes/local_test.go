@@ -320,10 +320,15 @@ func TestForkCopiesRecipeAndLeavesOriginalAlone(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("original detail: %d %s", code, body)
 	}
-	if err := json.Unmarshal(body, &detail); err != nil {
+	// A fresh struct: decoding into the one above would keep the previous
+	// Local=true when the key is absent from the JSON (omitempty).
+	var original struct {
+		Local bool `json:"local"`
+	}
+	if err := json.Unmarshal(body, &original); err != nil {
 		t.Fatalf("unmarshal original: %v", err)
 	}
-	if detail.Local {
+	if original.Local {
 		t.Fatalf("vendored recipe marked local: %s", body)
 	}
 }

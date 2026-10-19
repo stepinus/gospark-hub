@@ -42,6 +42,29 @@
 | `sah` CLI | отдаётся как есть, Python-скрипт | `curl -s /sah/install.sh \| sh` на чистой машине |
 | Правила MANIFEST (offline-first, удаление без остатка) | требуют реальных образов и `--network none` | прогон install → launch → remove → purge с проверкой `docker images`/`docker volume ls` |
 
+## Фаза 2b — реестры-источники и локальные рецепты (2026-10-19)
+
+| Проверка | Как | Итог |
+|---|---|---|
+| Рецепты только из `~/.config/gospark/registry` | старт с пустым `REGISTRY_HOME` | `sources.yaml` создан с источником по умолчанию, каталог рецептов пуст, 0 рецептов, ошибок нет |
+| Синхронизация по кнопке | `POST /api/registries/sync` | 24 с, `commit b23f558`, 148 рецептов, `covers registry/covers` |
+| Новый источник виден без перезапуска | `GET /api/recipes` сразу после sync | 148 (кэш следует за `Manager.Roots()` через провайдер корней) |
+| Копия рецепта | `POST /api/recipes/searxng/fork {"slug":"my-searxng"}` | 200, `local/my-searxng`, `GET /api/recipes/my-searxng` → `local: true` |
+| Занятый слаг | повторный форк | 409 «Slug already taken» |
+| Установка копии | `POST /api/recipes/my-searxng/install` | 200, `status: done`, образ `searxng/searxng:2026.9.19` скачан, проект `spark-ai-hub-my-searxng` |
+| Запуск и остановка копии | `POST …/launch` → `POST …/stop` | `launched` / `stopped` |
+| Удаление установленной копии | `DELETE /api/recipes/my-searxng/local` | 409 «Recipe is installed, stop and remove the app first», файлы на месте |
+| Полный цикл удаления | `DELETE /api/recipes/my-searxng` → `DELETE …/local` | `removed` → `deleted`, `local/` пуст, 148 рецептов |
+| Обложки из нескольких корней | `GET /cover-sources/app-acestep.jpg` из vendored | 200, 267 КБ |
+| Паритет после фазы | `go run ./cmd/parity` | 19 из 20 кейсов совпали; единственное расхождение — `/api/admin/users`, и это данные тестовых аккаунтов (`name`, `last_login_at`), а не контракт |
+| Обход путей | `-sweep` | 21 GET-путь отвечает, 28 записывающих пропущено, 0 отсутствующих |
+| Тесты | `go test ./... -count=1` | 17 пакетов зелёные (тесты на реальных рецептах берут их из источника через `GOSPARK_TEST_RECIPES` и пропускаются без него) |
+| Страница настроек | headless Chrome, `/settings` | источник виден: URL, ветка `main`, коммит `b23f558`, подпапка, «synced 7 minutes ago», 148 рецептов |
+
+Из репозитория удалены `registry/recipes` и `registry/covers`: рецепты больше не
+поставляются с кодом, их приносит источник. `TestRegistryList` и data-driven тесты
+пропускаются, когда каталога нет.
+
 ## Вывод
 
 Функциональный паритет по HTTP, данным рецептов, статике и экранам достигнут и проверяется

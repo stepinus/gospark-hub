@@ -68,7 +68,9 @@ func Register(r *web.Router, deps Deps) {
 // that can be deleted.
 type recipeResponse struct {
 	registry.Recipe
-	Local bool `json:"local"`
+	// omitempty keeps the JSON byte-for-byte identical to the upstream Hub for
+	// every recipe that comes from a registry; only our own recipes carry it.
+	Local bool `json:"local,omitempty"`
 }
 
 func (h *handler) respond(rec registry.Recipe) recipeResponse {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gospark-hub/internal/registry"
+	"gospark-hub/internal/testutil"
 	"gospark-hub/internal/web"
 )
 
@@ -32,7 +33,8 @@ func setBaseDir(t *testing.T) {
 		t.Fatalf("resolve project root: %v", err)
 	}
 	t.Setenv("SPARK_AI_HUB_BASE_DIR", root)
-	t.Setenv("SPARK_AI_HUB_REGISTRY_PATH", filepath.Join(root, "registry", "recipes"))
+	// Recipes are not part of the checkout: they come from a synced source.
+	t.Setenv("SPARK_AI_HUB_REGISTRY_PATH", testutil.RecipesDir(t))
 }
 
 func TestListAndDetail(t *testing.T) {

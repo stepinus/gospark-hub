@@ -12,7 +12,15 @@ import (
 // TestRegistryList loads every recipe.yaml under registry/recipes and checks
 // that the loader sees exactly the directories that exist on disk.
 func TestRegistryList(t *testing.T) {
+	// Recipes are not shipped in the checkout any more: the daemon reads them
+	// from the registry home, filled from configured sources. The loader still
+	// deserves a test against real files, so it runs when a checkout happens to
+	// carry them (old branches, a source synced to disk) and is skipped
+	// otherwise.
 	path := filepath.Join("..", "..", "registry", "recipes")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("no checkout recipes at %s: registry now lives under REGISTRY_HOME", path)
+	}
 
 	cache := registry.NewCache(path)
 	if err := cache.Load(); err != nil {
