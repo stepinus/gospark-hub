@@ -140,9 +140,12 @@ type RecipeEngineBuild struct {
 // RecipeEngineBuildStatus is the runtime half of the same block: whether the
 // client directory exists, which image it came from and where it lives.
 type RecipeEngineBuildStatus struct {
-	Ready bool   `json:"ready"`
-	Image string `json:"image,omitempty"`
-	Path  string `json:"path,omitempty"`
+	Ready bool `json:"ready"`
+	// Runtime reports whether the engine's shared Python runtime is on disk;
+	// a vision recipe cannot start without it.
+	Runtime bool   `json:"runtime,omitempty"`
+	Image   string `json:"image,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 type RecipeRequirements struct {

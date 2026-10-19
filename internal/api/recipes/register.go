@@ -254,6 +254,13 @@ func (h *handler) applyNativeRuntime(ctx context.Context, rec registry.Recipe) r
 				rec.EngineBuild.Ready = true
 				rec.Installed = true
 			}
+			if rec.Native.Vision {
+				// The patched client alone is not enough: its vision helper
+				// runs on the engine's shared runtime.
+				_, err := h.deps.Engines.RuntimePath(rec.Native.Engine)
+				rec.EngineBuild.Runtime = err == nil
+				rec.EngineBuild.Ready = rec.EngineBuild.Ready && rec.EngineBuild.Runtime
+			}
 		}
 		if !rec.Installed && rec.Native.EngineBuild == nil && h.deps.Engines != nil {
 			if _, err := h.deps.Engines.Path(rec.Native.Engine); err == nil {

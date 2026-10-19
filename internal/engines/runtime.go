@@ -44,6 +44,9 @@ var runtimeLayout = []struct{ image, dest string }{
 	{"/usr/local/cuda-13.3/targets/sbsa-linux/lib", "vlib/cuda"},
 	{"/usr/local/lib", "vlib/locallib"},
 	{"/opt/hpcx", "vlib/hpcx"},
+	// PyYAML and friends live in the distribution's own package directory,
+	// not in the pip tree the image installs torch into.
+	{"/usr/lib/python3/dist-packages", "pylibs/system-dist-packages"},
 }
 
 // RuntimeDir is where an engine's shared runtime lives.
@@ -75,8 +78,10 @@ func (m *Manager) EnsureRuntime(ctx context.Context, engine, image string) (stri
 	if path, err := m.RuntimePath(engine); err == nil {
 		return path, nil
 	}
-	if _, _, err := m.run()(ctx, "", "docker", "image", "inspect", image); err != nil {
+	if out, code, err := m.run()(ctx, "", "docker", "image", "inspect", image); err != nil {
 		return "", fmt.Errorf("engines: docker image inspect %s: %w", image, err)
+	} else if code != 0 {
+		return "", fmt.Errorf("engines: image %s is not built: %s", image, strings.TrimSpace(out))
 	}
 
 	dir := m.RuntimeDir(engine)
@@ -118,6 +123,7 @@ func (m *Manager) EnsureRuntime(ctx context.Context, engine, image string) (stri
 func (m *Manager) RuntimeEnv(engine, clientPython string) map[string]string {
 	dir := m.RuntimeDir(engine)
 	py := filepath.Join(dir, "pylibs", "dist-packages")
+	sysPy := filepath.Join(dir, "pylibs", "system-dist-packages")
 
 	env := map[string]string{
 		"LD_LIBRARY_PATH": strings.Join([]string{
@@ -138,7 +144,7 @@ func (m *Manager) RuntimeEnv(engine, clientPython string) map[string]string {
 	if clientPython != "" {
 		env["TENSORFOLD_VISION_PYTHON"] = filepath.Join(dir, filepath.FromSlash(runtimeBin))
 		env["TENSORFOLD_VISION_PYTHONPATH"] = clientPython
-		env["PYTHONPATH"] = clientPython + ":" + py
+		env["PYTHONPATH"] = clientPython + ":" + py + ":" + sysPy
 	}
 	return env
 }
