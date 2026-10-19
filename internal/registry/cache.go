@@ -16,6 +16,7 @@ import (
 // NewCache.
 type Cache struct {
 	roots     []string
+	rootsFn   func() []string
 	localRoot string
 	mu        sync.RWMutex
 	recipes   map[string]Recipe
@@ -38,6 +39,16 @@ func NewCache(roots ...string) *Cache {
 		}
 	}
 	return c
+}
+
+// SetRootsProvider makes the cache follow a directory list that changes while
+// the daemon runs: a sync adds a source root, a fork adds local/. Without a
+// provider the roots given to NewCache are final and a fresh sync stays
+// invisible until restart.
+func (c *Cache) SetRootsProvider(fn func() []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rootsFn = fn
 }
 
 // Load forces an immediate reload from disk.
@@ -134,6 +145,24 @@ func (c *Cache) IsLocal(slug string) bool {
 }
 
 func (c *Cache) ensure() error {
+	c.mu.Lock()
+	if c.rootsFn != nil {
+		if roots := c.rootsFn(); !sameRoots(roots, c.roots) {
+			c.roots = append([]string(nil), roots...)
+			c.localRoot = ""
+			for _, root := range c.roots {
+				if filepath.Base(filepath.Clean(root)) == "local" {
+					c.localRoot = filepath.Clean(root)
+				}
+			}
+			c.modTime = time.Time{}
+			err := c.loadLocked()
+			c.mu.Unlock()
+			return err
+		}
+	}
+	c.mu.Unlock()
+
 	maxMod, err := c.maxModTime()
 	if err != nil {
 		return err
@@ -156,9 +185,26 @@ func (c *Cache) ensure() error {
 	return nil
 }
 
+// sameRoots reports whether two root lists are identical, order included:
+// order carries the shadowing rules, so a reorder is a real change.
+func sameRoots(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Cache) maxModTime() (time.Time, error) {
+	c.mu.RLock()
+	roots := append([]string(nil), c.roots...)
+	c.mu.RUnlock()
 	var max time.Time
-	for _, root := range c.roots {
+	for _, root := range roots {
 		entries, err := os.ReadDir(root)
 		if err != nil {
 			if os.IsNotExist(err) {

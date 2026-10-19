@@ -120,6 +120,7 @@ func main() {
 	// No fallback to the repository checkout: recipes come only from the
 	// configured sources under the registry home.
 	reg := registry.NewCache(mgr.Roots()...)
+	reg.SetRootsProvider(mgr.Roots)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
 
 	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr})
@@ -131,6 +132,7 @@ func main() {
 	system.Register(r, system.Deps{Config: cfg, Logger: slog.Default(), Registry: reg})
 	registriesapi.Register(r, registriesapi.Deps{Manager: mgr, Cache: reg, Runtime: dock, Logger: slog.Default()})
 	srv.CoverRoots = mgr.CoverRoots()
+	srv.CoverRootsFn = mgr.CoverRoots
 	srv.MountStatic(r)
 
 	// The front door (Caddy) publishes the public port and forwards back to the

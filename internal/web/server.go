@@ -59,6 +59,9 @@ type Server struct {
 	// first, then every source's covers directory. The daemon fills this from
 	// the registry manager; New falls back to the checkout copies.
 	CoverRoots []string
+	// CoverRootsFn, when set, is asked on every request instead of CoverRoots:
+	// a sync adds a source whose covers must be served without a restart.
+	CoverRootsFn func() []string
 }
 
 func New(cfg config.Config) *Server {
@@ -82,9 +85,7 @@ var assetSuffixes = map[string]bool{
 func (s *Server) MountStatic(r *Router) {
 	// Cover sources, served whole from every root that may hold one. A local
 	// cover wins over a vendored cover of the same name.
-	if len(s.CoverRoots) > 0 {
-		r.Mount("/cover-sources/", http.StripPrefix("/cover-sources/", http.HandlerFunc(s.serveCover)))
-	}
+	r.Mount("/cover-sources/", http.StripPrefix("/cover-sources/", http.HandlerFunc(s.serveCover)))
 
 	// The sah CLI, shipped as-is; /sah/install.sh and /sah/version are dynamic
 	// and win over the static mount because they are registered first.
@@ -127,7 +128,11 @@ func (s *Server) serveCover(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	for _, root := range s.CoverRoots {
+	roots := s.CoverRoots
+	if s.CoverRootsFn != nil {
+		roots = s.CoverRootsFn()
+	}
+	for _, root := range roots {
 		full := filepath.Join(root, filepath.FromSlash(rel))
 		st, err := os.Stat(full)
 		if err != nil || !st.Mode().IsRegular() {
