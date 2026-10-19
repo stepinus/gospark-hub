@@ -324,6 +324,16 @@ func RequireAdmin(r *http.Request) (*store.User, error) {
 // ClientIP returns the caller's IP using the same forwarded-header precedence as upstream.
 func ClientIP(r *http.Request) string { return clientIP(r) }
 
+// RequestOrigin returns scheme://host exactly as the client addressed the Hub,
+// or "" when the Host header is missing or looks forged. OAuth derives every
+// advertised endpoint from it, so one Hub stays a valid issuer on each of its
+// addresses (tunnel hostname, Tailscale name, LAN IP).
+func RequestOrigin(r *http.Request) string { return requestOrigin(r) }
+
+// RequestScheme returns http or https as the client saw it, honouring the
+// Forwarded/X-Forwarded-Proto headers a TLS-terminating proxy sets.
+func RequestScheme(r *http.Request) string { return requestScheme(r) }
+
 // SetSessionCookie sets the session cookie with the upstream attributes.
 func SetSessionCookie(w http.ResponseWriter, r *http.Request, cfg config.Config, token string) {
 	http.SetCookie(w, &http.Cookie{
