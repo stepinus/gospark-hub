@@ -424,7 +424,10 @@ export default function LlamaSwap() {
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-dim">
                       <span>
                         prefill <b className="text-text">{fmt(measurement.prefill_tps)}</b> tok/s
-                        <span className="text-text-dim"> ({measurement.prompt_tokens} tok / {measurement.ttft_ms} ms)</span>
+                        <span className="text-text-dim">
+                          {' '}({measurement.prompt_tokens} tok / {measurement.ttft_ms} ms
+                          {measurement.prefill_naive_tps ? `, naive ${fmt(measurement.prefill_naive_tps)}` : ''})
+                        </span>
                       </span>
                       <span>
                         decode <b className="text-text">{fmt(measurement.decode_tps)}</b> tok/s

@@ -238,7 +238,11 @@ function RunningCard({ recipe, onSelect, onStop, benchmark, onBenchmark }) {
             <>
               <span>
                 prefill <b className="text-text">{benchmark.prefill_tps}</b> tok/s
-                <span> · {benchmark.prompt_tokens} tok / {benchmark.ttft_ms} ms</span>
+                <span>
+                  {' '}· {benchmark.prompt_tokens} tok / {benchmark.ttft_ms} ms
+                  {benchmark.prefill_naive_tps ? ` · naive ${benchmark.prefill_naive_tps}` : ''}
+                  {benchmark.overhead_ms ? ` · +${Math.round(benchmark.overhead_ms)} ms fixed` : ''}
+                </span>
               </span>
               <span>
                 decode <b className="text-text">{benchmark.decode_tps}</b> tok/s

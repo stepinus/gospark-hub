@@ -2,11 +2,13 @@ package bench
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestMeasureDerivesRates pins the arithmetic: prefill is prompt tokens over
@@ -17,10 +19,25 @@ func TestMeasureDerivesRates(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		var body struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		prompt := ""
+		if len(body.Messages) > 0 {
+			prompt = body.Messages[0].Content
+		}
+		// Tokens follow the prompt and TTFT follows the tokens, so the
+		// two-run fit has something real to difference.
+		tokens := len(prompt) / 4
+		time.Sleep(time.Duration(tokens) * 20 * time.Microsecond)
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n")
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n")
-		fmt.Fprint(w, `data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":1000,"completion_tokens":50}}`+"\n\n")
+		fmt.Fprintf(w, `data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":%d,"completion_tokens":50}}`+"\n\n", tokens)
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}))
 	defer srv.Close()
@@ -29,7 +46,7 @@ func TestMeasureDerivesRates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("measure: %v", err)
 	}
-	if m.PromptTokens != 1000 || m.DecodeTokens != 50 {
+	if m.PromptTokens <= 0 || m.DecodeTokens != 50 {
 		t.Fatalf("tokens = %d/%d", m.PromptTokens, m.DecodeTokens)
 	}
 	// An in-process fake answers inside a millisecond, so the rounded fields
@@ -37,8 +54,8 @@ func TestMeasureDerivesRates(t *testing.T) {
 	if m.TotalMs < m.TTFTms {
 		t.Fatalf("timings = %d/%d", m.TTFTms, m.TotalMs)
 	}
-	if m.PrefillTPS <= 0 {
-		t.Fatalf("prefill = %v", m.PrefillTPS)
+	if m.PrefillTPS <= 0 || m.PrefillNaiveTPS <= 0 {
+		t.Fatalf("prefill = %v naive = %v", m.PrefillTPS, m.PrefillNaiveTPS)
 	}
 	if m.DecodeTokens > 0 && m.DecodeTPS <= 0 {
 		t.Fatalf("decode = %v", m.DecodeTPS)

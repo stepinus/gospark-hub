@@ -46,54 +46,116 @@ type Measurement struct {
 	TTFTms       int64   `json:"ttft_ms"`
 	TotalMs      int64   `json:"total_ms"`
 	PrefillTPS   float64 `json:"prefill_tps"`
+	// PrefillNaiveTPS is prompt tokens over the whole TTFT — what a single
+	// short request appears to do. It understates prefill because the fixed
+	// cost (tokenize, HTTP, first kernel) is charged to the tokens.
+	PrefillNaiveTPS float64 `json:"prefill_naive_tps,omitempty"`
+	// OverheadMs is that fixed cost, measured as the intercept of the two
+	// runs.
+	OverheadMs   float64 `json:"overhead_ms,omitempty"`
 	DecodeTPS    float64 `json:"decode_tps"`
 	MemoryBytes  int64   `json:"memory_bytes"`
 	MemorySource string  `json:"memory_source,omitempty"`
 	MeasuredAt   string  `json:"measured_at"`
 }
 
-// Measure runs the request against base (an OpenAI-compatible root such as
-// http://127.0.0.1:8080) and derives both rates from wall clock.
+// Measure times two requests of different prompt sizes and reports the
+// marginal prefill rate: (tokens_big - tokens_small) / (ttft_big - ttft_small).
+//
+// A single short request is a trap. The first token pays a fixed cost —
+// tokenize, HTTP, stream start, the first kernel launch — that has nothing to
+// do with the tokens, so 250 tokens divided by the whole TTFT reads ~800 tok/s
+// on a box that actually prefillls at ~2500. The difference cancels that cost
+// and reports what a long prompt really costs, while the naive number stays
+// next to it so the gap is visible.
 func Measure(ctx context.Context, base, key, model string) (Measurement, error) {
-	m := Measurement{Model: model, MeasuredAt: time.Now().UTC().Format(time.RFC3339)}
+	small, err := runOnce(ctx, base, key, model, 1)
+	if err != nil {
+		return Measurement{Model: model, MeasuredAt: nowISO()}, err
+	}
+	large, err := runOnce(ctx, base, key, model, 5)
+	if err != nil {
+		return Measurement{Model: model, MeasuredAt: nowISO()}, err
+	}
 
+	m := Measurement{
+		Model:        model,
+		PromptTokens: large.promptTokens,
+		DecodeTokens: large.decodeTokens,
+		TTFTms:       large.ttft.Milliseconds(),
+		TotalMs:      large.total.Milliseconds(),
+		MeasuredAt:   nowISO(),
+	}
+
+	// Prefill from the difference between the runs.
+	if span := large.ttft - small.ttft; span > 0 && large.promptTokens > small.promptTokens {
+		m.PrefillTPS = round1(float64(large.promptTokens-small.promptTokens) / span.Seconds())
+		// Intercept = small TTFT minus what its own tokens should have cost.
+		m.OverheadMs = round1(float64(small.ttft.Milliseconds()) -
+			float64(small.promptTokens)/m.PrefillTPS*1000)
+	}
+	if large.promptTokens > 0 && large.ttft > 0 {
+		m.PrefillNaiveTPS = round1(float64(large.promptTokens) / large.ttft.Seconds())
+	}
+	if m.PrefillTPS <= 0 {
+		m.PrefillTPS = m.PrefillNaiveTPS
+	}
+	if window := large.total - large.ttft; large.decodeTokens > 0 && window > 0 {
+		m.DecodeTPS = round1(float64(large.decodeTokens) / window.Seconds())
+	}
+	return m, nil
+}
+
+func nowISO() string { return time.Now().UTC().Format(time.RFC3339) }
+
+// runResult is one timed request.
+type runResult struct {
+	promptTokens int
+	decodeTokens int
+	ttft         time.Duration
+	total        time.Duration
+}
+
+// runOnce sends one streaming request whose prompt is `repeats` copies of the
+// filler text (plus a nonce, so the prompt cache cannot answer for us) and
+// times the first content token and the end of the stream.
+func runOnce(ctx context.Context, base, key, model string, repeats int) (runResult, error) {
 	body := map[string]any{
 		"model":          model,
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
 		"temperature":    0,
-		"max_tokens":     96,
+		"max_tokens":     128,
 		"messages": []map[string]any{
-			// The nonce makes the prompt unique: the same text would hit the
-			// engine's prompt cache and report a prefill rate for work that
-			// never happened.
-			{"role": "user", "content": fmt.Sprintf("Run id %s (ignore it).\n\n%s", nonce(), verifyPrompt)},
+			{"role": "user", "content": fmt.Sprintf("Run %s (ignore it).\n%s\nReply with one short sentence.",
+				nonce(), strings.Repeat(verifyPrompt, repeats))},
 		},
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return m, err
+		return runResult{}, err
 	}
 
 	client := &http.Client{Timeout: 3 * time.Minute}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		strings.TrimSuffix(base, "/")+"/v1/chat/completions", bytes.NewReader(payload))
 	if err != nil {
-		return m, err
+		return runResult{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 
+	var out runResult
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		return m, err
+		return out, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return m, fmt.Errorf("chat completions: %s", resp.Status)
+		return out, fmt.Errorf("chat completions: %s", resp.Status)
 	}
 
 	var firstToken time.Time
@@ -129,30 +191,20 @@ func Measure(ctx context.Context, base, key, model string) (Measurement, error) 
 			}
 		}
 		if chunk.Usage != nil {
-			m.PromptTokens = chunk.Usage.PromptTokens
-			m.DecodeTokens = chunk.Usage.CompletionTokens
+			out.promptTokens = chunk.Usage.PromptTokens
+			out.decodeTokens = chunk.Usage.CompletionTokens
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return m, err
+		return out, err
 	}
 	end := time.Now()
 	if firstToken.IsZero() {
 		firstToken = end
 	}
-	ttft := firstToken.Sub(start)
-	m.TTFTms = ttft.Milliseconds()
-	m.TotalMs = end.Sub(start).Milliseconds()
-
-	// Rates come from the duration, not from the rounded millisecond field: a
-	// sub-millisecond TTFT would otherwise divide by zero.
-	if m.PromptTokens > 0 && ttft > 0 {
-		m.PrefillTPS = round1(float64(m.PromptTokens) / ttft.Seconds())
-	}
-	if window := end.Sub(firstToken).Seconds(); m.DecodeTokens > 0 && window > 0 {
-		m.DecodeTPS = round1(float64(m.DecodeTokens) / window)
-	}
-	return m, nil
+	out.ttft = firstToken.Sub(start)
+	out.total = end.Sub(start)
+	return out, nil
 }
 
 func round1(v float64) float64 { return float64(int(v*10+0.5)) / 10 }
