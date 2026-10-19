@@ -12,6 +12,7 @@ import { formatDuration, mediaKind, speedLabel } from '../models'
 import CoverInfoModal from '../components/CoverInfoModal'
 import YamlEditor from '../components/YamlEditor'
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+import CopyField from '../components/CopyField'
 import { deleteLocalRecipe, forkRecipe } from '../lib/api'
 
 const DETAIL_TABS = [
@@ -1204,33 +1205,9 @@ function CapabilityField({ capabilities }) {
   )
 }
 
-function Field({ label, value }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    const text = String(value)
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200) })
-        .catch(() => fallbackCopy(text, setCopied))
-    } else {
-      fallbackCopy(text, setCopied)
-    }
-  }
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0">
-        <span className="text-[10px] text-text-dim font-label block">{label}</span>
-        <code className="text-xs text-text-muted font-mono break-all">{String(value)}</code>
-      </div>
-      <button onClick={copy} className="shrink-0 p-1.5 bg-surface border-none rounded-lg cursor-pointer text-text-dim hover:text-primary transition-colors" title="Copy">
-        {copied ? (
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        ) : (
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        )}
-      </button>
-    </div>
-  )
-}
+// The copy row lives in components/CopyField, shared with the Running card and
+// the llama-swap page.
+const Field = CopyField
 
 function CodeBlock({ label, value }) {
   const [copied, setCopied] = useState(false)

@@ -72,6 +72,9 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 		"port":           settings.Port,
 		"config_path":    m.ConfigPath(),
 		"binary_path":    m.Path(),
+		// The sidecar's own API key, so the page can hand out a working address
+		// and token in one click. This route is admin-only.
+		"api_key":        h.apiKey(),
 		"measurements":   m.Measurements(),
 		"running_models": []swap.RunningModel{},
 		"config":         nil,

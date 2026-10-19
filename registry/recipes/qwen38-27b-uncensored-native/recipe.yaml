@@ -1,7 +1,7 @@
 name: "Qwen3.8-27B Uncensored INT4 DFlash2 (native)"
 slug: qwen38-27b-uncensored-native
 version: "1.0.0"
-description: "OrcaRouter's abliterated Qwen3.8-27B (MLX affine 4-bit, group 64, the format the stock TensorFold CUDA engine reads natively) served on the host without a container, with z-lab's DFlash2 drafter. The weights come out of the container image that used to serve this model — the checkpoint is on disk, so launching copies nothing and builds no image. Four streams at the full 262,144-token window fit in 71 GiB of budget after the 15.4 GiB of weights, which is the whole point of dropping the per-model runtime: the image was 74 GB for a 19 GB checkpoint. Images and video work through the checkpoint's own tower, as in the container recipe; the CUDA libraries come from the engine's shared runtime."
+description: "OrcaRouter's abliterated Qwen3.8-27B (MLX affine 4-bit, group 64, the format the stock TensorFold CUDA engine reads natively) served on the host without a container, with z-lab's DFlash2 drafter. The weights come out of the container image that used to serve this model — the checkpoint is on disk, so launching copies nothing and builds no image. Two fp8-KV streams at the full 262,144-token window cost 8.84 GiB each on top of 16.94 GiB of weights, so the whole server sits at about 35 GB resident instead of the 86 GB four bf16 streams took, which is the whole point of dropping the per-model runtime: the image was 74 GB for a 19 GB checkpoint. Images and video work through the checkpoint's own tower, as in the container recipe; the CUDA libraries come from the engine's shared runtime."
 author: "spark-ai-hub"
 source: "local"
 category: llm
@@ -20,7 +20,7 @@ tags:
   - long-context
 requirements:
   min_memory_gb: 32
-  recommended_memory_gb: 48
+  recommended_memory_gb: 40
   disk_gb: 0
   cuda_compute: "12.1"
 ui:
@@ -47,7 +47,17 @@ native:
     - "8890"
     - "--context"
     - "262144"
+    # Memory is the KV cache, not the weights: 16 full-attention layers of 4
+    # KV heads x 256 dims is 32 KiB a token in bf16, i.e. 8 GiB per stream at
+    # the full window. fp8 halves that (8.84 GiB for two streams, measured) and
+    # two streams are all this box needs -- CUDA serves one stream at a time
+    # and queues the rest either way. Four bf16 streams were 86 GB resident.
     - "--parallel"
+    - "2"
+    - "--kv-cache"
+    - "fp8"
+    # 16 GiB of host prompt cache by default; 4 GiB holds a working session.
+    - "--prompt-cache-gib"
     - "4"
     - "--max-tokens"
     - "32768"

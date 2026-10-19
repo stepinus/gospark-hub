@@ -7,6 +7,7 @@ import { copyText } from '../lib/clipboard'
 import { hasSecret, maskIn } from '../lib/secret'
 import { hubOrigin, openUrl } from '../lib/urls'
 import { formatParams } from '../components/RecipeCard'
+import AddressPicker, { KIND_LABEL } from '../components/AddressPicker'
 import { groupModels, isAgentModel, isMediaModel, speedLabel } from '../models'
 import { formatContext } from '../components/ModelList'
 import ModelShelves from '../components/ModelShelves'
@@ -16,16 +17,6 @@ import ModelShelves from '../components/ModelShelves'
 // settings), and the catalog to pick from -- the language models an agent
 // talks to, then the media models it calls as tools, kept apart. The page answers "how do I
 // use these models with my agent" before it asks you to choose one.
-
-const KIND_LABEL = {
-  // "origin" is the address this page was actually loaded from. The daemon
-  // only lists it when it is not one of the names the box can see on itself
-  // -- i.e. when a tunnel or reverse proxy is in front.
-  origin: 'This address',
-  mdns: 'mDNS name',
-  tailscale: 'Tailscale',
-  ip: 'LAN IP',
-}
 
 // The Hub's MCP tools, as an agent sees them (daemon/routers/mcp.py).
 const MCP_TOOLS = ['Web search', 'Web fetch', 'Images', 'Video', 'Music', 'Decisions', 'File links']
@@ -753,30 +744,6 @@ function useAddresses(info) {
   }, [info, origin])
   const [base, setBase] = useState(origin)
   return [addresses, addresses.find((a) => a.url === base) || addresses[0], setBase]
-}
-
-function AddressPicker({ addresses, address, onPick }) {
-  if (addresses.length < 2) return null
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <span className="text-xs text-text-dim">Using it from somewhere else? Address:</span>
-      <div className="flex flex-wrap gap-1 rounded-xl border border-outline-dim bg-surface-high p-0.5">
-        {addresses.map((a) => (
-          <button
-            key={a.url}
-            type="button"
-            onClick={() => onPick(a.url)}
-            title={a.note}
-            className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${
-              address.url === a.url ? 'bg-primary text-primary-on' : 'bg-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 // One-click installs for the MCP clients that take one. Every link is the

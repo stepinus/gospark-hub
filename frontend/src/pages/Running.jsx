@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { benchmarkRecipe, getBenchmarks } from '../lib/api'
 import { useThemedLogo } from '../hooks/useThemedLogo'
+import { useApiKey } from '../hooks/useApiKey'
+import { hubOrigin } from '../lib/urls'
+import CopyField from '../components/CopyField'
 import { openUrl } from '../components/RecipeCard'
 
 export default function Running() {
@@ -127,6 +130,7 @@ function RunningCard({ recipe, onSelect, onStop, benchmark, onBenchmark }) {
   const [stopping, setStopping] = useState(false)
   const [measuring, setMeasuring] = useState(false)
   const [benchError, setBenchError] = useState('')
+  const apiKey = useApiKey()
 
   const handleBenchmark = async (e) => {
     e.stopPropagation()
@@ -230,6 +234,18 @@ function RunningCard({ recipe, onSelect, onStop, benchmark, onBenchmark }) {
           </button>
         </div>
       </div>
+
+      {/* Everything a client needs for this model, one click each: the Hub's
+          /v1 forwards to whatever model a request names, so the address is the
+          same wherever the model runs. Only recipes that declare an
+          integration block serve an API. */}
+      {isReady && recipe.integration && (
+        <div className="mt-3 grid gap-3 border-t border-outline-dim/40 pt-3 sm:grid-cols-3">
+          <CopyField label="API endpoint" value={`${hubOrigin()}/v1`} />
+          <CopyField label="Model" value={recipe.integration.model_id || recipe.name} />
+          <CopyField label="Token" value={apiKey || 'not-needed'} secret={Boolean(apiKey)} />
+        </div>
+      )}
 
       {(benchmark || benchError) && (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-outline-dim/40 pt-2 text-[11px] text-text-dim">

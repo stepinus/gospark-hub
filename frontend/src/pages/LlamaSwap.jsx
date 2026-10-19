@@ -13,6 +13,8 @@ import {
   updateLlamaswap,
 } from '../lib/api'
 import YamlEditor from '../components/YamlEditor'
+import CopyField from '../components/CopyField'
+import AddressPicker, { hostOptions } from '../components/AddressPicker'
 
 /* llama-swap, as a sidecar of the Hub.
  *
@@ -43,6 +45,19 @@ export default function LlamaSwap() {
   const [dragging, setDragging] = useState(null)
   const [measuring, setMeasuring] = useState({})
   const [query, setQuery] = useState('')
+  // Where this Spark is reachable from elsewhere: the daemon reads mDNS,
+  // Tailscale and the routing table, so the address offered here is not the
+  // 127.0.0.1 the page happens to be open on.
+  const [connect, setConnect] = useState(null)
+  const [address, setAddress] = useState('')
+
+  useEffect(() => {
+    if (!isAdmin) return
+    ;(async () => {
+      const res = await fetch('/api/system/connect')
+      if (res.ok) setConnect(await res.json())
+    })()
+  }, [isAdmin])
 
   const load = useCallback(async () => {
     const res = await getLlamaswap()
@@ -169,6 +184,17 @@ export default function LlamaSwap() {
   }, [state])
   const groups = useMemo(() => state?.config?.groups || {}, [state])
   const models = useMemo(() => state?.config?.models || {}, [state])
+  const modelIds = useMemo(() => Object.keys(models).sort(), [models])
+  // The same hosts the Hub hands out, on the sidecar's port instead of its own.
+  const addresses = useMemo(() => {
+    if (!state?.port) return []
+    return hostOptions(connect).map((o) => ({
+      ...o,
+      // An IPv6 literal needs its brackets before a port.
+      url: `http://${o.host.includes(':') ? `[${o.host}]` : o.host}:${state.port}/v1`,
+    }))
+  }, [connect, state?.port])
+  const picked = addresses.find((a) => a.url === address) || addresses[0]
   const measurements = state?.measurements || {}
   const running = useMemo(() => {
     const byId = new Map()
@@ -312,6 +338,51 @@ export default function LlamaSwap() {
             {editing ? 'Close editor' : 'Edit YAML'}
           </button>
         </div>
+      </section>
+
+      {/* ─── One-click connect ─── */}
+      <section className="bg-surface rounded-2xl p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-semibold text-sm font-display m-0">Connect</h2>
+          <span className="text-[11px] text-text-dim">
+            {state?.running ? 'What a client needs' : 'The sidecar is stopped: these work once it runs'}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <CopyField
+              label="API endpoint"
+              value={picked?.url || `http://<address>:${state?.port || ''}/v1`}
+              hint="OpenAI-compatible; the model goes in the request body"
+            />
+            {addresses.length > 1 && (
+              <AddressPicker addresses={addresses} address={picked} onPick={setAddress} />
+            )}
+          </div>
+          <CopyField
+            label="Token"
+            value={state?.api_key || 'not-needed'}
+            secret={Boolean(state?.api_key)}
+            hint={state?.api_key ? 'Same token for the web UI: any username, this as the password' : 'This sidecar has no apiKeys set'}
+          />
+        </div>
+        {modelIds.length > 0 && (
+          <div className="mt-4 border-t border-outline-dim/40 pt-3">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-text-dim font-label">
+              Models {running.size > 0 && <span className="normal-case tracking-normal">· {running.size} warm now</span>}
+            </span>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {modelIds.map((id) => (
+                <CopyField
+                  key={id}
+                  label={running.has(id) ? 'Model · running' : 'Model'}
+                  value={id}
+                  hint={models[id]?.name || undefined}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ─── The YAML editor ─── */}

@@ -106,9 +106,18 @@ func computeConnectInfo(port int, apiKey, origin, callerIP string, agents []sah.
 	add(fmt.Sprintf("%s.local", hostname), "mdns",
 		"Stable on your LAN — survives IP changes, works offline.", true)
 
-	if ts := tailscaleInfo(); ts != nil && ts.DNS != "" {
-		add(ts.DNS, "tailscale",
-			"Works on your LAN and remotely (requires Tailscale on the client).", false)
+	// Tailscale twice: the MagicDNS name, and the 100.x address beside it for a
+	// client that resolves no Tailscale DNS (a container, a phone with the name
+	// switched off).
+	if ts := tailscaleInfo(); ts != nil {
+		if ts.DNS != "" {
+			add(ts.DNS, "tailscale",
+				"Works on your LAN and remotely (requires Tailscale on the client).", false)
+		}
+		for _, ip := range ts.IPs {
+			add(ip, "tailscale",
+				"Tailscale address: works from home and remotely, no DNS needed.", false)
+		}
 	}
 
 	if ip := primaryLANIP(); ip != "" {
