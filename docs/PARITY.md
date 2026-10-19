@@ -41,11 +41,15 @@ go run ./cmd/parity -upstream http://127.0.0.1:9020 -ours http://127.0.0.1:9120
   порты, `sah-…`-ключи и путь до registry маскируются — они различаются по устройству.
 - `(структура)` — кейс сверяется только по набору ключей и типам (метрики, доступ к HF).
 
-## Состояние на 2026-10-18
+## Состояние на 2026-10-19
 
-Совпадают: `state`, `me`, `me/usage`, `users`, `recipes` (148 рецептов, поля и значения),
-`recipes/{slug}` для web и api-only, 404 на неизвестный slug, `connect`, `metrics`,
+Все кейсы совпадают (19 из 19): `state`, `me`, `me/usage`, `users`, `recipes`
+(148 рецептов, поля и значения), `recipes/{slug}` для web и api-only, 404 на неизвестный
+slug, `launch-plan`, `compose`, `build-status`, `containers`, `connect`, `metrics`,
 `hf-token`, `hf-access`, `media`, `/sah/version`, SPA.
 
-Осталось (фаза 3, docker): `launch-plan`, `compose`, `build-status`, `/api/containers`
-и `has_leftovers` в списке рецептов.
+Что намеренно не сравнивается: поля, отвечающие на вопросы о конкретной docker-установке
+(`installed`, `running`, `ready`, `has_leftovers`, `error`) — у двух хабов разные префиксы
+образов (`spark-ai-hub/…` у апстрима и `gospark-hub/…` у нас), поэтому ответы честно
+расходятся. Они покрыты юнит-тестами на поддельном docker. Перед прогоном нужны чистые
+базы с обеих сторон, иначе расходятся счётчики пользователей.

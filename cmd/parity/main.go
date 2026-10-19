@@ -124,6 +124,15 @@ func truncate(b []byte, n int) string {
 	return s
 }
 
+// envDependent fields are true answers to questions about *this* docker
+// installation: the two Hubs own different image prefixes (spark-ai-hub/…
+// upstream, gospark-hub/… ours), so leftovers and running state legitimately
+// differ. They are covered by unit tests with a fake docker instead.
+var envDependent = map[string]bool{
+	"has_leftovers": true, "installed": true, "running": true, "ready": true,
+	"starting": true, "installing": true, "error": true,
+}
+
 var volatileKeys = map[string]bool{
 	"id": true, "created_at": true, "updated_at": true, "reviewed_at": true,
 	"last_login_at": true, "last_used_at": true, "expires_at": true, "ts": true,
@@ -152,6 +161,9 @@ func maskValue(s string) string {
 func normalize(v any, key string) any {
 	if key == "port" {
 		return "<port>"
+	}
+	if envDependent[key] {
+		return "<env>"
 	}
 	if volatileKeys[key] {
 		switch v.(type) {
