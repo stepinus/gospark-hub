@@ -1,0 +1,79 @@
+name: "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+slug: minicpm-v47-native
+version: "1.0.0"
+description: "OpenBMB's MiniCPM-V 4.7 35B-A3B served by a TensorFold engine client built on the host, without a container: its language model is a fine-tune of Qwen3.6-35B-A3B (text_config.model_type qwen3_5_moe_text), so the Qwen3.6 MoE CUDA engine runs it unchanged — Gated DeltaNet, gated attention, 256 routed experts, MTP drafting with Qwen3.6's own 0.5 GB draft head. The checkpoint is the community MLX affine 4-bit conversion (20 GB, groups of 64, 8-bit routers), the format this engine reads. TEXT ONLY: the minicpmv4_7 family on the native server takes no image parts yet (the tower waits for upstream #598); for images use the vLLM FP8 recipe. Measured by the checkpoint's author on a GB10: 151 tok/s at 0.1k with drafts, 92 tok/s without, 5.4k tok/s prefill at 16k, 20.56 GiB of weights plus 5 GiB a stream at the model's full 262,144-token window."
+author: "spark-ai-hub"
+source: "local"
+category: llm
+logo: "/logos/openbmb.png"
+tags:
+  - llm
+  - moe
+  - tensorfold
+  - native
+  - no-container
+  - int4
+  - minicpm
+  - reasoning
+  - tool-use
+  - speculative-decoding
+  - mtp
+requirements:
+  min_memory_gb: 32
+  recommended_memory_gb: 48
+  disk_gb: 0
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8892
+  proxy: true
+  path: "/v1/models"
+# A native recipe is a launch config, not an image: kind selects the host
+# process runner and the block below is what it passes to the engine.
+kind: native
+native:
+  engine: tensorfold
+  # The stock 1.1.1 release has no minicpmv4_7 family; the family lives on the
+  # jkuepker/TensorFold branch minicpmv47-native (builds 1.0.10). The Hub
+  # extracts that built client out of this image and runs it from the engine's
+  # builds/ directory — the release under tensorfold/current stays untouched.
+  engine_build:
+    image: "tensorfold-minicpm:zig-0b1fd2b"
+    artifacts: ["/opt/tensorfold/native/bin"]
+    # Rebuilds the image when it is missing: Zig + the fork's build inside
+    # the PyTorch container, run with bash -lc in this recipe directory.
+    command: "bash build-engine.sh"
+    # No env: TENSORFOLD_CUDA_KERNELS must stay unset (the client carries its
+    # sm_121 kernels; the block's env values are joined onto the client dir, so
+    # "native" would become a path and the engine refuses it).
+  # Resolved by the daemon to the snapshot in the local Hugging Face cache.
+  model: "hf:kuepker/MiniCPM-V-4.7-35B-A3B-MLX-4bit-TensorFold@0aee82655c3bdb7135099cd368af7e92235d066f"
+  args:
+    - "--name"
+    - "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+    - "--port"
+    - "8892"
+    # The model's own trained window. Cheap here: only 10 of the 40 layers are
+    # full attention with 2 KV heads of 256, so a token costs 20 KiB in bf16 --
+    # 5 GiB a stream at 262,144 on top of 20.56 GiB of weights.
+    - "--context"
+    - "262144"
+    - "--parallel"
+    - "2"
+  port: 8892
+status: experimental
+engine: "TensorFold"
+params_b: 35
+active_params_b: 3
+arch: moe
+quantization: "INT4"
+speculative_method: "mtp"
+weights_gb: 20
+release_date: "2026-10-07"
+requires_hf_token: false
+context_tokens: 262144
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+  api_key: "<API_KEY>"
+  max_context: "262144"

@@ -5,3 +5,6 @@ data/*
 gospark-hub
 *.db
 .pi/
+
+# Fetched by build-engine.sh; a 50 MB toolchain tarball is not a recipe.
+registry/recipes/*/zig.tar.xz
