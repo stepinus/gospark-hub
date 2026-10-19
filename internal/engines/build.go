@@ -445,11 +445,16 @@ func writeVisionWrapper(dir, image string) error {
 		}
 		return nil
 	}
-	script := `#!/bin/sh
-# Written by Spark AI Hub: the vision helper of a patched engine needs the
-# builder image's python 3.12 (torch, cuDNN, HPC-X OpenMPI).
-exec docker run --rm -i --init --gpus all   -e PYTHONPATH=/opt/tensorfold/python   -e TENSORFOLD_NO_UPDATE_CHECK=1   -v "${HF_HUB_CACHE:-$HOME/.cache/huggingface}:/hf:ro"   --entrypoint python3 ` + image + ` "$@"
-`
+	script := "#!/bin/sh\n" +
+		"# Written by Spark AI Hub: the vision helper of a patched engine needs the\n" +
+		"# builder image's python 3.12 (torch, cuDNN, HPC-X OpenMPI).\n" +
+		"# The checkpoint must be visible at the same absolute path inside.\n" +
+		"cache=\"${HF_HUB_CACHE:-$HOME/.cache/huggingface}\"\n" +
+		"exec docker run --rm -i --init --gpus all \\\n" +
+		"  -e PYTHONPATH=/opt/tensorfold/python \\\n" +
+		"  -e TENSORFOLD_NO_UPDATE_CHECK=1 \\\n" +
+		"  -v \"$cache:$cache:ro\" \\\n" +
+		"  --entrypoint python3 " + image + " \"$@\"\n"
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("vision wrapper dir: %w", err)
 	}
