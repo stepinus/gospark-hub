@@ -15,10 +15,10 @@ import (
 	"gospark-hub/internal/web"
 )
 
-// Deps supplies the small amount of runtime state the registry routes need
-// from the rest of the daemon. The consumer (the route package) defines the
+// Runtime is the small amount of live state the registry routes need from
+// the rest of the daemon. The consumer (the route package) defines the
 // interface, so the concrete store does not need to import HTTP types.
-type Deps interface {
+type Runtime interface {
 	InstalledRecipes(ctx context.Context) (map[string]struct{}, error)
 	HasLeftovers(ctx context.Context, slug string) (bool, error)
 	// Runtime state, per recipe. Upstream derives all six flags from the
@@ -30,11 +30,24 @@ type Deps interface {
 	StartHealthCheck(ctx context.Context, slug string)
 }
 
+// Deps supplies the runtime state and the one recipe cache shared with the
+// rest of the daemon.
+type Deps struct {
+	Runtime Runtime
+	Cache   *registry.Cache
+}
+
 // Register mounts GET /api/recipes and GET /api/recipes/{slug}.
 func Register(r *web.Router, deps Deps) {
-	cfg := config.Load()
+	cache := deps.Cache
+	if cache == nil {
+		// Kept for tests and embedders that only care about routes; the
+		// daemon always passes the cache built from the registry home.
+		cfg := config.Load()
+		cache = registry.NewCache(cfg.RegistryPath)
+	}
 	h := &handler{
-		cache:     registry.NewCache(cfg.RegistryPath),
+		cache:     cache,
 		deps:      deps,
 		leftovers: map[string]bool{},
 	}
@@ -102,10 +115,10 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) installed(ctx context.Context) map[string]struct{} {
-	if h.deps == nil {
+	if h.deps.Runtime == nil {
 		return nil
 	}
-	m, err := h.deps.InstalledRecipes(ctx)
+	m, err := h.deps.Runtime.InstalledRecipes(ctx)
 	if err != nil {
 		return nil
 	}
@@ -120,9 +133,9 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 	rec.Error = nil
 	pending := ""
 	running := false
-	if h.deps != nil {
-		pending = h.deps.GetPending(rec.Slug)
-		if msg := h.deps.GetStartupError(rec.Slug); msg != "" {
+	if h.deps.Runtime != nil {
+		pending = h.deps.Runtime.GetPending(rec.Slug)
+		if msg := h.deps.Runtime.GetStartupError(rec.Slug); msg != "" {
 			rec.Error = &msg
 		}
 	}
@@ -130,8 +143,8 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 	if _, ok := installed[rec.Slug]; ok {
 		rec.Installed = true
 		rec.Installing = pending == "installing"
-		running = h.deps != nil && h.deps.IsRecipeRunning(ctx, rec.Slug)
-		rec.Ready = running && h.deps.IsReady(rec.Slug)
+		running = h.deps.Runtime != nil && h.deps.Runtime.IsRecipeRunning(ctx, rec.Slug)
+		rec.Ready = running && h.deps.Runtime.IsReady(rec.Slug)
 		switch pending {
 		case "launching":
 			rec.Starting = true
@@ -144,7 +157,7 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 			rec.Running = running && rec.Ready
 		}
 		if rec.Starting || (running && !rec.Ready) {
-			go h.deps.StartHealthCheck(context.Background(), rec.Slug)
+			go h.deps.Runtime.StartHealthCheck(context.Background(), rec.Slug)
 		}
 		// has_leftovers keeps its sticky value while installed.
 	} else {
@@ -155,8 +168,8 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 		rec.Installing = pending == "installing"
 		if !rec.Starting && !rec.Installing {
 			h.leftoverMu.Lock()
-			if !h.leftovers[rec.Slug] && h.deps != nil {
-				if has, _ := h.deps.HasLeftovers(ctx, rec.Slug); has {
+			if !h.leftovers[rec.Slug] && h.deps.Runtime != nil {
+				if has, _ := h.deps.Runtime.HasLeftovers(ctx, rec.Slug); has {
 					h.leftovers[rec.Slug] = true
 				}
 			}

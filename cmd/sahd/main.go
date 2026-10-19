@@ -19,8 +19,8 @@ import (
 	containersapi "gospark-hub/internal/api/containers"
 	filesapi "gospark-hub/internal/api/files"
 	mcpapi "gospark-hub/internal/api/mcp"
-	oauthapi "gospark-hub/internal/api/oauthapi"
 	modelsapi "gospark-hub/internal/api/models"
+	oauthapi "gospark-hub/internal/api/oauthapi"
 	recipesapi "gospark-hub/internal/api/recipes"
 	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/auth"
@@ -53,7 +53,7 @@ func (r runtime) Running(ctx context.Context, slug string) (bool, error) {
 	return r.d.IsRecipeRunning(ctx, slug), nil
 }
 
-func (r runtime) Ready(slug string) bool          { return r.d.IsReady(slug) }
+func (r runtime) Ready(slug string) bool       { return r.d.IsReady(slug) }
 func (r runtime) StartHealthCheck(slug string) { r.d.StartHealthCheck(context.Background(), slug) }
 func (r runtime) Stop(ctx context.Context, slug string) error {
 	_, err := r.d.StopRecipe(ctx, slug)
@@ -112,10 +112,16 @@ func main() {
 	oauthSvc := oauth.NewService(db)
 	authapi.Register(r, auth.Deps{Store: db, Config: cfg, Logger: log.Default(), TokenResolver: oauthSvc})
 
-	reg := registry.NewCache(cfg.RegistryPath)
+	mgr, err := registry.NewManager(cfg.RegistryHome)
+	if err != nil {
+		log.Fatalf("registry home: %v", err)
+	}
+	// No fallback to the repository checkout: recipes come only from the
+	// configured sources under the registry home.
+	reg := registry.NewCache(mgr.Roots()...)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
 
-	recipesapi.Register(r, dock)
+	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg})
 	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
