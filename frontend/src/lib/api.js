@@ -97,6 +97,16 @@ export function deleteEngine(name) {
   return request('DELETE', `/api/engines/${encodeURIComponent(name)}`)
 }
 
+// Engine-wide serve flags: { cortheon, dashboard }. Every native recipe on the
+// engine gets them at launch.
+export function getEngineSettings(name) {
+  return request('GET', `/api/engines/${encodeURIComponent(name)}/settings`)
+}
+
+export function saveEngineSettings(name, settings) {
+  return request('PUT', `/api/engines/${encodeURIComponent(name)}/settings`, settings)
+}
+
 /* Local recipes */
 
 // { recipes: [{ slug, name, origin, modified }] }

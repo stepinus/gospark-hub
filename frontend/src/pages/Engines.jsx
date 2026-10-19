@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth'
-import { deleteEngine, getEngines, installEngine, updateEngine } from '../lib/api'
+import { useStore } from '../store'
+import {
+  deleteEngine,
+  getEngines,
+  installEngine,
+  saveEngineSettings,
+  updateEngine,
+} from '../lib/api'
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 
 /* Admin-only: the model runtimes installed on this machine.
@@ -22,6 +29,9 @@ export default function Engines() {
   const [engines, setEngines] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // The catalog is already polled by the shell; this page only needs it to
+  // know which native recipe is up (the dashboard link points at its port).
+  const recipes = useStore((s) => s.recipes)
   // One job at a time across the page, the way Settings does it: two installs
   // racing would fight over the same symlink.
   const [busy, setBusy] = useState(null) // { name, action }
@@ -81,6 +91,26 @@ export default function Engines() {
     await run(engine, 'delete')
   }
 
+  // The flags are launch arguments, so saving one only affects the next
+  // launch — the running recipe keeps what it started with.
+  const setOption = async (engine, key, value) => {
+    const next = { ...(engine.options || {}), [key]: value }
+    setBusy({ name: engine.name, action: 'settings' })
+    setFailures((prev) => ({ ...prev, [engine.name]: '' }))
+    const res = await saveEngineSettings(engine.name, next)
+    if (!res.ok) {
+      setBusy(null)
+      setFailures((prev) => ({ ...prev, [engine.name]: res.error }))
+      return
+    }
+    apply(await getEngines())
+  }
+
+  const dashboardPort = (engine) => {
+    const up = recipes.find((r) => r.running && r.native?.engine === engine.name)
+    return up ? up.native?.port || up.ui?.port : 0
+  }
+
   if (!isAdmin) {
     return (
       <div className="px-6 py-20 text-center text-text-dim text-sm">
@@ -121,6 +151,8 @@ export default function Engines() {
             busy={busy?.name === engine.name ? busy.action : null}
             disabled={busy !== null}
             error={failures[engine.name] || ''}
+            dashboardPort={dashboardPort(engine)}
+            onToggle={(key, value) => setOption(engine, key, value)}
             onInstall={() => run(engine, 'install')}
             onUpdate={() => run(engine, 'update')}
             onDelete={() => setConfirm(engine)}
@@ -143,11 +175,16 @@ export default function Engines() {
   )
 }
 
-function EngineCard({ engine, busy, disabled, error, onInstall, onUpdate, onDelete }) {
+function EngineCard({ engine, busy, disabled, error, dashboardPort, onToggle, onInstall, onUpdate, onDelete }) {
   const name = displayName(engine.name)
   // `latest` is what the release feed says; an install made offline may be
   // ahead of it, and then there is nothing to update to.
   const updateAvailable = Boolean(engine.installed && engine.latest && engine.latest !== engine.version)
+  const options = engine.options || {}
+  // The dashboard is served by the model server itself, on the recipe's port.
+  const dashboardUrl = dashboardPort
+    ? `${window.location.protocol}//${window.location.hostname}:${dashboardPort}/dashboard`
+    : ''
 
   return (
     <div className="bg-surface rounded-2xl p-5">
@@ -201,7 +238,76 @@ function EngineCard({ engine, busy, disabled, error, onInstall, onUpdate, onDele
         </div>
       </div>
 
+      {engine.installed && (
+        <div className="mt-4 pt-4 border-t border-outline-dim/40 flex flex-col gap-3">
+          <Toggle
+            label="Cortheon"
+            hint="Adds --cortheon: chat requests get Cortheon's reasoning program, it researches the web before building, and cortheon_search / cortheon_fetch run on this engine."
+            checked={Boolean(options.cortheon)}
+            disabled={disabled}
+            onChange={(v) => onToggle('cortheon', v)}
+          />
+          <div className="flex flex-col gap-1">
+            <Toggle
+              label="Live dashboard"
+              hint="Adds --dashboard: the engine serves its own live page at /dashboard."
+              checked={Boolean(options.dashboard)}
+              disabled={disabled}
+              onChange={(v) => onToggle('dashboard', v)}
+            />
+            {options.dashboard && !dashboardUrl && (
+              <p className="text-[11px] text-text-dim m-0">
+                Launch a native recipe on this engine to open the dashboard.
+              </p>
+            )}
+            {dashboardUrl && (
+              <a
+                href={dashboardUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-primary font-mono break-all"
+              >
+                {dashboardUrl}
+              </a>
+            )}
+          </div>
+          <p className="text-[11px] text-text-dim m-0">
+            Flags apply to the next launch of a native recipe on this engine; a running one keeps
+            the flags it started with.
+          </p>
+        </div>
+      )}
+
       {error && <p className="text-xs text-error m-0 mt-3 leading-relaxed">{error}</p>}
+    </div>
+  )
+}
+
+// Toggle is a switch built from the page's own buttons: no dependency, no
+// hidden input, and the state is announced through aria-checked.
+function Toggle({ label, hint, checked, disabled, onChange }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold m-0">{label}</p>
+        <p className="text-[11px] text-text-dim m-0 mt-0.5 leading-relaxed">{hint}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`shrink-0 mt-1 w-10 h-6 rounded-full border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default ${
+          checked ? 'bg-primary border-primary' : 'bg-surface-high border-outline-dim'
+        }`}
+      >
+        <span
+          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+            checked ? 'translate-x-5' : 'translate-x-1'
+          }`}
+        />
+      </button>
     </div>
   )
 }

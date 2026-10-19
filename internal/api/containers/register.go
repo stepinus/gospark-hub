@@ -540,10 +540,22 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 	if served == "" {
 		served = rec.Slug
 	}
+	// Engine-wide flags (Cortheon, the live dashboard) apply to every recipe
+	// on the engine. A recipe that names one itself keeps a single copy.
+	args := slices.Clone(rec.Native.Args)
+	if h.engines != nil {
+		if opts, err := h.engines.Options(rec.Native.Engine); err == nil {
+			for _, flag := range opts.Flags() {
+				if !slices.Contains(args, flag) {
+					args = append(args, flag)
+				}
+			}
+		}
+	}
 	spec := native.Spec{
 		EnginePath: enginePath,
 		Model:      model,
-		Args:       rec.Native.Args,
+		Args:       args,
 		Env:        env,
 		Port:       port,
 		ServedName: served,

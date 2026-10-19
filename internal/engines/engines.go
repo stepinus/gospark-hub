@@ -93,6 +93,9 @@ type Status struct {
 	// ones built from the release under current/. Always present: the UI
 	// iterates it without a nil check.
 	Builds []Build `json:"builds"`
+	// Options are the engine-wide serve flags (Cortheon, dashboard) the
+	// launch adds to every native recipe on this engine.
+	Options Options `json:"options"`
 }
 
 // Manager owns the on-disk engine home and talks to GitHub. The zero HTTP and
@@ -179,6 +182,9 @@ func (m *Manager) List(ctx context.Context) ([]Status, error) {
 	out := make([]Status, 0, len(known))
 	for _, e := range known {
 		st := Status{Name: e.Name, Latest: latest[e.Name], Builds: m.ListBuilds(e.Name)}
+		if opts, err := m.Options(e.Name); err == nil {
+			st.Options = opts
+		}
 		if version, ok := m.Installed(e.Name); ok {
 			st.Installed = true
 			st.Version = version

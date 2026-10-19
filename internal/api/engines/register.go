@@ -34,6 +34,8 @@ type Deps struct {
 func Register(r *web.Router, deps Deps) {
 	h := &handler{deps: deps}
 	r.Handle("GET", "/api/engines", h.list)
+	r.Handle("GET", "/api/engines/{name}/settings", h.settings)
+	r.Handle("PUT", "/api/engines/{name}/settings", h.saveSettings)
 	r.Handle("POST", "/api/engines/{name}/install", h.install)
 	r.Handle("POST", "/api/engines/{name}/update", h.update)
 	r.Handle("DELETE", "/api/engines/{name}", h.remove)
@@ -60,6 +62,53 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 		list = []engine.Status{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"engines": list})
+}
+
+// settings answers the engine-wide serve flags the Engines page toggles.
+func (h *handler) settings(w http.ResponseWriter, r *http.Request) {
+	if !h.admin(w, r) {
+		return
+	}
+	if h.deps.Engines == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Engine not found"})
+		return
+	}
+	opts, err := h.deps.Engines.Options(r.PathValue("name"))
+	switch {
+	case errors.Is(err, engine.ErrUnknownEngine):
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Engine not found"})
+	case err != nil:
+		h.fail(w, "read engine settings", err)
+	default:
+		writeJSON(w, http.StatusOK, opts)
+	}
+}
+
+// saveSettings replaces the flags. A launch in flight keeps the flags it
+// started with: these are command-line arguments, not a live control surface.
+func (h *handler) saveSettings(w http.ResponseWriter, r *http.Request) {
+	if !h.admin(w, r) {
+		return
+	}
+	if h.deps.Engines == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Engine not found"})
+		return
+	}
+	var opts engine.Options
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"detail": "Invalid settings"})
+		return
+	}
+	name := r.PathValue("name")
+	err := h.deps.Engines.SetOptions(name, opts)
+	switch {
+	case errors.Is(err, engine.ErrUnknownEngine):
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": "Engine not found"})
+	case err != nil:
+		h.fail(w, "write engine settings", err)
+	default:
+		writeJSON(w, http.StatusOK, opts)
+	}
 }
 
 func (h *handler) install(w http.ResponseWriter, r *http.Request) {
