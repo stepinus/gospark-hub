@@ -1,5 +1,10 @@
 import { useState } from 'react'
+import { Clock } from 'lucide-react'
 import { useAuth } from '../auth'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
 
 /* The one screen an unauthenticated visitor can reach.
  *
@@ -38,76 +43,83 @@ export default function Login() {
     }
   }
 
-  if (pendingNotice) {
-    return (
-      <Shell>
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-2xl bg-warning/15 text-warning flex items-center justify-center mx-auto mb-4">
-            <ClockIcon className="w-6 h-6" />
-          </div>
-          <h2 className="text-lg font-bold font-display m-0 mb-2">Waiting for approval</h2>
-          <p className="text-sm text-text-muted m-0 leading-relaxed">{pendingNotice}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-6 w-full py-2.5 rounded-xl bg-surface-high text-text border border-outline-dim text-sm font-semibold cursor-pointer hover:bg-surface-highest transition-colors"
-          >
-            Back to sign in
-          </button>
-        </div>
-      </Shell>
-    )
-  }
-
   return (
     <Shell>
-      <h2 className="text-lg font-bold font-display m-0 mb-1">
-        {isSetup ? 'Create the administrator account' : isRegister ? 'Request access' : 'Sign in'}
-      </h2>
-      <p className="text-sm text-text-dim m-0 mb-6 leading-relaxed">
-        {isSetup
-          ? 'This Hub has no accounts yet. The first one you create owns it — it can approve everyone who signs up after you.'
-          : isRegister
-            ? 'Your account will be created straight away, but an administrator has to approve it before you can sign in.'
-            : 'Sign in to use the apps and models on this Spark.'}
-      </p>
-
-      <form onSubmit={submit} className="flex flex-col gap-3">
-        {isRegister && (
-          <Field label="Name" value={name} onChange={setName} autoComplete="name" placeholder="Optional" />
-        )}
-        <Field
-          label="Email" type="email" value={email} onChange={setEmail}
-          autoComplete="username" required
-        />
-        <Field
-          label="Password" type="password" value={password} onChange={setPassword}
-          autoComplete={isRegister ? 'new-password' : 'current-password'}
-          hint={isRegister ? 'At least 8 characters.' : null}
-          required
-        />
-
-        {error && (
-          <div className="text-xs text-error bg-error-surface rounded-xl px-3 py-2.5 leading-relaxed">
-            {error}
+      {pendingNotice ? (
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-md border border-warning/30 bg-warning/10 text-warning">
+            <Clock className="h-5 w-5" />
           </div>
-        )}
+          <h2 className="mb-2 font-display text-base font-semibold tracking-tight">Waiting for approval</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">{pendingNotice}</p>
+          <Button
+            variant="outline"
+            className="mt-6 w-full"
+            onClick={() => window.location.reload()}
+          >
+            Back to sign in
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="mb-6">
+            <h2 className="font-display text-base font-semibold tracking-tight">
+              {isSetup ? 'Create the administrator account' : isRegister ? 'Request access' : 'Sign in'}
+            </h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              {isSetup
+                ? 'This Hub has no accounts yet. The first one you create owns it — it can approve everyone who signs up after you.'
+                : isRegister
+                  ? 'Your account will be created straight away, but an administrator has to approve it before you can sign in.'
+                  : 'Sign in to use the apps and models on this Spark.'}
+            </p>
+          </div>
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-1 w-full py-2.5 rounded-xl bg-primary text-primary-on border-none text-sm font-bold cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-default transition-opacity"
-        >
-          {busy ? 'Working…' : isSetup ? 'Create account & sign in' : isRegister ? 'Request access' : 'Sign in'}
-        </button>
-      </form>
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            {isRegister && (
+              <Field label="Name" value={name} onChange={setName} autoComplete="name" placeholder="Optional" />
+            )}
+            <Field
+              label="Email"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              autoComplete="username"
+              required
+            />
+            <Field
+              label="Password"
+              type="password"
+              value={password}
+              onChange={setPassword}
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
+              hint={isRegister ? 'At least 8 characters.' : null}
+              required
+            />
 
-      {!needsSetup && (
-        <button
-          onClick={() => { setMode(isRegister ? 'signin' : 'register'); setError(null) }}
-          className="mt-4 w-full text-xs text-text-dim bg-transparent border-none cursor-pointer hover:text-text transition-colors font-label"
-        >
-          {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Request access"}
-        </button>
+            {error && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" disabled={busy} className="mt-1 w-full">
+              {busy ? 'Working…' : isSetup ? 'Create account & sign in' : isRegister ? 'Request access' : 'Sign in'}
+            </Button>
+          </form>
+
+          {!needsSetup && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => { setMode(isRegister ? 'signin' : 'register'); setError(null) }}
+              className="mt-3 w-full text-xs text-muted-foreground hover:text-foreground"
+            >
+              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Request access"}
+            </Button>
+          )}
+        </>
       )}
     </Shell>
   )
@@ -115,20 +127,22 @@ export default function Login() {
 
 function Shell({ children }) {
   return (
-    <div className="bg-bg text-text min-h-screen flex items-center justify-center px-6 animate-fadeIn">
-      <div className="w-full max-w-sm">
-        <div className="flex items-center gap-3 mb-6">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-10 text-foreground">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-6 flex items-center gap-3">
           <img
             src="/brand/spark-ai-hub-mark.svg"
             alt=""
-            className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#152608] to-[#0A1404] p-1.5"
+            className="h-9 w-9 rounded-md border border-border bg-[#101a07] p-1"
           />
           <div>
-            <div className="text-base font-bold tracking-tight font-display">Spark AI Hub</div>
-            <div className="text-[11px] text-text-dim font-label">NVIDIA DGX Spark</div>
+            <div className="font-display text-sm font-semibold tracking-tight">Spark AI Hub</div>
+            <div className="eyebrow mt-0.5">NVIDIA DGX Spark</div>
           </div>
         </div>
-        <div className="bg-surface rounded-2xl p-6">{children}</div>
+        <Card className="border-border bg-card shadow-none">
+          <CardContent className="p-6">{children}</CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -136,26 +150,17 @@ function Shell({ children }) {
 
 function Field({ label, hint, value, onChange, ...rest }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-semibold font-label text-text-dim uppercase tracking-wide">
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         {label}
-      </span>
-      <input
+      </Label>
+      <Input
         {...rest}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3.5 py-2.5 bg-surface-high rounded-xl text-text text-sm outline-none border border-outline-dim focus:border-primary/40 focus:ring-2 focus:ring-primary/10 placeholder:text-text-dim transition-all"
+        className="h-9 placeholder:text-muted-foreground/70"
       />
-      {hint && <span className="text-[11px] text-text-dim">{hint}</span>}
-    </label>
-  )
-}
-
-function ClockIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+    </div>
   )
 }
