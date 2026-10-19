@@ -54,8 +54,6 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
       to={`/app/${recipe.slug}`}
       className="relative block no-underline text-inherit overflow-hidden bg-surface rounded-2xl p-4 card-hover cursor-pointer group"
     >
-      <HideButton slug={recipe.slug} className="absolute right-1.5 top-1.5 z-20" />
-
       {/* Running indicator - top border */}
       {recipe.running && (
         <div className={`absolute top-0 left-0 right-0 h-[2px] ${
@@ -64,6 +62,12 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
             : 'bg-warning animate-pulse'
         }`} />
       )}
+
+      {/* The hide control gets its own strip at the top of the card: it never
+          lies on the action button, whatever the card contains. */}
+      <div className="mb-1 flex items-center justify-end">
+        <HideButton slug={recipe.slug} always />
+      </div>
 
       <div className="flex items-start gap-3.5">
         {/* Icon */}
@@ -132,7 +136,7 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
         </div>
 
         {/* Action */}
-        <div className="shrink-0 flex flex-col items-end gap-1.5 mt-1 pr-8">
+        <div className="shrink-0 flex flex-col items-end gap-1.5 mt-1">
           {isBuilding && (
             <span className="text-primary text-xs font-medium font-label animate-pulse">
               <span className="inline-block animate-spin">⟳</span> Building

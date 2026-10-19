@@ -106,9 +106,9 @@ export default function PosterCard({ recipe, highlight = null }) {
           </span>
         )}
 
-        <HideButton slug={recipe.slug} className="absolute bottom-2.5 left-2.5 z-10 bg-black/55 text-white/80" />
+        <HideButton slug={recipe.slug} always className="absolute right-2 top-2 z-20 bg-black/55 text-white/80 hover:text-white" />
 
-        <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
+        <div className="absolute right-2.5 top-11 flex flex-col items-end gap-1">
           {/* The sorted metric, unless that metric is speed — the pill below
               already carries speed, and louder. */}
           {badgeValue && !speedLeads && (

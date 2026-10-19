@@ -7,7 +7,7 @@ import { useStore } from '../store'
  * set, so hiding something in one place hides it in the other until the Show
  * hidden switch brings it back.
  */
-export default function HideButton({ slug, size = 'md', className = '' }) {
+export default function HideButton({ slug, size = 'md', always = false, className = '' }) {
   const hidden = useStore((s) => s.hidden)
   const toggleHidden = useStore((s) => s.toggleHidden)
   const isHidden = hidden.has(slug)
@@ -25,7 +25,9 @@ export default function HideButton({ slug, size = 'md', className = '' }) {
       className={`flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-outline-dim bg-surface-high/90 p-0 leading-none transition-opacity hover:text-text ${
         size === 'sm' ? 'h-5 w-5 text-[11px]' : 'h-6 w-6 text-[13px]'
       } ${
-        isHidden ? 'text-primary opacity-100' : 'text-text-dim opacity-0 group-hover:opacity-100 focus:opacity-100'
+        isHidden || always
+          ? 'text-text-dim opacity-100 hover:text-text'
+          : 'text-text-dim opacity-0 group-hover:opacity-100 focus:opacity-100'
       } ${className}`}
     >
       {isHidden ? '◉' : '⊘'}
