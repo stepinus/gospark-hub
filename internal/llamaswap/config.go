@@ -12,11 +12,13 @@ import (
 
 // ModelConfig is the part of a llama-swap model entry the Hub shows and edits.
 type ModelConfig struct {
-	Name        string `yaml:"name" json:"name"`
-	Description string `yaml:"description" json:"description"`
-	Proxy       string `yaml:"proxy" json:"proxy"`
-	Cmd         string `yaml:"cmd" json:"cmd"`
-	TTL         int    `yaml:"ttl" json:"ttl"`
+	Name          string `yaml:"name" json:"name"`
+	Description   string `yaml:"description" json:"description"`
+	Proxy         string `yaml:"proxy" json:"proxy"`
+	Cmd           string `yaml:"cmd" json:"cmd"`
+	CmdStop       string `yaml:"cmdStop" json:"cmdStop"`
+	CheckEndpoint string `yaml:"checkEndpoint" json:"checkEndpoint"`
+	TTL           int    `yaml:"ttl" json:"ttl"`
 }
 
 // GroupConfig is a llama-swap model group: swap and exclusive control whether

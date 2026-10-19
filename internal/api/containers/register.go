@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -113,6 +114,10 @@ type handler struct {
 
 	mu     sync.Mutex
 	builds map[string]*buildState
+	// engineFlagsCache remembers which serve flags each engine binary
+	// advertises: the stock release and a patched client built for one model
+	// do not accept the same set.
+	engineFlagsCache map[string]map[string]bool
 }
 
 // ── Build-log bookkeeping ───────────────────────────────────────────────────
@@ -541,11 +546,18 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 		served = rec.Slug
 	}
 	// Engine-wide flags (Cortheon, the live dashboard) apply to every recipe
-	// on the engine. A recipe that names one itself keeps a single copy.
+	// on the engine. A recipe that names one itself keeps a single copy, and a
+	// flag the binary does not advertise is dropped: a patched client built
+	// for one model is an older engine, and passing it a newer flag kills the
+	// launch with "unrecognized arguments".
 	args := slices.Clone(rec.Native.Args)
 	if h.engines != nil {
 		if opts, err := h.engines.Options(rec.Native.Engine); err == nil {
+			supported := h.serveFlags(r.Context(), enginePath)
 			for _, flag := range opts.Flags() {
+				if len(supported) > 0 && !supported[flag] {
+					continue
+				}
 				if !slices.Contains(args, flag) {
 					args = append(args, flag)
 				}
@@ -583,6 +595,44 @@ func (h *handler) stopNative(ctx context.Context, slug string) error {
 		return errors.New("native runtime is not configured")
 	}
 	return h.natives.Stop(ctx, slug)
+}
+
+// serveFlags asks the engine binary which flags its `serve` command accepts.
+// The answer is cached per binary path. An unreadable usage line returns nil,
+// which means "do not filter": launching without the flag is not better than
+// failing loudly.
+func (h *handler) serveFlags(ctx context.Context, enginePath string) map[string]bool {
+	h.mu.Lock()
+	if cached, ok := h.engineFlagsCache[enginePath]; ok {
+		h.mu.Unlock()
+		return cached
+	}
+	h.mu.Unlock()
+
+	runCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(runCtx, enginePath, "serve", "--help").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return nil
+	}
+	flags := map[string]bool{}
+	for _, field := range strings.Fields(string(out)) {
+		// A usage line spells alternatives as "--thinking | --no-thinking".
+		for _, token := range strings.Split(field, "|") {
+			token = strings.Trim(token, "[](),")
+			if strings.HasPrefix(token, "--") {
+				flags[token] = true
+			}
+		}
+	}
+
+	h.mu.Lock()
+	if h.engineFlagsCache == nil {
+		h.engineFlagsCache = map[string]map[string]bool{}
+	}
+	h.engineFlagsCache[enginePath] = flags
+	h.mu.Unlock()
+	return flags
 }
 
 func (h *handler) stop(w http.ResponseWriter, r *http.Request) {
@@ -816,6 +866,53 @@ func (h *handler) buildWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// logsNative follows a native recipe's log file from the top, then streams
+// whatever the unit appends. The file is re-read every tick rather than
+// watched: launch, restart and truncation all look the same, and a tick is
+// cheap next to a WebSocket frame.
+func (h *handler) logsNative(ctx context.Context, slug string, write func(string) error) {
+	path := filepath.Join(h.cfg.DataDir, "logs", slug+".log")
+	if _, err := os.Stat(path); err != nil {
+		if err := write("[gospark] No log yet. Launch the recipe and its output appears here."); err != nil {
+			return
+		}
+	}
+	var offset int64
+	first := true
+	for {
+		if f, err := os.Open(path); err == nil {
+			if info, statErr := f.Stat(); statErr == nil {
+				if info.Size() < offset {
+					offset = 0 // truncated: start over
+				}
+				// First read is a tail, like `docker logs --tail`: a long log
+				// from a previous run should not flood the tab.
+				if first && info.Size() > 128<<10 {
+					offset = info.Size() - 128<<10
+				}
+			}
+			first = false
+			if _, err := f.Seek(offset, io.SeekStart); err == nil {
+				data, _ := io.ReadAll(f)
+				offset += int64(len(data))
+				for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+					if line == "" && len(data) == 0 {
+						continue
+					}
+					if err := write(strings.TrimRight(line, "\r")); err != nil {
+						f.Close()
+						return
+					}
+				}
+			}
+			f.Close()
+		}
+		if !sleepCtx(ctx, 400*time.Millisecond) {
+			return
+		}
+	}
+}
+
 func (h *handler) logsWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
@@ -829,6 +926,13 @@ func (h *handler) logsWS(w http.ResponseWriter, r *http.Request) {
 
 	write := func(text string) error {
 		return conn.Write(ctx, websocket.MessageText, []byte(text))
+	}
+
+	// A native recipe has no container: its output is the log file the unit
+	// writes, so the same tab shows the same thing.
+	if rec, ok := h.reg.Get(slug); ok && rec.IsNative() {
+		h.logsNative(ctx, slug, write)
+		return
 	}
 
 	// Phase 1: wait for the container (running OR exited).

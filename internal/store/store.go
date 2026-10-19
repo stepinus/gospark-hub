@@ -333,6 +333,19 @@ func (d *DB) DeleteUser(id int64) error {
 	return err
 }
 
+// FirstAdminID is the id of the oldest active administrator, which is the
+// account service scripts act as when there is no session at hand.
+func (d *DB) FirstAdminID() (int64, bool) {
+	var id int64
+	err := d.db.QueryRow(
+		"SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY id LIMIT 1",
+	).Scan(&id)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
 // AdminCount returns the number of active administrators, optionally excluding one id.
 func (d *DB) AdminCount(excludeID *int64) (int64, error) {
 	var n int64

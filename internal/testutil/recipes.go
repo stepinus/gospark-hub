@@ -28,8 +28,21 @@ func RecipesDir(t *testing.T) string {
 		home = filepath.Join(userHome, ".config", "gospark", "registry")
 	}
 	matches, _ := filepath.Glob(filepath.Join(home, "vendored", "*", "registry", "recipes"))
-	if len(matches) > 0 {
-		return matches[0]
+	// Several sources can be vendored side by side; the catalogue the daemon
+	// serves is the big one, so the fixture is the source with the most
+	// recipes rather than whichever id sorts first.
+	best, bestCount := "", 0
+	for _, dir := range matches {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		if len(entries) > bestCount {
+			best, bestCount = dir, len(entries)
+		}
+	}
+	if best != "" {
+		return best
 	}
 	t.Skipf("no recipes: sync a source into %s or set GOSPARK_TEST_RECIPES", home)
 	return ""

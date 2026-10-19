@@ -86,6 +86,12 @@ func TestCaddyfileGolden(t *testing.T) {
 	recipes := loadRecipes(t, cfg)
 	got := normalizeCaddy(Render(cfg, recipes), cfg)
 
+	if os.Getenv("UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(filepath.Join("testdata", "upstream.Caddyfile"), []byte(got), 0o644); err != nil {
+			t.Fatalf("write reference: %v", err)
+		}
+		return
+	}
 	raw, err := os.ReadFile(filepath.Join("testdata", "upstream.Caddyfile"))
 	if err != nil {
 		t.Fatalf("read reference: %v", err)
@@ -123,8 +129,11 @@ func TestCaddyfileRoutes(t *testing.T) {
 	text := Render(cfg, loadRecipes(t, cfg))
 	routes := parseRoutes(text)
 
-	if len(routes) != 141 {
-		t.Fatalf("routes: got %d, want 141", len(routes))
+	// One route per proxied recipe: count the fixture, not upstream's ever
+	// growing catalogue.
+	recipes := loadRecipes(t, cfg)
+	if want := len(proxiedRecipes(recipes)); len(routes) != want {
+		t.Fatalf("routes: got %d, want %d", len(routes), want)
 	}
 	cases := map[string]string{
 		"acestep":          "spark-ai-hub-acestep:7860",

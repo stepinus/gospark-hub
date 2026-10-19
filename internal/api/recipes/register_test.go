@@ -1,6 +1,7 @@
 package recipes
 
 import (
+	"os"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -58,8 +59,14 @@ func TestListAndDetail(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatalf("unmarshal list: %v", err)
 	}
-	if len(list) != 148 {
-		t.Fatalf("list length: got %d, want 148", len(list))
+	// The catalogue is data: count the fixture instead of pinning upstream's
+	// ever-growing number.
+	entries, err := os.ReadDir(testutil.RecipesDir(t))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if len(list) != len(entries) {
+		t.Fatalf("list length: got %d, want %d", len(list), len(entries))
 	}
 
 	// Detail

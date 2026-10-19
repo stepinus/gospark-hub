@@ -4,15 +4,23 @@
 package llamaswap
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"gospark-hub/internal/auth"
 	swap "gospark-hub/internal/llamaswap"
 	"gospark-hub/internal/registry"
+	"gospark-hub/internal/store"
 	"gospark-hub/internal/web"
 
 	"gopkg.in/yaml.v3"
@@ -24,7 +32,13 @@ type Deps struct {
 	Manager  *swap.Manager
 	Service  *swap.Service
 	Registry *registry.Cache
-	Logger   *slog.Logger
+	Store    *store.DB
+	// HubPort is the daemon's own port: the generated start/stop scripts call
+	// the Hub on loopback.
+	HubPort int
+	// Running answers whether a recipe is up, for the recipes shelf.
+	Running func(slug string) bool
+	Logger  *slog.Logger
 }
 
 // Register mounts the llama-swap routes. Admin only: the sidecar is one binary
@@ -88,6 +102,8 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	out["recipes"] = h.recipes(r.Context())
+	out["total_memory_gb"] = totalMemoryGB()
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -205,6 +221,10 @@ func (h *handler) putGroups(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"detail": "Invalid body"})
 		return
 	}
+	if err := h.ensureModels(groups); err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
+		return
+	}
 	if err := h.deps.Manager.SetGroups(groups); err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
 		return
@@ -246,6 +266,133 @@ func (h *handler) measure(w http.ResponseWriter, r *http.Request) {
 		h.logf("save measurement: %v", err)
 	}
 	writeJSON(w, http.StatusOK, measurement)
+}
+
+
+// recipes lists the Hub recipes llama-swap can front: the language models, with
+// the memory a group would need and the port the sidecar should proxy to.
+func (h *handler) recipes(ctx context.Context) []map[string]any {
+	if h.deps.Registry == nil {
+		return []map[string]any{}
+	}
+	all, err := h.deps.Registry.All()
+	if err != nil {
+		return []map[string]any{}
+	}
+	out := make([]map[string]any, 0, len(all))
+	for _, rec := range all {
+		if !rec.IsLLM() {
+			continue
+		}
+		port := rec.UI.Port
+		if rec.IsNative() && rec.Native != nil && rec.Native.Port != 0 {
+			port = rec.Native.Port
+		}
+		running := false
+		if h.deps.Running != nil {
+			running = h.deps.Running(rec.Slug)
+		}
+		out = append(out, map[string]any{
+			"slug":      rec.Slug,
+			"name":      rec.Name,
+			"memory_gb": rec.MemoryGB,
+			"port":      port,
+			"kind":      rec.Kind,
+			"running":   running,
+		})
+	}
+	return out
+}
+
+// ensureModels gives every group member a model entry. A member that is not in
+// the config yet is a Hub recipe the user just dragged in: its entry is
+// generated to start and stop that recipe on demand.
+func (h *handler) ensureModels(groups map[string]swap.GroupConfig) error {
+	cfg, err := h.deps.Manager.Config()
+	if err != nil {
+		return err
+	}
+	for _, group := range groups {
+		for _, member := range group.Members {
+			// A member that is a Hub recipe is regenerated every save, so an
+			// improved script or a rotated session reaches existing entries.
+			rec, isRecipe := h.deps.Registry.Get(member)
+			if _, inConfig := cfg.Models[member]; inConfig && !isRecipe {
+				continue
+			}
+			if !isRecipe {
+				return fmt.Errorf("group lists model %q, which is neither in the config nor a Hub recipe", member)
+			}
+			port := rec.UI.Port
+			if rec.IsNative() && rec.Native != nil && rec.Native.Port != 0 {
+				port = rec.Native.Port
+			}
+			token, err := h.sidecarToken()
+			if err != nil {
+				return err
+			}
+			model, err := h.deps.Manager.RecipeModel(member, rec.Name,
+				"Hub recipe, started on demand through the Hub", port, h.deps.HubPort, token)
+			if err != nil {
+				return err
+			}
+			if err := h.deps.Manager.SetModel(member, model); err != nil {
+				return err
+			}
+			cfg.Models[member] = model
+		}
+	}
+	return nil
+}
+
+// sidecarToken is the session the generated scripts act with. It is minted
+// once, kept 0600 next to the config, and reused until it expires.
+func (h *handler) sidecarToken() (string, error) {
+	path := filepath.Join(h.deps.Manager.Home, "sidecar-token")
+	if data, err := os.ReadFile(path); err == nil && strings.TrimSpace(string(data)) != "" {
+		return strings.TrimSpace(string(data)), nil
+	}
+	if h.deps.Store == nil {
+		return "", errors.New("no store to mint a sidecar session")
+	}
+	id, ok := h.deps.Store.FirstAdminID()
+	if !ok {
+		return "", errors.New("no active administrator to act as")
+	}
+	token, err := h.deps.Store.CreateSession(id, "gospark-llamaswap", "127.0.0.1", 3650)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(h.deps.Manager.Home, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// totalMemoryGB is the machine's RAM, the denominator of the group fill bars.
+func totalMemoryGB() float64 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "MemTotal:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			return 0
+		}
+		kb, err := strconv.ParseFloat(fields[1], 64)
+		if err != nil {
+			return 0
+		}
+		return math.Round(kb / 1024 / 1024 * 10) / 10
+	}
+	return 0
 }
 
 func (h *handler) admin(w http.ResponseWriter, r *http.Request) bool {

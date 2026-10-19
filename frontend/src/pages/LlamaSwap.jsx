@@ -144,6 +144,11 @@ export default function LlamaSwap() {
     await load()
   }
 
+  const recipesBySlug = useMemo(() => {
+    const map = new Map()
+    for (const r of state?.recipes || []) map.set(r.slug, r)
+    return map
+  }, [state])
   const groups = useMemo(() => state?.config?.groups || {}, [state])
   const models = useMemo(() => state?.config?.models || {}, [state])
   const measurements = state?.measurements || {}
@@ -152,6 +157,12 @@ export default function LlamaSwap() {
     for (const r of state?.running_models || []) byId.set(r.model, r)
     return byId
   }, [state])
+
+  const groupedSet = useMemo(() => {
+    const seen = new Set()
+    for (const group of Object.values(groups)) for (const m of group.members || []) seen.add(m)
+    return seen
+  }, [groups])
 
   const grouped = useMemo(() => {
     const seen = new Set()
@@ -323,6 +334,34 @@ export default function LlamaSwap() {
           </button>
         </div>
 
+        {(state?.recipes || []).length > 0 && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted m-0">
+              Hub recipes · drag into a group
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(state.recipes || [])
+                .filter((r) => !groupedSet.has(r.slug))
+                .slice(0, 60)
+                .map((r) => (
+                  <div
+                    key={r.slug}
+                    draggable
+                    onDragStart={() => setDragging(r.slug)}
+                    onDragEnd={() => setDragging(null)}
+                    className="cursor-grab rounded-lg border border-outline-dim bg-surface-high/40 px-2 py-1"
+                    title={r.slug}
+                  >
+                    <span className="text-[11px] text-text">{r.name}</span>
+                    <span className="ml-1.5 text-[10px] text-text-dim">
+                      {r.memory_gb ? `${r.memory_gb} GB` : '—'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Object.entries(groups).map(([name, group]) => (
             <GroupColumn
@@ -331,6 +370,8 @@ export default function LlamaSwap() {
               group={group}
               models={models}
               measurements={measurements}
+              recipes={recipesBySlug}
+              totalGB={state?.total_memory_gb || 0}
               running={running}
               dragging={dragging}
               onDragStart={setDragging}
@@ -343,6 +384,8 @@ export default function LlamaSwap() {
             group={{ members: grouped }}
             models={models}
             measurements={measurements}
+            recipes={recipesBySlug}
+            totalGB={state?.total_memory_gb || 0}
             running={running}
             dragging={dragging}
             onDragStart={setDragging}
@@ -403,11 +446,20 @@ export default function LlamaSwap() {
   )
 }
 
-function GroupColumn({ name, title, group, models, measurements, running, dragging, onDragStart, onDropModel, ungrouped }) {
+function GroupColumn({ name, title, group, models, measurements, recipes, totalGB, running, dragging, onDragStart, onDropModel, ungrouped }) {
   const members = group?.members || []
-  const known = members.map((m) => measurements[m]?.memory_bytes || 0).filter(Boolean)
-  const total = known.reduce((a, b) => a + b, 0)
+  // Expected load: a Hub recipe knows its memory_gb, anything else falls back
+  // to the last measurement.
+  const loads = members.map((id) => {
+    const fromRecipe = recipes?.get(id)?.memory_gb
+    if (fromRecipe) return fromRecipe
+    const measured = measurements[id]?.memory_bytes
+    return measured ? measured / (1024 ** 3) : 0
+  })
+  const known = loads.filter(Boolean)
+  const usedGB = known.reduce((a, b) => a + b, 0)
   const unknown = members.length - known.length
+  const fill = totalGB ? Math.min(100, (usedGB / totalGB) * 100) : 0
 
   return (
     <div
@@ -425,11 +477,20 @@ function GroupColumn({ name, title, group, models, measurements, running, draggi
         <span className="text-[10px] text-text-dim">{members.length}</span>
       </div>
       <p className="text-[10px] text-text-dim m-0 mt-0.5">
-        {total > 0 ? `≈ ${gb(total)} measured` : 'no measurements yet'}
+        {usedGB > 0 ? `≈ ${usedGB.toFixed(0)} GB` : 'no memory data'}
+        {totalGB ? ` of ${totalGB} GB` : ''}
         {unknown > 0 ? ` · ${unknown} unknown` : ''}
         {name && group?.swap === false ? ' · swap off' : ''}
         {name && group?.persistent ? ' · persistent' : ''}
       </p>
+      {totalGB > 0 && (
+        <div className="mt-1.5 h-1.5 w-full rounded-full bg-surface-highest overflow-hidden">
+          <div
+            className={`h-full rounded-full ${fill > 90 ? 'bg-error' : fill > 70 ? 'bg-tertiary' : 'bg-primary'}`}
+            style={{ width: `${fill}%` }}
+          />
+        </div>
+      )}
       <div className="mt-2 flex flex-col gap-1.5">
         {members.map((id) => (
           <div
@@ -446,7 +507,11 @@ function GroupColumn({ name, title, group, models, measurements, running, draggi
             <div className="flex items-center gap-2 text-[10px] text-text-dim">
               <code className="font-mono">{id}</code>
               {measurements[id]?.decode_tps ? <span>{fmt(measurements[id].decode_tps)} tok/s</span> : null}
-              {measurements[id]?.memory_bytes ? <span>{gb(measurements[id].memory_bytes)}</span> : null}
+              {measurements[id]?.memory_bytes
+                ? <span>{gb(measurements[id].memory_bytes)}</span>
+                : recipes?.get(id)?.memory_gb
+                  ? <span>{recipes.get(id).memory_gb} GB</span>
+                  : null}
             </div>
           </div>
         ))}

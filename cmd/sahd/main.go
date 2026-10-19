@@ -164,7 +164,21 @@ func main() {
 	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr, Engines: enginesMgr, Native: nativeRunner})
 	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock, Engines: enginesMgr, Native: nativeRunner})
 	enginesapi.Register(r, enginesapi.Deps{Engines: enginesMgr, Native: nativeRunner, Reg: reg, Logger: slog.Default()})
-	llamaswapapi.Register(r, llamaswapapi.Deps{Manager: swapMgr, Service: swapService, Registry: reg, Logger: slog.Default()})
+	llamaswapapi.Register(r, llamaswapapi.Deps{
+		Manager:  swapMgr,
+		Service:  swapService,
+		Registry: reg,
+		Store:    db,
+		HubPort:  proxy.ListenPort(cfg),
+		Running: func(slug string) bool {
+			if rec, ok := reg.Get(slug); ok && rec.IsNative() {
+				running, _ := nativeRunner.Running(context.Background(), slug)
+				return running
+			}
+			return dock.IsRecipeRunning(context.Background(), slug)
+		},
+		Logger: slog.Default(),
+	})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
 	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock, n: nativeRunner, reg: reg}})

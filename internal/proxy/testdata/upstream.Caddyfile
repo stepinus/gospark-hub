@@ -7,11 +7,11 @@
 	}
 }
 
-:9000 {
+:9100 {
 	# acestep
 	@probe-acestep {
 		path /run/acestep/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-acestep {
 		uri strip_prefix /run/acestep
@@ -19,7 +19,7 @@
 	}
 	redir /run/acestep /run/acestep/ 308
 	handle_path /run/acestep/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -32,7 +32,7 @@
 	# atlas-qwen35-122b-a10b-nvfp4
 	@probe-atlas-qwen35-122b-a10b-nvfp4 {
 		path /run/atlas-qwen35-122b-a10b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-atlas-qwen35-122b-a10b-nvfp4 {
 		uri strip_prefix /run/atlas-qwen35-122b-a10b-nvfp4
@@ -40,7 +40,7 @@
 	}
 	redir /run/atlas-qwen35-122b-a10b-nvfp4 /run/atlas-qwen35-122b-a10b-nvfp4/ 308
 	handle_path /run/atlas-qwen35-122b-a10b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -53,7 +53,7 @@
 	# chatterbox-turbo
 	@probe-chatterbox-turbo {
 		path /run/chatterbox-turbo/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-chatterbox-turbo {
 		uri strip_prefix /run/chatterbox-turbo
@@ -61,7 +61,7 @@
 	}
 	redir /run/chatterbox-turbo /run/chatterbox-turbo/ 308
 	handle_path /run/chatterbox-turbo/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -74,7 +74,7 @@
 	# deep-live-cam
 	@probe-deep-live-cam {
 		path /run/deep-live-cam/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-deep-live-cam {
 		uri strip_prefix /run/deep-live-cam
@@ -82,7 +82,7 @@
 	}
 	redir /run/deep-live-cam /run/deep-live-cam/ 308
 	handle_path /run/deep-live-cam/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -95,7 +95,7 @@
 	# exllamav3-qwen38-27b-exl3
 	@probe-exllamav3-qwen38-27b-exl3 {
 		path /run/exllamav3-qwen38-27b-exl3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-exllamav3-qwen38-27b-exl3 {
 		uri strip_prefix /run/exllamav3-qwen38-27b-exl3
@@ -103,7 +103,7 @@
 	}
 	redir /run/exllamav3-qwen38-27b-exl3 /run/exllamav3-qwen38-27b-exl3/ 308
 	handle_path /run/exllamav3-qwen38-27b-exl3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -116,7 +116,7 @@
 	# exllamav3-qwen38-27b-uncensored-exl3
 	@probe-exllamav3-qwen38-27b-uncensored-exl3 {
 		path /run/exllamav3-qwen38-27b-uncensored-exl3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-exllamav3-qwen38-27b-uncensored-exl3 {
 		uri strip_prefix /run/exllamav3-qwen38-27b-uncensored-exl3
@@ -124,7 +124,7 @@
 	}
 	redir /run/exllamav3-qwen38-27b-uncensored-exl3 /run/exllamav3-qwen38-27b-uncensored-exl3/ 308
 	handle_path /run/exllamav3-qwen38-27b-uncensored-exl3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -137,7 +137,7 @@
 	# facefusion-spark
 	@probe-facefusion-spark {
 		path /run/facefusion-spark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-facefusion-spark {
 		uri strip_prefix /run/facefusion-spark
@@ -145,7 +145,7 @@
 	}
 	redir /run/facefusion-spark /run/facefusion-spark/ 308
 	handle_path /run/facefusion-spark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -158,7 +158,7 @@
 	# firered-image-edit
 	@probe-firered-image-edit {
 		path /run/firered-image-edit/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-firered-image-edit {
 		uri strip_prefix /run/firered-image-edit
@@ -166,7 +166,7 @@
 	}
 	redir /run/firered-image-edit /run/firered-image-edit/ 308
 	handle_path /run/firered-image-edit/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -179,7 +179,7 @@
 	# foundation-1
 	@probe-foundation-1 {
 		path /run/foundation-1/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-foundation-1 {
 		uri strip_prefix /run/foundation-1
@@ -187,7 +187,7 @@
 	}
 	redir /run/foundation-1 /run/foundation-1/ 308
 	handle_path /run/foundation-1/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -200,7 +200,7 @@
 	# hidream-o1-image
 	@probe-hidream-o1-image {
 		path /run/hidream-o1-image/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-hidream-o1-image {
 		uri strip_prefix /run/hidream-o1-image
@@ -208,7 +208,7 @@
 	}
 	redir /run/hidream-o1-image /run/hidream-o1-image/ 308
 	handle_path /run/hidream-o1-image/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -221,7 +221,7 @@
 	# hidream-o1-image-dev-2604
 	@probe-hidream-o1-image-dev-2604 {
 		path /run/hidream-o1-image-dev-2604/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-hidream-o1-image-dev-2604 {
 		uri strip_prefix /run/hidream-o1-image-dev-2604
@@ -229,7 +229,7 @@
 	}
 	redir /run/hidream-o1-image-dev-2604 /run/hidream-o1-image-dev-2604/ 308
 	handle_path /run/hidream-o1-image-dev-2604/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -242,7 +242,7 @@
 	# hunyuan3d-spark
 	@probe-hunyuan3d-spark {
 		path /run/hunyuan3d-spark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-hunyuan3d-spark {
 		uri strip_prefix /run/hunyuan3d-spark
@@ -250,7 +250,7 @@
 	}
 	redir /run/hunyuan3d-spark /run/hunyuan3d-spark/ 308
 	handle_path /run/hunyuan3d-spark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -263,7 +263,7 @@
 	# hy3dgen-hunyuan3d-2mv
 	@probe-hy3dgen-hunyuan3d-2mv {
 		path /run/hy3dgen-hunyuan3d-2mv/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-hy3dgen-hunyuan3d-2mv {
 		uri strip_prefix /run/hy3dgen-hunyuan3d-2mv
@@ -271,7 +271,7 @@
 	}
 	redir /run/hy3dgen-hunyuan3d-2mv /run/hy3dgen-hunyuan3d-2mv/ 308
 	handle_path /run/hy3dgen-hunyuan3d-2mv/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -284,7 +284,7 @@
 	# lance
 	@probe-lance {
 		path /run/lance/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-lance {
 		uri strip_prefix /run/lance
@@ -292,7 +292,7 @@
 	}
 	redir /run/lance /run/lance/ 308
 	handle_path /run/lance/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -305,7 +305,7 @@
 	# llamacpp-deepseek-v4-flash-iq2m
 	@probe-llamacpp-deepseek-v4-flash-iq2m {
 		path /run/llamacpp-deepseek-v4-flash-iq2m/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-deepseek-v4-flash-iq2m {
 		uri strip_prefix /run/llamacpp-deepseek-v4-flash-iq2m
@@ -313,7 +313,7 @@
 	}
 	redir /run/llamacpp-deepseek-v4-flash-iq2m /run/llamacpp-deepseek-v4-flash-iq2m/ 308
 	handle_path /run/llamacpp-deepseek-v4-flash-iq2m/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -326,7 +326,7 @@
 	# llamacpp-glm47-flash-q8
 	@probe-llamacpp-glm47-flash-q8 {
 		path /run/llamacpp-glm47-flash-q8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-glm47-flash-q8 {
 		uri strip_prefix /run/llamacpp-glm47-flash-q8
@@ -334,7 +334,7 @@
 	}
 	redir /run/llamacpp-glm47-flash-q8 /run/llamacpp-glm47-flash-q8/ 308
 	handle_path /run/llamacpp-glm47-flash-q8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -347,7 +347,7 @@
 	# llamacpp-hy3-iq1m-mtp
 	@probe-llamacpp-hy3-iq1m-mtp {
 		path /run/llamacpp-hy3-iq1m-mtp/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-hy3-iq1m-mtp {
 		uri strip_prefix /run/llamacpp-hy3-iq1m-mtp
@@ -355,7 +355,7 @@
 	}
 	redir /run/llamacpp-hy3-iq1m-mtp /run/llamacpp-hy3-iq1m-mtp/ 308
 	handle_path /run/llamacpp-hy3-iq1m-mtp/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -368,7 +368,7 @@
 	# llamacpp-inkling-small-iq2m
 	@probe-llamacpp-inkling-small-iq2m {
 		path /run/llamacpp-inkling-small-iq2m/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-inkling-small-iq2m {
 		uri strip_prefix /run/llamacpp-inkling-small-iq2m
@@ -376,7 +376,7 @@
 	}
 	redir /run/llamacpp-inkling-small-iq2m /run/llamacpp-inkling-small-iq2m/ 308
 	handle_path /run/llamacpp-inkling-small-iq2m/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -389,7 +389,7 @@
 	# llamacpp-mimo-v25-iq2m
 	@probe-llamacpp-mimo-v25-iq2m {
 		path /run/llamacpp-mimo-v25-iq2m/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-mimo-v25-iq2m {
 		uri strip_prefix /run/llamacpp-mimo-v25-iq2m
@@ -397,7 +397,7 @@
 	}
 	redir /run/llamacpp-mimo-v25-iq2m /run/llamacpp-mimo-v25-iq2m/ 308
 	handle_path /run/llamacpp-mimo-v25-iq2m/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -410,7 +410,7 @@
 	# llamacpp-minimax-m27-iq2m
 	@probe-llamacpp-minimax-m27-iq2m {
 		path /run/llamacpp-minimax-m27-iq2m/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-minimax-m27-iq2m {
 		uri strip_prefix /run/llamacpp-minimax-m27-iq2m
@@ -418,7 +418,7 @@
 	}
 	redir /run/llamacpp-minimax-m27-iq2m /run/llamacpp-minimax-m27-iq2m/ 308
 	handle_path /run/llamacpp-minimax-m27-iq2m/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -431,7 +431,7 @@
 	# llamacpp-minimax-m27-q3ks
 	@probe-llamacpp-minimax-m27-q3ks {
 		path /run/llamacpp-minimax-m27-q3ks/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-llamacpp-minimax-m27-q3ks {
 		uri strip_prefix /run/llamacpp-minimax-m27-q3ks
@@ -439,7 +439,7 @@
 	}
 	redir /run/llamacpp-minimax-m27-q3ks /run/llamacpp-minimax-m27-q3ks/ 308
 	handle_path /run/llamacpp-minimax-m27-q3ks/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -449,10 +449,31 @@
 		reverse_proxy spark-ai-hub-llamacpp-minimax-m27-q3ks:8000
 	}
 
+	# ltxpipelines-ltx25-bf16
+	@probe-ltxpipelines-ltx25-bf16 {
+		path /run/ltxpipelines-ltx25-bf16/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-ltxpipelines-ltx25-bf16 {
+		uri strip_prefix /run/ltxpipelines-ltx25-bf16
+		reverse_proxy spark-ai-hub-ltxpipelines-ltx25-bf16:30000
+	}
+	redir /run/ltxpipelines-ltx25-bf16 /run/ltxpipelines-ltx25-bf16/ 308
+	handle_path /run/ltxpipelines-ltx25-bf16/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-ltxpipelines-ltx25-bf16:30000
+	}
+
 	# minicpm-o
 	@probe-minicpm-o {
 		path /run/minicpm-o/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-minicpm-o {
 		uri strip_prefix /run/minicpm-o
@@ -460,7 +481,7 @@
 	}
 	redir /run/minicpm-o /run/minicpm-o/ 308
 	handle_path /run/minicpm-o/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -473,14 +494,14 @@
 	# minimax-music3
 	@probe-minimax-music3 {
 		path /run/minimax-music3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-minimax-music3 {
 		reverse_proxy spark-ai-hub-minimax-music3:7860
 	}
 	redir /run/minimax-music3 /run/minimax-music3/ 308
 	handle /run/minimax-music3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -493,7 +514,7 @@
 	# pixal3d-api
 	@probe-pixal3d-api {
 		path /run/pixal3d-api/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-pixal3d-api {
 		uri strip_prefix /run/pixal3d-api
@@ -501,7 +522,7 @@
 	}
 	redir /run/pixal3d-api /run/pixal3d-api/ 308
 	handle_path /run/pixal3d-api/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -514,7 +535,7 @@
 	# pixal3d-spark
 	@probe-pixal3d-spark {
 		path /run/pixal3d-spark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-pixal3d-spark {
 		uri strip_prefix /run/pixal3d-spark
@@ -522,7 +543,7 @@
 	}
 	redir /run/pixal3d-spark /run/pixal3d-spark/ 308
 	handle_path /run/pixal3d-spark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -535,7 +556,7 @@
 	# qwen-image-2512
 	@probe-qwen-image-2512 {
 		path /run/qwen-image-2512/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-qwen-image-2512 {
 		uri strip_prefix /run/qwen-image-2512
@@ -543,7 +564,7 @@
 	}
 	redir /run/qwen-image-2512 /run/qwen-image-2512/ 308
 	handle_path /run/qwen-image-2512/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -556,7 +577,7 @@
 	# qwen-image-perspective
 	@probe-qwen-image-perspective {
 		path /run/qwen-image-perspective/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-qwen-image-perspective {
 		uri strip_prefix /run/qwen-image-perspective
@@ -564,7 +585,7 @@
 	}
 	redir /run/qwen-image-perspective /run/qwen-image-perspective/ 308
 	handle_path /run/qwen-image-perspective/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -577,7 +598,7 @@
 	# searxng
 	@probe-searxng {
 		path /run/searxng/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-searxng {
 		uri strip_prefix /run/searxng
@@ -585,7 +606,7 @@
 	}
 	redir /run/searxng /run/searxng/ 308
 	handle_path /run/searxng/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -598,7 +619,7 @@
 	# sglang-flux2-klein-4b
 	@probe-sglang-flux2-klein-4b {
 		path /run/sglang-flux2-klein-4b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-flux2-klein-4b {
 		uri strip_prefix /run/sglang-flux2-klein-4b
@@ -606,7 +627,7 @@
 	}
 	redir /run/sglang-flux2-klein-4b /run/sglang-flux2-klein-4b/ 308
 	handle_path /run/sglang-flux2-klein-4b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -619,7 +640,7 @@
 	# sglang-flux2-klein-9b
 	@probe-sglang-flux2-klein-9b {
 		path /run/sglang-flux2-klein-9b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-flux2-klein-9b {
 		uri strip_prefix /run/sglang-flux2-klein-9b
@@ -627,7 +648,7 @@
 	}
 	redir /run/sglang-flux2-klein-9b /run/sglang-flux2-klein-9b/ 308
 	handle_path /run/sglang-flux2-klein-9b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -640,7 +661,7 @@
 	# sglang-hunyuan3d-2
 	@probe-sglang-hunyuan3d-2 {
 		path /run/sglang-hunyuan3d-2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-hunyuan3d-2 {
 		uri strip_prefix /run/sglang-hunyuan3d-2
@@ -648,7 +669,7 @@
 	}
 	redir /run/sglang-hunyuan3d-2 /run/sglang-hunyuan3d-2/ 308
 	handle_path /run/sglang-hunyuan3d-2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -661,7 +682,7 @@
 	# sglang-ideogram-4-fp8
 	@probe-sglang-ideogram-4-fp8 {
 		path /run/sglang-ideogram-4-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ideogram-4-fp8 {
 		uri strip_prefix /run/sglang-ideogram-4-fp8
@@ -669,7 +690,7 @@
 	}
 	redir /run/sglang-ideogram-4-fp8 /run/sglang-ideogram-4-fp8/ 308
 	handle_path /run/sglang-ideogram-4-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -682,7 +703,7 @@
 	# sglang-ideogram-4-nvfp4
 	@probe-sglang-ideogram-4-nvfp4 {
 		path /run/sglang-ideogram-4-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ideogram-4-nvfp4 {
 		uri strip_prefix /run/sglang-ideogram-4-nvfp4
@@ -690,7 +711,7 @@
 	}
 	redir /run/sglang-ideogram-4-nvfp4 /run/sglang-ideogram-4-nvfp4/ 308
 	handle_path /run/sglang-ideogram-4-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -703,7 +724,7 @@
 	# sglang-kandinsky6-lite
 	@probe-sglang-kandinsky6-lite {
 		path /run/sglang-kandinsky6-lite/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-kandinsky6-lite {
 		uri strip_prefix /run/sglang-kandinsky6-lite
@@ -711,7 +732,7 @@
 	}
 	redir /run/sglang-kandinsky6-lite /run/sglang-kandinsky6-lite/ 308
 	handle_path /run/sglang-kandinsky6-lite/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -724,7 +745,7 @@
 	# sglang-kandinsky6-lite-distill
 	@probe-sglang-kandinsky6-lite-distill {
 		path /run/sglang-kandinsky6-lite-distill/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-kandinsky6-lite-distill {
 		uri strip_prefix /run/sglang-kandinsky6-lite-distill
@@ -732,7 +753,7 @@
 	}
 	redir /run/sglang-kandinsky6-lite-distill /run/sglang-kandinsky6-lite-distill/ 308
 	handle_path /run/sglang-kandinsky6-lite-distill/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -745,7 +766,7 @@
 	# sglang-kandinsky6-pro
 	@probe-sglang-kandinsky6-pro {
 		path /run/sglang-kandinsky6-pro/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-kandinsky6-pro {
 		uri strip_prefix /run/sglang-kandinsky6-pro
@@ -753,7 +774,7 @@
 	}
 	redir /run/sglang-kandinsky6-pro /run/sglang-kandinsky6-pro/ 308
 	handle_path /run/sglang-kandinsky6-pro/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -766,7 +787,7 @@
 	# sglang-kandinsky6-pro-distill
 	@probe-sglang-kandinsky6-pro-distill {
 		path /run/sglang-kandinsky6-pro-distill/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-kandinsky6-pro-distill {
 		uri strip_prefix /run/sglang-kandinsky6-pro-distill
@@ -774,7 +795,7 @@
 	}
 	redir /run/sglang-kandinsky6-pro-distill /run/sglang-kandinsky6-pro-distill/ 308
 	handle_path /run/sglang-kandinsky6-pro-distill/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -787,7 +808,7 @@
 	# sglang-ling3-flash-int4-dspark
 	@probe-sglang-ling3-flash-int4-dspark {
 		path /run/sglang-ling3-flash-int4-dspark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ling3-flash-int4-dspark {
 		uri strip_prefix /run/sglang-ling3-flash-int4-dspark
@@ -795,7 +816,7 @@
 	}
 	redir /run/sglang-ling3-flash-int4-dspark /run/sglang-ling3-flash-int4-dspark/ 308
 	handle_path /run/sglang-ling3-flash-int4-dspark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -805,10 +826,31 @@
 		reverse_proxy spark-ai-hub-sglang-ling3-flash-int4-dspark:8000
 	}
 
+	# sglang-ltx25-bf16
+	@probe-sglang-ltx25-bf16 {
+		path /run/sglang-ltx25-bf16/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-sglang-ltx25-bf16 {
+		uri strip_prefix /run/sglang-ltx25-bf16
+		reverse_proxy spark-ai-hub-sglang-ltx25-bf16:30000
+	}
+	redir /run/sglang-ltx25-bf16 /run/sglang-ltx25-bf16/ 308
+	handle_path /run/sglang-ltx25-bf16/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-sglang-ltx25-bf16:30000
+	}
+
 	# sglang-minimax-h3-fp8
 	@probe-sglang-minimax-h3-fp8 {
 		path /run/sglang-minimax-h3-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-minimax-h3-fp8 {
 		uri strip_prefix /run/sglang-minimax-h3-fp8
@@ -816,7 +858,7 @@
 	}
 	redir /run/sglang-minimax-h3-fp8 /run/sglang-minimax-h3-fp8/ 308
 	handle_path /run/sglang-minimax-h3-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -826,73 +868,10 @@
 		reverse_proxy spark-ai-hub-sglang-minimax-h3-fp8:30000
 	}
 
-	# sglang-minimax-h3-fp8-orbit360
-	@probe-sglang-minimax-h3-fp8-orbit360 {
-		path /run/sglang-minimax-h3-fp8-orbit360/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
-	}
-	handle @probe-sglang-minimax-h3-fp8-orbit360 {
-		uri strip_prefix /run/sglang-minimax-h3-fp8-orbit360
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-fp8-orbit360:30000
-	}
-	redir /run/sglang-minimax-h3-fp8-orbit360 /run/sglang-minimax-h3-fp8-orbit360/ 308
-	handle_path /run/sglang-minimax-h3-fp8-orbit360/* {
-		forward_auth host.docker.internal:9010 {
-			uri /api/auth/me
-			@denied status 401 403
-			handle_response @denied {
-				redir * / 302
-			}
-		}
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-fp8-orbit360:30000
-	}
-
-	# sglang-minimax-h3-fp8-turbo
-	@probe-sglang-minimax-h3-fp8-turbo {
-		path /run/sglang-minimax-h3-fp8-turbo/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
-	}
-	handle @probe-sglang-minimax-h3-fp8-turbo {
-		uri strip_prefix /run/sglang-minimax-h3-fp8-turbo
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-fp8-turbo:30000
-	}
-	redir /run/sglang-minimax-h3-fp8-turbo /run/sglang-minimax-h3-fp8-turbo/ 308
-	handle_path /run/sglang-minimax-h3-fp8-turbo/* {
-		forward_auth host.docker.internal:9010 {
-			uri /api/auth/me
-			@denied status 401 403
-			handle_response @denied {
-				redir * / 302
-			}
-		}
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-fp8-turbo:30000
-	}
-
-	# sglang-minimax-h3-ref2va-faceswap
-	@probe-sglang-minimax-h3-ref2va-faceswap {
-		path /run/sglang-minimax-h3-ref2va-faceswap/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
-	}
-	handle @probe-sglang-minimax-h3-ref2va-faceswap {
-		uri strip_prefix /run/sglang-minimax-h3-ref2va-faceswap
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-ref2va-faceswap:30000
-	}
-	redir /run/sglang-minimax-h3-ref2va-faceswap /run/sglang-minimax-h3-ref2va-faceswap/ 308
-	handle_path /run/sglang-minimax-h3-ref2va-faceswap/* {
-		forward_auth host.docker.internal:9010 {
-			uri /api/auth/me
-			@denied status 401 403
-			handle_response @denied {
-				redir * / 302
-			}
-		}
-		reverse_proxy spark-ai-hub-sglang-minimax-h3-ref2va-faceswap:30000
-	}
-
 	# sglang-minimax-h3-ref2va-fp8
 	@probe-sglang-minimax-h3-ref2va-fp8 {
 		path /run/sglang-minimax-h3-ref2va-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-minimax-h3-ref2va-fp8 {
 		uri strip_prefix /run/sglang-minimax-h3-ref2va-fp8
@@ -900,7 +879,7 @@
 	}
 	redir /run/sglang-minimax-h3-ref2va-fp8 /run/sglang-minimax-h3-ref2va-fp8/ 308
 	handle_path /run/sglang-minimax-h3-ref2va-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -913,7 +892,7 @@
 	# sglang-minimax-h3-ref2va-int8-turbo
 	@probe-sglang-minimax-h3-ref2va-int8-turbo {
 		path /run/sglang-minimax-h3-ref2va-int8-turbo/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-minimax-h3-ref2va-int8-turbo {
 		uri strip_prefix /run/sglang-minimax-h3-ref2va-int8-turbo
@@ -921,7 +900,7 @@
 	}
 	redir /run/sglang-minimax-h3-ref2va-int8-turbo /run/sglang-minimax-h3-ref2va-int8-turbo/ 308
 	handle_path /run/sglang-minimax-h3-ref2va-int8-turbo/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -931,10 +910,52 @@
 		reverse_proxy spark-ai-hub-sglang-minimax-h3-ref2va-int8-turbo:30000
 	}
 
+	# sglang-moss-image-base
+	@probe-sglang-moss-image-base {
+		path /run/sglang-moss-image-base/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-sglang-moss-image-base {
+		uri strip_prefix /run/sglang-moss-image-base
+		reverse_proxy spark-ai-hub-sglang-moss-image-base:30000
+	}
+	redir /run/sglang-moss-image-base /run/sglang-moss-image-base/ 308
+	handle_path /run/sglang-moss-image-base/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-sglang-moss-image-base:30000
+	}
+
+	# sglang-moss-image-sft
+	@probe-sglang-moss-image-sft {
+		path /run/sglang-moss-image-sft/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-sglang-moss-image-sft {
+		uri strip_prefix /run/sglang-moss-image-sft
+		reverse_proxy spark-ai-hub-sglang-moss-image-sft:30000
+	}
+	redir /run/sglang-moss-image-sft /run/sglang-moss-image-sft/ 308
+	handle_path /run/sglang-moss-image-sft/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-sglang-moss-image-sft:30000
+	}
+
 	# sglang-ornith15-35b-a3b-bf16-dflash
 	@probe-sglang-ornith15-35b-a3b-bf16-dflash {
 		path /run/sglang-ornith15-35b-a3b-bf16-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ornith15-35b-a3b-bf16-dflash {
 		uri strip_prefix /run/sglang-ornith15-35b-a3b-bf16-dflash
@@ -942,7 +963,7 @@
 	}
 	redir /run/sglang-ornith15-35b-a3b-bf16-dflash /run/sglang-ornith15-35b-a3b-bf16-dflash/ 308
 	handle_path /run/sglang-ornith15-35b-a3b-bf16-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -955,7 +976,7 @@
 	# sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash
 	@probe-sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash {
 		path /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash {
 		uri strip_prefix /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash
@@ -963,7 +984,7 @@
 	}
 	redir /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash/ 308
 	handle_path /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -976,7 +997,7 @@
 	# sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2
 	@probe-sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2 {
 		path /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2 {
 		uri strip_prefix /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2
@@ -984,7 +1005,7 @@
 	}
 	redir /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2 /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2/ 308
 	handle_path /run/sglang-ornith15-35b-a3b-uncensored-nvfp4-dflash2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -997,7 +1018,7 @@
 	# sglang-qwen-image-21
 	@probe-sglang-qwen-image-21 {
 		path /run/sglang-qwen-image-21/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-21 {
 		uri strip_prefix /run/sglang-qwen-image-21
@@ -1005,7 +1026,7 @@
 	}
 	redir /run/sglang-qwen-image-21 /run/sglang-qwen-image-21/ 308
 	handle_path /run/sglang-qwen-image-21/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1018,7 +1039,7 @@
 	# sglang-qwen-image-21-heretic
 	@probe-sglang-qwen-image-21-heretic {
 		path /run/sglang-qwen-image-21-heretic/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-21-heretic {
 		uri strip_prefix /run/sglang-qwen-image-21-heretic
@@ -1026,7 +1047,7 @@
 	}
 	redir /run/sglang-qwen-image-21-heretic /run/sglang-qwen-image-21-heretic/ 308
 	handle_path /run/sglang-qwen-image-21-heretic/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1039,7 +1060,7 @@
 	# sglang-qwen-image-21-turbo
 	@probe-sglang-qwen-image-21-turbo {
 		path /run/sglang-qwen-image-21-turbo/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-21-turbo {
 		uri strip_prefix /run/sglang-qwen-image-21-turbo
@@ -1047,7 +1068,7 @@
 	}
 	redir /run/sglang-qwen-image-21-turbo /run/sglang-qwen-image-21-turbo/ 308
 	handle_path /run/sglang-qwen-image-21-turbo/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1060,7 +1081,7 @@
 	# sglang-qwen-image-2512-nvfp4
 	@probe-sglang-qwen-image-2512-nvfp4 {
 		path /run/sglang-qwen-image-2512-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-2512-nvfp4 {
 		uri strip_prefix /run/sglang-qwen-image-2512-nvfp4
@@ -1068,7 +1089,7 @@
 	}
 	redir /run/sglang-qwen-image-2512-nvfp4 /run/sglang-qwen-image-2512-nvfp4/ 308
 	handle_path /run/sglang-qwen-image-2512-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1081,7 +1102,7 @@
 	# sglang-qwen-image-2512-nvfp4-lightning
 	@probe-sglang-qwen-image-2512-nvfp4-lightning {
 		path /run/sglang-qwen-image-2512-nvfp4-lightning/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-2512-nvfp4-lightning {
 		uri strip_prefix /run/sglang-qwen-image-2512-nvfp4-lightning
@@ -1089,7 +1110,7 @@
 	}
 	redir /run/sglang-qwen-image-2512-nvfp4-lightning /run/sglang-qwen-image-2512-nvfp4-lightning/ 308
 	handle_path /run/sglang-qwen-image-2512-nvfp4-lightning/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1102,7 +1123,7 @@
 	# sglang-qwen-image-edit-2511-nvfp4
 	@probe-sglang-qwen-image-edit-2511-nvfp4 {
 		path /run/sglang-qwen-image-edit-2511-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-edit-2511-nvfp4 {
 		uri strip_prefix /run/sglang-qwen-image-edit-2511-nvfp4
@@ -1110,7 +1131,7 @@
 	}
 	redir /run/sglang-qwen-image-edit-2511-nvfp4 /run/sglang-qwen-image-edit-2511-nvfp4/ 308
 	handle_path /run/sglang-qwen-image-edit-2511-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1123,7 +1144,7 @@
 	# sglang-qwen-image-edit-2511-nvfp4-lightning
 	@probe-sglang-qwen-image-edit-2511-nvfp4-lightning {
 		path /run/sglang-qwen-image-edit-2511-nvfp4-lightning/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen-image-edit-2511-nvfp4-lightning {
 		uri strip_prefix /run/sglang-qwen-image-edit-2511-nvfp4-lightning
@@ -1131,7 +1152,7 @@
 	}
 	redir /run/sglang-qwen-image-edit-2511-nvfp4-lightning /run/sglang-qwen-image-edit-2511-nvfp4-lightning/ 308
 	handle_path /run/sglang-qwen-image-edit-2511-nvfp4-lightning/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1144,7 +1165,7 @@
 	# sglang-qwen38-27b-bf16-dflash2
 	@probe-sglang-qwen38-27b-bf16-dflash2 {
 		path /run/sglang-qwen38-27b-bf16-dflash2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen38-27b-bf16-dflash2 {
 		uri strip_prefix /run/sglang-qwen38-27b-bf16-dflash2
@@ -1152,7 +1173,7 @@
 	}
 	redir /run/sglang-qwen38-27b-bf16-dflash2 /run/sglang-qwen38-27b-bf16-dflash2/ 308
 	handle_path /run/sglang-qwen38-27b-bf16-dflash2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1165,7 +1186,7 @@
 	# sglang-qwen38-27b-fp8-dflash2
 	@probe-sglang-qwen38-27b-fp8-dflash2 {
 		path /run/sglang-qwen38-27b-fp8-dflash2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-qwen38-27b-fp8-dflash2 {
 		uri strip_prefix /run/sglang-qwen38-27b-fp8-dflash2
@@ -1173,7 +1194,7 @@
 	}
 	redir /run/sglang-qwen38-27b-fp8-dflash2 /run/sglang-qwen38-27b-fp8-dflash2/ 308
 	handle_path /run/sglang-qwen38-27b-fp8-dflash2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1186,7 +1207,7 @@
 	# sglang-wan22-ti2v-5b
 	@probe-sglang-wan22-ti2v-5b {
 		path /run/sglang-wan22-ti2v-5b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-wan22-ti2v-5b {
 		uri strip_prefix /run/sglang-wan22-ti2v-5b
@@ -1194,7 +1215,7 @@
 	}
 	redir /run/sglang-wan22-ti2v-5b /run/sglang-wan22-ti2v-5b/ 308
 	handle_path /run/sglang-wan22-ti2v-5b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1207,7 +1228,7 @@
 	# sglang-z-image
 	@probe-sglang-z-image {
 		path /run/sglang-z-image/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-z-image {
 		uri strip_prefix /run/sglang-z-image
@@ -1215,7 +1236,7 @@
 	}
 	redir /run/sglang-z-image /run/sglang-z-image/ 308
 	handle_path /run/sglang-z-image/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1228,7 +1249,7 @@
 	# sglang-z-image-turbo
 	@probe-sglang-z-image-turbo {
 		path /run/sglang-z-image-turbo/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-sglang-z-image-turbo {
 		uri strip_prefix /run/sglang-z-image-turbo
@@ -1236,7 +1257,7 @@
 	}
 	redir /run/sglang-z-image-turbo /run/sglang-z-image-turbo/ 308
 	handle_path /run/sglang-z-image-turbo/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1246,10 +1267,31 @@
 		reverse_proxy spark-ai-hub-sglang-z-image-turbo:30000
 	}
 
+	# sol-minimax-h3-fl2va
+	@probe-sol-minimax-h3-fl2va {
+		path /run/sol-minimax-h3-fl2va/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-sol-minimax-h3-fl2va {
+		uri strip_prefix /run/sol-minimax-h3-fl2va
+		reverse_proxy spark-ai-hub-sol-minimax-h3-fl2va:30000
+	}
+	redir /run/sol-minimax-h3-fl2va /run/sol-minimax-h3-fl2va/ 308
+	handle_path /run/sol-minimax-h3-fl2va/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-sol-minimax-h3-fl2va:30000
+	}
+
 	# spatialedit
 	@probe-spatialedit {
 		path /run/spatialedit/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-spatialedit {
 		uri strip_prefix /run/spatialedit
@@ -1257,7 +1299,7 @@
 	}
 	redir /run/spatialedit /run/spatialedit/ 308
 	handle_path /run/spatialedit/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1270,7 +1312,7 @@
 	# tensorfold-nemotron35-lightning-30b-a3b-int4-mtp
 	@probe-tensorfold-nemotron35-lightning-30b-a3b-int4-mtp {
 		path /run/tensorfold-nemotron35-lightning-30b-a3b-int4-mtp/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-nemotron35-lightning-30b-a3b-int4-mtp {
 		uri strip_prefix /run/tensorfold-nemotron35-lightning-30b-a3b-int4-mtp
@@ -1278,7 +1320,7 @@
 	}
 	redir /run/tensorfold-nemotron35-lightning-30b-a3b-int4-mtp /run/tensorfold-nemotron35-lightning-30b-a3b-int4-mtp/ 308
 	handle_path /run/tensorfold-nemotron35-lightning-30b-a3b-int4-mtp/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1291,7 +1333,7 @@
 	# tensorfold-qwen36-35b-a3b-int4-mtp
 	@probe-tensorfold-qwen36-35b-a3b-int4-mtp {
 		path /run/tensorfold-qwen36-35b-a3b-int4-mtp/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen36-35b-a3b-int4-mtp {
 		uri strip_prefix /run/tensorfold-qwen36-35b-a3b-int4-mtp
@@ -1299,7 +1341,7 @@
 	}
 	redir /run/tensorfold-qwen36-35b-a3b-int4-mtp /run/tensorfold-qwen36-35b-a3b-int4-mtp/ 308
 	handle_path /run/tensorfold-qwen36-35b-a3b-int4-mtp/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1312,7 +1354,7 @@
 	# tensorfold-qwen36-35b-a3b-uncensored-int4-mtp
 	@probe-tensorfold-qwen36-35b-a3b-uncensored-int4-mtp {
 		path /run/tensorfold-qwen36-35b-a3b-uncensored-int4-mtp/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen36-35b-a3b-uncensored-int4-mtp {
 		uri strip_prefix /run/tensorfold-qwen36-35b-a3b-uncensored-int4-mtp
@@ -1320,7 +1362,7 @@
 	}
 	redir /run/tensorfold-qwen36-35b-a3b-uncensored-int4-mtp /run/tensorfold-qwen36-35b-a3b-uncensored-int4-mtp/ 308
 	handle_path /run/tensorfold-qwen36-35b-a3b-uncensored-int4-mtp/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1333,7 +1375,7 @@
 	# tensorfold-qwen38-27b-exl3-k2
 	@probe-tensorfold-qwen38-27b-exl3-k2 {
 		path /run/tensorfold-qwen38-27b-exl3-k2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-27b-exl3-k2 {
 		uri strip_prefix /run/tensorfold-qwen38-27b-exl3-k2
@@ -1341,7 +1383,7 @@
 	}
 	redir /run/tensorfold-qwen38-27b-exl3-k2 /run/tensorfold-qwen38-27b-exl3-k2/ 308
 	handle_path /run/tensorfold-qwen38-27b-exl3-k2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1354,7 +1396,7 @@
 	# tensorfold-qwen38-27b-int4
 	@probe-tensorfold-qwen38-27b-int4 {
 		path /run/tensorfold-qwen38-27b-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-27b-int4 {
 		uri strip_prefix /run/tensorfold-qwen38-27b-int4
@@ -1362,7 +1404,7 @@
 	}
 	redir /run/tensorfold-qwen38-27b-int4 /run/tensorfold-qwen38-27b-int4/ 308
 	handle_path /run/tensorfold-qwen38-27b-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1375,7 +1417,7 @@
 	# tensorfold-qwen38-27b-uncensored-exl3-k2
 	@probe-tensorfold-qwen38-27b-uncensored-exl3-k2 {
 		path /run/tensorfold-qwen38-27b-uncensored-exl3-k2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-27b-uncensored-exl3-k2 {
 		uri strip_prefix /run/tensorfold-qwen38-27b-uncensored-exl3-k2
@@ -1383,7 +1425,7 @@
 	}
 	redir /run/tensorfold-qwen38-27b-uncensored-exl3-k2 /run/tensorfold-qwen38-27b-uncensored-exl3-k2/ 308
 	handle_path /run/tensorfold-qwen38-27b-uncensored-exl3-k2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1396,7 +1438,7 @@
 	# tensorfold-qwen38-27b-uncensored-int4
 	@probe-tensorfold-qwen38-27b-uncensored-int4 {
 		path /run/tensorfold-qwen38-27b-uncensored-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-27b-uncensored-int4 {
 		uri strip_prefix /run/tensorfold-qwen38-27b-uncensored-int4
@@ -1404,7 +1446,7 @@
 	}
 	redir /run/tensorfold-qwen38-27b-uncensored-int4 /run/tensorfold-qwen38-27b-uncensored-int4/ 308
 	handle_path /run/tensorfold-qwen38-27b-uncensored-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1417,7 +1459,7 @@
 	# tensorfold-qwen38-flash-next-int4
 	@probe-tensorfold-qwen38-flash-next-int4 {
 		path /run/tensorfold-qwen38-flash-next-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-flash-next-int4 {
 		uri strip_prefix /run/tensorfold-qwen38-flash-next-int4
@@ -1425,7 +1467,7 @@
 	}
 	redir /run/tensorfold-qwen38-flash-next-int4 /run/tensorfold-qwen38-flash-next-int4/ 308
 	handle_path /run/tensorfold-qwen38-flash-next-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1435,10 +1477,31 @@
 		reverse_proxy spark-ai-hub-tensorfold-qwen38-flash-next-int4:8888
 	}
 
+	# tensorfold-qwen38-flash-next-nvfp4
+	@probe-tensorfold-qwen38-flash-next-nvfp4 {
+		path /run/tensorfold-qwen38-flash-next-nvfp4/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-tensorfold-qwen38-flash-next-nvfp4 {
+		uri strip_prefix /run/tensorfold-qwen38-flash-next-nvfp4
+		reverse_proxy spark-ai-hub-tensorfold-qwen38-flash-next-nvfp4:8888
+	}
+	redir /run/tensorfold-qwen38-flash-next-nvfp4 /run/tensorfold-qwen38-flash-next-nvfp4/ 308
+	handle_path /run/tensorfold-qwen38-flash-next-nvfp4/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-tensorfold-qwen38-flash-next-nvfp4:8888
+	}
+
 	# tensorfold-qwen38-flash-next-uncensored-exl3
 	@probe-tensorfold-qwen38-flash-next-uncensored-exl3 {
 		path /run/tensorfold-qwen38-flash-next-uncensored-exl3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-tensorfold-qwen38-flash-next-uncensored-exl3 {
 		uri strip_prefix /run/tensorfold-qwen38-flash-next-uncensored-exl3
@@ -1446,7 +1509,7 @@
 	}
 	redir /run/tensorfold-qwen38-flash-next-uncensored-exl3 /run/tensorfold-qwen38-flash-next-uncensored-exl3/ 308
 	handle_path /run/tensorfold-qwen38-flash-next-uncensored-exl3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1459,7 +1522,7 @@
 	# trellis2-spark
 	@probe-trellis2-spark {
 		path /run/trellis2-spark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-trellis2-spark {
 		uri strip_prefix /run/trellis2-spark
@@ -1467,7 +1530,7 @@
 	}
 	redir /run/trellis2-spark /run/trellis2-spark/ 308
 	handle_path /run/trellis2-spark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1480,7 +1543,7 @@
 	# vllm-clef-flash-fp8
 	@probe-vllm-clef-flash-fp8 {
 		path /run/vllm-clef-flash-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-clef-flash-fp8 {
 		uri strip_prefix /run/vllm-clef-flash-fp8
@@ -1488,7 +1551,7 @@
 	}
 	redir /run/vllm-clef-flash-fp8 /run/vllm-clef-flash-fp8/ 308
 	handle_path /run/vllm-clef-flash-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1501,7 +1564,7 @@
 	# vllm-comet-60b-a12b-nvfp4-mtp
 	@probe-vllm-comet-60b-a12b-nvfp4-mtp {
 		path /run/vllm-comet-60b-a12b-nvfp4-mtp/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-comet-60b-a12b-nvfp4-mtp {
 		uri strip_prefix /run/vllm-comet-60b-a12b-nvfp4-mtp
@@ -1509,7 +1572,7 @@
 	}
 	redir /run/vllm-comet-60b-a12b-nvfp4-mtp /run/vllm-comet-60b-a12b-nvfp4-mtp/ 308
 	handle_path /run/vllm-comet-60b-a12b-nvfp4-mtp/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1522,7 +1585,7 @@
 	# vllm-deepseek-v4-flash-exl3
 	@probe-vllm-deepseek-v4-flash-exl3 {
 		path /run/vllm-deepseek-v4-flash-exl3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-deepseek-v4-flash-exl3 {
 		uri strip_prefix /run/vllm-deepseek-v4-flash-exl3
@@ -1530,7 +1593,7 @@
 	}
 	redir /run/vllm-deepseek-v4-flash-exl3 /run/vllm-deepseek-v4-flash-exl3/ 308
 	handle_path /run/vllm-deepseek-v4-flash-exl3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1543,7 +1606,7 @@
 	# vllm-deepseek-v4-flash-exl3-abliterated
 	@probe-vllm-deepseek-v4-flash-exl3-abliterated {
 		path /run/vllm-deepseek-v4-flash-exl3-abliterated/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-deepseek-v4-flash-exl3-abliterated {
 		uri strip_prefix /run/vllm-deepseek-v4-flash-exl3-abliterated
@@ -1551,7 +1614,7 @@
 	}
 	redir /run/vllm-deepseek-v4-flash-exl3-abliterated /run/vllm-deepseek-v4-flash-exl3-abliterated/ 308
 	handle_path /run/vllm-deepseek-v4-flash-exl3-abliterated/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1564,7 +1627,7 @@
 	# vllm-diffusiongemma-26b-a4b-it
 	@probe-vllm-diffusiongemma-26b-a4b-it {
 		path /run/vllm-diffusiongemma-26b-a4b-it/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-diffusiongemma-26b-a4b-it {
 		uri strip_prefix /run/vllm-diffusiongemma-26b-a4b-it
@@ -1572,7 +1635,7 @@
 	}
 	redir /run/vllm-diffusiongemma-26b-a4b-it /run/vllm-diffusiongemma-26b-a4b-it/ 308
 	handle_path /run/vllm-diffusiongemma-26b-a4b-it/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1585,7 +1648,7 @@
 	# vllm-diffusiongemma-26b-a4b-it-nvfp4
 	@probe-vllm-diffusiongemma-26b-a4b-it-nvfp4 {
 		path /run/vllm-diffusiongemma-26b-a4b-it-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-diffusiongemma-26b-a4b-it-nvfp4 {
 		uri strip_prefix /run/vllm-diffusiongemma-26b-a4b-it-nvfp4
@@ -1593,7 +1656,7 @@
 	}
 	redir /run/vllm-diffusiongemma-26b-a4b-it-nvfp4 /run/vllm-diffusiongemma-26b-a4b-it-nvfp4/ 308
 	handle_path /run/vllm-diffusiongemma-26b-a4b-it-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1606,7 +1669,7 @@
 	# vllm-gemma4-12b
 	@probe-vllm-gemma4-12b {
 		path /run/vllm-gemma4-12b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-12b {
 		uri strip_prefix /run/vllm-gemma4-12b
@@ -1614,7 +1677,7 @@
 	}
 	redir /run/vllm-gemma4-12b /run/vllm-gemma4-12b/ 308
 	handle_path /run/vllm-gemma4-12b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1627,7 +1690,7 @@
 	# vllm-gemma4-26b-a4b
 	@probe-vllm-gemma4-26b-a4b {
 		path /run/vllm-gemma4-26b-a4b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-26b-a4b {
 		uri strip_prefix /run/vllm-gemma4-26b-a4b
@@ -1635,7 +1698,7 @@
 	}
 	redir /run/vllm-gemma4-26b-a4b /run/vllm-gemma4-26b-a4b/ 308
 	handle_path /run/vllm-gemma4-26b-a4b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1648,7 +1711,7 @@
 	# vllm-gemma4-26b-a4b-fp8
 	@probe-vllm-gemma4-26b-a4b-fp8 {
 		path /run/vllm-gemma4-26b-a4b-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-26b-a4b-fp8 {
 		uri strip_prefix /run/vllm-gemma4-26b-a4b-fp8
@@ -1656,7 +1719,7 @@
 	}
 	redir /run/vllm-gemma4-26b-a4b-fp8 /run/vllm-gemma4-26b-a4b-fp8/ 308
 	handle_path /run/vllm-gemma4-26b-a4b-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1669,7 +1732,7 @@
 	# vllm-gemma4-26b-a4b-nvfp4
 	@probe-vllm-gemma4-26b-a4b-nvfp4 {
 		path /run/vllm-gemma4-26b-a4b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-26b-a4b-nvfp4 {
 		uri strip_prefix /run/vllm-gemma4-26b-a4b-nvfp4
@@ -1677,7 +1740,7 @@
 	}
 	redir /run/vllm-gemma4-26b-a4b-nvfp4 /run/vllm-gemma4-26b-a4b-nvfp4/ 308
 	handle_path /run/vllm-gemma4-26b-a4b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1690,7 +1753,7 @@
 	# vllm-gemma4-26b-a4b-nvfp4-dflash
 	@probe-vllm-gemma4-26b-a4b-nvfp4-dflash {
 		path /run/vllm-gemma4-26b-a4b-nvfp4-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-26b-a4b-nvfp4-dflash {
 		uri strip_prefix /run/vllm-gemma4-26b-a4b-nvfp4-dflash
@@ -1698,7 +1761,7 @@
 	}
 	redir /run/vllm-gemma4-26b-a4b-nvfp4-dflash /run/vllm-gemma4-26b-a4b-nvfp4-dflash/ 308
 	handle_path /run/vllm-gemma4-26b-a4b-nvfp4-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1711,7 +1774,7 @@
 	# vllm-gemma4-31b
 	@probe-vllm-gemma4-31b {
 		path /run/vllm-gemma4-31b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-31b {
 		uri strip_prefix /run/vllm-gemma4-31b
@@ -1719,7 +1782,7 @@
 	}
 	redir /run/vllm-gemma4-31b /run/vllm-gemma4-31b/ 308
 	handle_path /run/vllm-gemma4-31b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1732,7 +1795,7 @@
 	# vllm-gemma4-31b-nvfp4-dflash
 	@probe-vllm-gemma4-31b-nvfp4-dflash {
 		path /run/vllm-gemma4-31b-nvfp4-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-31b-nvfp4-dflash {
 		uri strip_prefix /run/vllm-gemma4-31b-nvfp4-dflash
@@ -1740,7 +1803,7 @@
 	}
 	redir /run/vllm-gemma4-31b-nvfp4-dflash /run/vllm-gemma4-31b-nvfp4-dflash/ 308
 	handle_path /run/vllm-gemma4-31b-nvfp4-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1753,7 +1816,7 @@
 	# vllm-gemma4-e2b
 	@probe-vllm-gemma4-e2b {
 		path /run/vllm-gemma4-e2b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-e2b {
 		uri strip_prefix /run/vllm-gemma4-e2b
@@ -1761,7 +1824,7 @@
 	}
 	redir /run/vllm-gemma4-e2b /run/vllm-gemma4-e2b/ 308
 	handle_path /run/vllm-gemma4-e2b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1774,7 +1837,7 @@
 	# vllm-gemma4-e4b
 	@probe-vllm-gemma4-e4b {
 		path /run/vllm-gemma4-e4b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-e4b {
 		uri strip_prefix /run/vllm-gemma4-e4b
@@ -1782,7 +1845,7 @@
 	}
 	redir /run/vllm-gemma4-e4b /run/vllm-gemma4-e4b/ 308
 	handle_path /run/vllm-gemma4-e4b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1795,7 +1858,7 @@
 	# vllm-gemma4-e4b-fp8
 	@probe-vllm-gemma4-e4b-fp8 {
 		path /run/vllm-gemma4-e4b-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gemma4-e4b-fp8 {
 		uri strip_prefix /run/vllm-gemma4-e4b-fp8
@@ -1803,7 +1866,7 @@
 	}
 	redir /run/vllm-gemma4-e4b-fp8 /run/vllm-gemma4-e4b-fp8/ 308
 	handle_path /run/vllm-gemma4-e4b-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1816,7 +1879,7 @@
 	# vllm-glm53-flash-exl3-k2
 	@probe-vllm-glm53-flash-exl3-k2 {
 		path /run/vllm-glm53-flash-exl3-k2/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-glm53-flash-exl3-k2 {
 		uri strip_prefix /run/vllm-glm53-flash-exl3-k2
@@ -1824,7 +1887,7 @@
 	}
 	redir /run/vllm-glm53-flash-exl3-k2 /run/vllm-glm53-flash-exl3-k2/ 308
 	handle_path /run/vllm-glm53-flash-exl3-k2/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1837,7 +1900,7 @@
 	# vllm-gpt-oss-120b
 	@probe-vllm-gpt-oss-120b {
 		path /run/vllm-gpt-oss-120b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gpt-oss-120b {
 		uri strip_prefix /run/vllm-gpt-oss-120b
@@ -1845,7 +1908,7 @@
 	}
 	redir /run/vllm-gpt-oss-120b /run/vllm-gpt-oss-120b/ 308
 	handle_path /run/vllm-gpt-oss-120b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1858,7 +1921,7 @@
 	# vllm-gpt-oss-20b
 	@probe-vllm-gpt-oss-20b {
 		path /run/vllm-gpt-oss-20b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-gpt-oss-20b {
 		uri strip_prefix /run/vllm-gpt-oss-20b
@@ -1866,7 +1929,7 @@
 	}
 	redir /run/vllm-gpt-oss-20b /run/vllm-gpt-oss-20b/ 308
 	handle_path /run/vllm-gpt-oss-20b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1879,7 +1942,7 @@
 	# vllm-intern-decision-2b-fp8
 	@probe-vllm-intern-decision-2b-fp8 {
 		path /run/vllm-intern-decision-2b-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-intern-decision-2b-fp8 {
 		uri strip_prefix /run/vllm-intern-decision-2b-fp8
@@ -1887,7 +1950,7 @@
 	}
 	redir /run/vllm-intern-decision-2b-fp8 /run/vllm-intern-decision-2b-fp8/ 308
 	handle_path /run/vllm-intern-decision-2b-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1900,7 +1963,7 @@
 	# vllm-laguna-s-21-nvfp4
 	@probe-vllm-laguna-s-21-nvfp4 {
 		path /run/vllm-laguna-s-21-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-laguna-s-21-nvfp4 {
 		uri strip_prefix /run/vllm-laguna-s-21-nvfp4
@@ -1908,7 +1971,7 @@
 	}
 	redir /run/vllm-laguna-s-21-nvfp4 /run/vllm-laguna-s-21-nvfp4/ 308
 	handle_path /run/vllm-laguna-s-21-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1921,7 +1984,7 @@
 	# vllm-laguna-xs-21-nvfp4
 	@probe-vllm-laguna-xs-21-nvfp4 {
 		path /run/vllm-laguna-xs-21-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-laguna-xs-21-nvfp4 {
 		uri strip_prefix /run/vllm-laguna-xs-21-nvfp4
@@ -1929,7 +1992,7 @@
 	}
 	redir /run/vllm-laguna-xs-21-nvfp4 /run/vllm-laguna-xs-21-nvfp4/ 308
 	handle_path /run/vllm-laguna-xs-21-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1942,7 +2005,7 @@
 	# vllm-ling3-flash-int4
 	@probe-vllm-ling3-flash-int4 {
 		path /run/vllm-ling3-flash-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-ling3-flash-int4 {
 		uri strip_prefix /run/vllm-ling3-flash-int4
@@ -1950,7 +2013,7 @@
 	}
 	redir /run/vllm-ling3-flash-int4 /run/vllm-ling3-flash-int4/ 308
 	handle_path /run/vllm-ling3-flash-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1963,7 +2026,7 @@
 	# vllm-ling3-tiny-bf16
 	@probe-vllm-ling3-tiny-bf16 {
 		path /run/vllm-ling3-tiny-bf16/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-ling3-tiny-bf16 {
 		uri strip_prefix /run/vllm-ling3-tiny-bf16
@@ -1971,7 +2034,7 @@
 	}
 	redir /run/vllm-ling3-tiny-bf16 /run/vllm-ling3-tiny-bf16/ 308
 	handle_path /run/vllm-ling3-tiny-bf16/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -1984,7 +2047,7 @@
 	# vllm-ling3-tiny-int4
 	@probe-vllm-ling3-tiny-int4 {
 		path /run/vllm-ling3-tiny-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-ling3-tiny-int4 {
 		uri strip_prefix /run/vllm-ling3-tiny-int4
@@ -1992,7 +2055,7 @@
 	}
 	redir /run/vllm-ling3-tiny-int4 /run/vllm-ling3-tiny-int4/ 308
 	handle_path /run/vllm-ling3-tiny-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2005,7 +2068,7 @@
 	# vllm-minicpm-v47-35b-a3b-fp8-dspark
 	@probe-vllm-minicpm-v47-35b-a3b-fp8-dspark {
 		path /run/vllm-minicpm-v47-35b-a3b-fp8-dspark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-minicpm-v47-35b-a3b-fp8-dspark {
 		uri strip_prefix /run/vllm-minicpm-v47-35b-a3b-fp8-dspark
@@ -2013,7 +2076,7 @@
 	}
 	redir /run/vllm-minicpm-v47-35b-a3b-fp8-dspark /run/vllm-minicpm-v47-35b-a3b-fp8-dspark/ 308
 	handle_path /run/vllm-minicpm-v47-35b-a3b-fp8-dspark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2026,7 +2089,7 @@
 	# vllm-muse-glimmer-30b
 	@probe-vllm-muse-glimmer-30b {
 		path /run/vllm-muse-glimmer-30b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-muse-glimmer-30b {
 		uri strip_prefix /run/vllm-muse-glimmer-30b
@@ -2034,7 +2097,7 @@
 	}
 	redir /run/vllm-muse-glimmer-30b /run/vllm-muse-glimmer-30b/ 308
 	handle_path /run/vllm-muse-glimmer-30b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2047,7 +2110,7 @@
 	# vllm-muse-glimmer-30b-nvfp4
 	@probe-vllm-muse-glimmer-30b-nvfp4 {
 		path /run/vllm-muse-glimmer-30b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-muse-glimmer-30b-nvfp4 {
 		uri strip_prefix /run/vllm-muse-glimmer-30b-nvfp4
@@ -2055,7 +2118,7 @@
 	}
 	redir /run/vllm-muse-glimmer-30b-nvfp4 /run/vllm-muse-glimmer-30b-nvfp4/ 308
 	handle_path /run/vllm-muse-glimmer-30b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2068,7 +2131,7 @@
 	# vllm-nemotron-cascade2-30b-a3b
 	@probe-vllm-nemotron-cascade2-30b-a3b {
 		path /run/vllm-nemotron-cascade2-30b-a3b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron-cascade2-30b-a3b {
 		uri strip_prefix /run/vllm-nemotron-cascade2-30b-a3b
@@ -2076,7 +2139,7 @@
 	}
 	redir /run/vllm-nemotron-cascade2-30b-a3b /run/vllm-nemotron-cascade2-30b-a3b/ 308
 	handle_path /run/vllm-nemotron-cascade2-30b-a3b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2089,7 +2152,7 @@
 	# vllm-nemotron3-elastic-30b-a3b-nvfp4
 	@probe-vllm-nemotron3-elastic-30b-a3b-nvfp4 {
 		path /run/vllm-nemotron3-elastic-30b-a3b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-elastic-30b-a3b-nvfp4 {
 		uri strip_prefix /run/vllm-nemotron3-elastic-30b-a3b-nvfp4
@@ -2097,7 +2160,7 @@
 	}
 	redir /run/vllm-nemotron3-elastic-30b-a3b-nvfp4 /run/vllm-nemotron3-elastic-30b-a3b-nvfp4/ 308
 	handle_path /run/vllm-nemotron3-elastic-30b-a3b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2110,7 +2173,7 @@
 	# vllm-nemotron3-nano-bf16
 	@probe-vllm-nemotron3-nano-bf16 {
 		path /run/vllm-nemotron3-nano-bf16/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-nano-bf16 {
 		uri strip_prefix /run/vllm-nemotron3-nano-bf16
@@ -2118,7 +2181,7 @@
 	}
 	redir /run/vllm-nemotron3-nano-bf16 /run/vllm-nemotron3-nano-bf16/ 308
 	handle_path /run/vllm-nemotron3-nano-bf16/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2131,7 +2194,7 @@
 	# vllm-nemotron3-nano-fp8
 	@probe-vllm-nemotron3-nano-fp8 {
 		path /run/vllm-nemotron3-nano-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-nano-fp8 {
 		uri strip_prefix /run/vllm-nemotron3-nano-fp8
@@ -2139,7 +2202,7 @@
 	}
 	redir /run/vllm-nemotron3-nano-fp8 /run/vllm-nemotron3-nano-fp8/ 308
 	handle_path /run/vllm-nemotron3-nano-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2152,7 +2215,7 @@
 	# vllm-nemotron3-nano-omni-30b-a3b-nvfp4
 	@probe-vllm-nemotron3-nano-omni-30b-a3b-nvfp4 {
 		path /run/vllm-nemotron3-nano-omni-30b-a3b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-nano-omni-30b-a3b-nvfp4 {
 		uri strip_prefix /run/vllm-nemotron3-nano-omni-30b-a3b-nvfp4
@@ -2160,7 +2223,7 @@
 	}
 	redir /run/vllm-nemotron3-nano-omni-30b-a3b-nvfp4 /run/vllm-nemotron3-nano-omni-30b-a3b-nvfp4/ 308
 	handle_path /run/vllm-nemotron3-nano-omni-30b-a3b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2173,7 +2236,7 @@
 	# vllm-nemotron3-puzzle-75b-a9b-nvfp4
 	@probe-vllm-nemotron3-puzzle-75b-a9b-nvfp4 {
 		path /run/vllm-nemotron3-puzzle-75b-a9b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-puzzle-75b-a9b-nvfp4 {
 		uri strip_prefix /run/vllm-nemotron3-puzzle-75b-a9b-nvfp4
@@ -2181,7 +2244,7 @@
 	}
 	redir /run/vllm-nemotron3-puzzle-75b-a9b-nvfp4 /run/vllm-nemotron3-puzzle-75b-a9b-nvfp4/ 308
 	handle_path /run/vllm-nemotron3-puzzle-75b-a9b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2194,7 +2257,7 @@
 	# vllm-nemotron3-super-120b-nvfp4
 	@probe-vllm-nemotron3-super-120b-nvfp4 {
 		path /run/vllm-nemotron3-super-120b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron3-super-120b-nvfp4 {
 		uri strip_prefix /run/vllm-nemotron3-super-120b-nvfp4
@@ -2202,7 +2265,7 @@
 	}
 	redir /run/vllm-nemotron3-super-120b-nvfp4 /run/vllm-nemotron3-super-120b-nvfp4/ 308
 	handle_path /run/vllm-nemotron3-super-120b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2215,7 +2278,7 @@
 	# vllm-nemotron35-bolt-74b-a9b-24gb-dflash
 	@probe-vllm-nemotron35-bolt-74b-a9b-24gb-dflash {
 		path /run/vllm-nemotron35-bolt-74b-a9b-24gb-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron35-bolt-74b-a9b-24gb-dflash {
 		uri strip_prefix /run/vllm-nemotron35-bolt-74b-a9b-24gb-dflash
@@ -2223,7 +2286,7 @@
 	}
 	redir /run/vllm-nemotron35-bolt-74b-a9b-24gb-dflash /run/vllm-nemotron35-bolt-74b-a9b-24gb-dflash/ 308
 	handle_path /run/vllm-nemotron35-bolt-74b-a9b-24gb-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2236,7 +2299,7 @@
 	# vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark
 	@probe-vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark {
 		path /run/vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark {
 		uri strip_prefix /run/vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark
@@ -2244,7 +2307,7 @@
 	}
 	redir /run/vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark /run/vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark/ 308
 	handle_path /run/vllm-nemotron35-lightning-30b-a3b-nvfp4-dspark/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2257,7 +2320,7 @@
 	# vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash
 	@probe-vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash {
 		path /run/vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash {
 		uri strip_prefix /run/vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash
@@ -2265,7 +2328,7 @@
 	}
 	redir /run/vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash /run/vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash/ 308
 	handle_path /run/vllm-nemotron35-super-vl-120b-a12b-nvfp4-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2278,7 +2341,7 @@
 	# vllm-ornith15-35b-a3b-nvfp4
 	@probe-vllm-ornith15-35b-a3b-nvfp4 {
 		path /run/vllm-ornith15-35b-a3b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-ornith15-35b-a3b-nvfp4 {
 		uri strip_prefix /run/vllm-ornith15-35b-a3b-nvfp4
@@ -2286,7 +2349,7 @@
 	}
 	redir /run/vllm-ornith15-35b-a3b-nvfp4 /run/vllm-ornith15-35b-a3b-nvfp4/ 308
 	handle_path /run/vllm-ornith15-35b-a3b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2299,7 +2362,7 @@
 	# vllm-ornith15-9b-uncensored-nvfp4
 	@probe-vllm-ornith15-9b-uncensored-nvfp4 {
 		path /run/vllm-ornith15-9b-uncensored-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-ornith15-9b-uncensored-nvfp4 {
 		uri strip_prefix /run/vllm-ornith15-9b-uncensored-nvfp4
@@ -2307,7 +2370,7 @@
 	}
 	redir /run/vllm-ornith15-9b-uncensored-nvfp4 /run/vllm-ornith15-9b-uncensored-nvfp4/ 308
 	handle_path /run/vllm-ornith15-9b-uncensored-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2320,7 +2383,7 @@
 	# vllm-phi4-multimodal-fp8
 	@probe-vllm-phi4-multimodal-fp8 {
 		path /run/vllm-phi4-multimodal-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-phi4-multimodal-fp8 {
 		uri strip_prefix /run/vllm-phi4-multimodal-fp8
@@ -2328,7 +2391,7 @@
 	}
 	redir /run/vllm-phi4-multimodal-fp8 /run/vllm-phi4-multimodal-fp8/ 308
 	handle_path /run/vllm-phi4-multimodal-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2341,7 +2404,7 @@
 	# vllm-phi4-multimodal-nvfp4
 	@probe-vllm-phi4-multimodal-nvfp4 {
 		path /run/vllm-phi4-multimodal-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-phi4-multimodal-nvfp4 {
 		uri strip_prefix /run/vllm-phi4-multimodal-nvfp4
@@ -2349,7 +2412,7 @@
 	}
 	redir /run/vllm-phi4-multimodal-nvfp4 /run/vllm-phi4-multimodal-nvfp4/ 308
 	handle_path /run/vllm-phi4-multimodal-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2362,7 +2425,7 @@
 	# vllm-phi4-reasoning-fp8
 	@probe-vllm-phi4-reasoning-fp8 {
 		path /run/vllm-phi4-reasoning-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-phi4-reasoning-fp8 {
 		uri strip_prefix /run/vllm-phi4-reasoning-fp8
@@ -2370,7 +2433,7 @@
 	}
 	redir /run/vllm-phi4-reasoning-fp8 /run/vllm-phi4-reasoning-fp8/ 308
 	handle_path /run/vllm-phi4-reasoning-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2383,7 +2446,7 @@
 	# vllm-phi4-reasoning-nvfp4
 	@probe-vllm-phi4-reasoning-nvfp4 {
 		path /run/vllm-phi4-reasoning-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-phi4-reasoning-nvfp4 {
 		uri strip_prefix /run/vllm-phi4-reasoning-nvfp4
@@ -2391,7 +2454,7 @@
 	}
 	redir /run/vllm-phi4-reasoning-nvfp4 /run/vllm-phi4-reasoning-nvfp4/ 308
 	handle_path /run/vllm-phi4-reasoning-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2404,7 +2467,7 @@
 	# vllm-qwen35-08b
 	@probe-vllm-qwen35-08b {
 		path /run/vllm-qwen35-08b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-08b {
 		uri strip_prefix /run/vllm-qwen35-08b
@@ -2412,7 +2475,7 @@
 	}
 	redir /run/vllm-qwen35-08b /run/vllm-qwen35-08b/ 308
 	handle_path /run/vllm-qwen35-08b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2425,7 +2488,7 @@
 	# vllm-qwen35-122b-a10b-nvfp4
 	@probe-vllm-qwen35-122b-a10b-nvfp4 {
 		path /run/vllm-qwen35-122b-a10b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-122b-a10b-nvfp4 {
 		uri strip_prefix /run/vllm-qwen35-122b-a10b-nvfp4
@@ -2433,7 +2496,7 @@
 	}
 	redir /run/vllm-qwen35-122b-a10b-nvfp4 /run/vllm-qwen35-122b-a10b-nvfp4/ 308
 	handle_path /run/vllm-qwen35-122b-a10b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2446,7 +2509,7 @@
 	# vllm-qwen35-27b-dflash
 	@probe-vllm-qwen35-27b-dflash {
 		path /run/vllm-qwen35-27b-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-27b-dflash {
 		uri strip_prefix /run/vllm-qwen35-27b-dflash
@@ -2454,7 +2517,7 @@
 	}
 	redir /run/vllm-qwen35-27b-dflash /run/vllm-qwen35-27b-dflash/ 308
 	handle_path /run/vllm-qwen35-27b-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2467,7 +2530,7 @@
 	# vllm-qwen35-27b-int4-dflash
 	@probe-vllm-qwen35-27b-int4-dflash {
 		path /run/vllm-qwen35-27b-int4-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-27b-int4-dflash {
 		uri strip_prefix /run/vllm-qwen35-27b-int4-dflash
@@ -2475,7 +2538,7 @@
 	}
 	redir /run/vllm-qwen35-27b-int4-dflash /run/vllm-qwen35-27b-int4-dflash/ 308
 	handle_path /run/vllm-qwen35-27b-int4-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2488,7 +2551,7 @@
 	# vllm-qwen35-2b
 	@probe-vllm-qwen35-2b {
 		path /run/vllm-qwen35-2b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-2b {
 		uri strip_prefix /run/vllm-qwen35-2b
@@ -2496,7 +2559,7 @@
 	}
 	redir /run/vllm-qwen35-2b /run/vllm-qwen35-2b/ 308
 	handle_path /run/vllm-qwen35-2b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2509,7 +2572,7 @@
 	# vllm-qwen35-35b-a3b-bf16
 	@probe-vllm-qwen35-35b-a3b-bf16 {
 		path /run/vllm-qwen35-35b-a3b-bf16/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-35b-a3b-bf16 {
 		uri strip_prefix /run/vllm-qwen35-35b-a3b-bf16
@@ -2517,7 +2580,7 @@
 	}
 	redir /run/vllm-qwen35-35b-a3b-bf16 /run/vllm-qwen35-35b-a3b-bf16/ 308
 	handle_path /run/vllm-qwen35-35b-a3b-bf16/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2530,7 +2593,7 @@
 	# vllm-qwen35-35b-a3b-fp8
 	@probe-vllm-qwen35-35b-a3b-fp8 {
 		path /run/vllm-qwen35-35b-a3b-fp8/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-35b-a3b-fp8 {
 		uri strip_prefix /run/vllm-qwen35-35b-a3b-fp8
@@ -2538,7 +2601,7 @@
 	}
 	redir /run/vllm-qwen35-35b-a3b-fp8 /run/vllm-qwen35-35b-a3b-fp8/ 308
 	handle_path /run/vllm-qwen35-35b-a3b-fp8/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2551,7 +2614,7 @@
 	# vllm-qwen35-35b-a3b-int4
 	@probe-vllm-qwen35-35b-a3b-int4 {
 		path /run/vllm-qwen35-35b-a3b-int4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-35b-a3b-int4 {
 		uri strip_prefix /run/vllm-qwen35-35b-a3b-int4
@@ -2559,7 +2622,7 @@
 	}
 	redir /run/vllm-qwen35-35b-a3b-int4 /run/vllm-qwen35-35b-a3b-int4/ 308
 	handle_path /run/vllm-qwen35-35b-a3b-int4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2572,7 +2635,7 @@
 	# vllm-qwen35-4b
 	@probe-vllm-qwen35-4b {
 		path /run/vllm-qwen35-4b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-4b {
 		uri strip_prefix /run/vllm-qwen35-4b
@@ -2580,7 +2643,7 @@
 	}
 	redir /run/vllm-qwen35-4b /run/vllm-qwen35-4b/ 308
 	handle_path /run/vllm-qwen35-4b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2593,7 +2656,7 @@
 	# vllm-qwen35-4b-dflash
 	@probe-vllm-qwen35-4b-dflash {
 		path /run/vllm-qwen35-4b-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-4b-dflash {
 		uri strip_prefix /run/vllm-qwen35-4b-dflash
@@ -2601,7 +2664,7 @@
 	}
 	redir /run/vllm-qwen35-4b-dflash /run/vllm-qwen35-4b-dflash/ 308
 	handle_path /run/vllm-qwen35-4b-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2614,7 +2677,7 @@
 	# vllm-qwen35-9b
 	@probe-vllm-qwen35-9b {
 		path /run/vllm-qwen35-9b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-9b {
 		uri strip_prefix /run/vllm-qwen35-9b
@@ -2622,7 +2685,7 @@
 	}
 	redir /run/vllm-qwen35-9b /run/vllm-qwen35-9b/ 308
 	handle_path /run/vllm-qwen35-9b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2635,7 +2698,7 @@
 	# vllm-qwen35-9b-dflash
 	@probe-vllm-qwen35-9b-dflash {
 		path /run/vllm-qwen35-9b-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen35-9b-dflash {
 		uri strip_prefix /run/vllm-qwen35-9b-dflash
@@ -2643,7 +2706,7 @@
 	}
 	redir /run/vllm-qwen35-9b-dflash /run/vllm-qwen35-9b-dflash/ 308
 	handle_path /run/vllm-qwen35-9b-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2656,7 +2719,7 @@
 	# vllm-qwen36-27b-bf16-dflash
 	@probe-vllm-qwen36-27b-bf16-dflash {
 		path /run/vllm-qwen36-27b-bf16-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen36-27b-bf16-dflash {
 		uri strip_prefix /run/vllm-qwen36-27b-bf16-dflash
@@ -2664,7 +2727,7 @@
 	}
 	redir /run/vllm-qwen36-27b-bf16-dflash /run/vllm-qwen36-27b-bf16-dflash/ 308
 	handle_path /run/vllm-qwen36-27b-bf16-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2677,7 +2740,7 @@
 	# vllm-qwen36-27b-nvfp4
 	@probe-vllm-qwen36-27b-nvfp4 {
 		path /run/vllm-qwen36-27b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen36-27b-nvfp4 {
 		uri strip_prefix /run/vllm-qwen36-27b-nvfp4
@@ -2685,7 +2748,7 @@
 	}
 	redir /run/vllm-qwen36-27b-nvfp4 /run/vllm-qwen36-27b-nvfp4/ 308
 	handle_path /run/vllm-qwen36-27b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2698,7 +2761,7 @@
 	# vllm-qwen36-35b-a3b-bf16-dflash
 	@probe-vllm-qwen36-35b-a3b-bf16-dflash {
 		path /run/vllm-qwen36-35b-a3b-bf16-dflash/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen36-35b-a3b-bf16-dflash {
 		uri strip_prefix /run/vllm-qwen36-35b-a3b-bf16-dflash
@@ -2706,7 +2769,7 @@
 	}
 	redir /run/vllm-qwen36-35b-a3b-bf16-dflash /run/vllm-qwen36-35b-a3b-bf16-dflash/ 308
 	handle_path /run/vllm-qwen36-35b-a3b-bf16-dflash/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2719,7 +2782,7 @@
 	# vllm-qwen36-35b-a3b-nvfp4
 	@probe-vllm-qwen36-35b-a3b-nvfp4 {
 		path /run/vllm-qwen36-35b-a3b-nvfp4/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen36-35b-a3b-nvfp4 {
 		uri strip_prefix /run/vllm-qwen36-35b-a3b-nvfp4
@@ -2727,7 +2790,7 @@
 	}
 	redir /run/vllm-qwen36-35b-a3b-nvfp4 /run/vllm-qwen36-35b-a3b-nvfp4/ 308
 	handle_path /run/vllm-qwen36-35b-a3b-nvfp4/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2740,7 +2803,7 @@
 	# vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap
 	@probe-vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap {
 		path /run/vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap {
 		uri strip_prefix /run/vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap
@@ -2748,7 +2811,7 @@
 	}
 	redir /run/vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap /run/vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap/ 308
 	handle_path /run/vllm-qwen38-flash-next-uncensored-nvfp4-ple-mmap/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2761,7 +2824,7 @@
 	# vllm-seed-oss-36b
 	@probe-vllm-seed-oss-36b {
 		path /run/vllm-seed-oss-36b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllm-seed-oss-36b {
 		uri strip_prefix /run/vllm-seed-oss-36b
@@ -2769,7 +2832,7 @@
 	}
 	redir /run/vllm-seed-oss-36b /run/vllm-seed-oss-36b/ 308
 	handle_path /run/vllm-seed-oss-36b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2782,7 +2845,7 @@
 	# vllmomni-hunyuanimage3-instruct-distil
 	@probe-vllmomni-hunyuanimage3-instruct-distil {
 		path /run/vllmomni-hunyuanimage3-instruct-distil/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-hunyuanimage3-instruct-distil {
 		uri strip_prefix /run/vllmomni-hunyuanimage3-instruct-distil
@@ -2790,7 +2853,7 @@
 	}
 	redir /run/vllmomni-hunyuanimage3-instruct-distil /run/vllmomni-hunyuanimage3-instruct-distil/ 308
 	handle_path /run/vllmomni-hunyuanimage3-instruct-distil/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2803,7 +2866,7 @@
 	# vllmomni-minimax-h3
 	@probe-vllmomni-minimax-h3 {
 		path /run/vllmomni-minimax-h3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-minimax-h3 {
 		uri strip_prefix /run/vllmomni-minimax-h3
@@ -2811,7 +2874,7 @@
 	}
 	redir /run/vllmomni-minimax-h3 /run/vllmomni-minimax-h3/ 308
 	handle_path /run/vllmomni-minimax-h3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2824,7 +2887,7 @@
 	# vllmomni-minimax-music3
 	@probe-vllmomni-minimax-music3 {
 		path /run/vllmomni-minimax-music3/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-minimax-music3 {
 		uri strip_prefix /run/vllmomni-minimax-music3
@@ -2832,7 +2895,7 @@
 	}
 	redir /run/vllmomni-minimax-music3 /run/vllmomni-minimax-music3/ 308
 	handle_path /run/vllmomni-minimax-music3/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2845,7 +2908,7 @@
 	# vllmomni-sensenova-u1-8b
 	@probe-vllmomni-sensenova-u1-8b {
 		path /run/vllmomni-sensenova-u1-8b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-sensenova-u1-8b {
 		uri strip_prefix /run/vllmomni-sensenova-u1-8b
@@ -2853,7 +2916,7 @@
 	}
 	redir /run/vllmomni-sensenova-u1-8b /run/vllmomni-sensenova-u1-8b/ 308
 	handle_path /run/vllmomni-sensenova-u1-8b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2866,7 +2929,7 @@
 	# vllmomni-sensenova-u15-8b
 	@probe-vllmomni-sensenova-u15-8b {
 		path /run/vllmomni-sensenova-u15-8b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-sensenova-u15-8b {
 		uri strip_prefix /run/vllmomni-sensenova-u15-8b
@@ -2874,7 +2937,7 @@
 	}
 	redir /run/vllmomni-sensenova-u15-8b /run/vllmomni-sensenova-u15-8b/ 308
 	handle_path /run/vllmomni-sensenova-u15-8b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2887,7 +2950,7 @@
 	# vllmomni-wan21-vace-13b
 	@probe-vllmomni-wan21-vace-13b {
 		path /run/vllmomni-wan21-vace-13b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-wan21-vace-13b {
 		uri strip_prefix /run/vllmomni-wan21-vace-13b
@@ -2895,7 +2958,7 @@
 	}
 	redir /run/vllmomni-wan21-vace-13b /run/vllmomni-wan21-vace-13b/ 308
 	handle_path /run/vllmomni-wan21-vace-13b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2908,7 +2971,7 @@
 	# vllmomni-wan22-vace-fun-a14b
 	@probe-vllmomni-wan22-vace-fun-a14b {
 		path /run/vllmomni-wan22-vace-fun-a14b/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-wan22-vace-fun-a14b {
 		uri strip_prefix /run/vllmomni-wan22-vace-fun-a14b
@@ -2916,7 +2979,7 @@
 	}
 	redir /run/vllmomni-wan22-vace-fun-a14b /run/vllmomni-wan22-vace-fun-a14b/ 308
 	handle_path /run/vllmomni-wan22-vace-fun-a14b/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2929,7 +2992,7 @@
 	# vllmomni-wan22-vace-fun-a14b-lightning
 	@probe-vllmomni-wan22-vace-fun-a14b-lightning {
 		path /run/vllmomni-wan22-vace-fun-a14b-lightning/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-vllmomni-wan22-vace-fun-a14b-lightning {
 		uri strip_prefix /run/vllmomni-wan22-vace-fun-a14b-lightning
@@ -2937,7 +3000,7 @@
 	}
 	redir /run/vllmomni-wan22-vace-fun-a14b-lightning /run/vllmomni-wan22-vace-fun-a14b-lightning/ 308
 	handle_path /run/vllmomni-wan22-vace-fun-a14b-lightning/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2950,7 +3013,7 @@
 	# voicebox
 	@probe-voicebox {
 		path /run/voicebox/*
-		header X-Sah-Probe "N9tYGmmYQS3PAZn6uaI-79tSScVkFstaFDGDT-Zsvzk"
+		header X-Sah-Probe "<token>"
 	}
 	handle @probe-voicebox {
 		uri strip_prefix /run/voicebox
@@ -2958,7 +3021,7 @@
 	}
 	redir /run/voicebox /run/voicebox/ 308
 	handle_path /run/voicebox/* {
-		forward_auth host.docker.internal:9010 {
+		forward_auth host.docker.internal:9110 {
 			uri /api/auth/me
 			@denied status 401 403
 			handle_response @denied {
@@ -2970,6 +3033,6 @@
 
 	# Everything else is the Hub itself.
 	handle {
-		reverse_proxy host.docker.internal:9010
+		reverse_proxy host.docker.internal:9110
 	}
 }
