@@ -336,6 +336,11 @@ func (h *handler) ensureModels(groups map[string]swap.GroupConfig) error {
 			if err != nil {
 				return err
 			}
+			// Rewriting an identical entry would make llama-swap reload and
+			// evict a running model, so only write a real change.
+			if existing, ok := cfg.Models[member]; ok && existing == model {
+				continue
+			}
 			if err := h.deps.Manager.SetModel(member, model); err != nil {
 				return err
 			}
