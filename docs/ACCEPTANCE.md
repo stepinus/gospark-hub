@@ -33,9 +33,9 @@
 | Реальная установка приложения | — | **проверено живьём** на `searxng`: install → pull по `docker compose -p spark-ai-hub-searxng` → `[spark-ai-hub] searxng installed successfully!`, образ на месте |
 | Запуск/остановка и `/run/{slug}/` | — | **проверено живьём**: launch → контейнер `spark-ai-hub-searxng` Up, статус `starting` → `running+ready` после health-check; `/run/searxng/` без сессии → `302 /` от Caddy, с сессией → `200 text/html` с живым SearXNG |
 | Полное удаление | — | **проверено живьём**: stop → контейнер погас, remove → контейнер и образ `searxng/searxng:2026.9.19-…` удалены (`docker images` пусто), `installed=false`, `has_leftovers=false` |
-| Кадры `/ws/build` и `/ws/logs` | нужен реальный install | тот же прогон, сравнить текстовые маркеры `[done]`, `[spark-ai-hub:ready]`, `[spark-ai-hub:error]` |
-| Вызовы MCP-инструментов | нужен запущенный медиа-рецепт | `POST /mcp` с `tools/call` на запущенном ComfyUI/ACE-Step |
-| `/v1` и `/v1/messages` против живой модели | нужен запущенный LLM-рецепт | `curl` через `sah`-ключ на `/v1/chat/completions` |
+| Кадры `/ws/build` и `/ws/logs` | — | **проверено живьём**: `/ws/logs/searxng` отдал `[spark-ai-hub:ready]`, затем сообщение приложения и чистое закрытие; build-лог шёл теми же строками, что и `build-status` |
+| Вызовы MCP-инструментов | — | **проверено живьём**: `tools/call web_search` к запущенному SearXNG вернул настоящие результаты (NVIDIA DGX Spark), то есть путь MCP → приложение → ответ работает |
+| `/v1` и `/v1/messages` против живой модели | нужен запущенный LLM-рецепт (десятки ГБ) | `curl` через ключ на `/v1/chat/completions` после установки любого LLM-рецепта |
 | OAuth-цикл | — | **проверено живьём**: регистрация клиента → `/oauth/authorize` с PKCE S256, вход и согласие → `code` → `/oauth/token` → `sah-oat-…` → `POST /mcp` с Bearer отвечает `initialize` |
 | Список MCP-инструментов | — | **проверено живьём**: 21 инструмент, имена, `inputSchema` и описания совпадают с апстримом |
 | `sah` CLI | отдаётся как есть, Python-скрипт | `curl -s /sah/install.sh \| sh` на чистой машине |
