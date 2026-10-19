@@ -25,6 +25,7 @@ import (
 	"gospark-hub/internal/auth"
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
+	"gospark-hub/internal/proxy"
 	"gospark-hub/internal/registry"
 	"gospark-hub/internal/store"
 	"gospark-hub/internal/web"
@@ -117,12 +118,23 @@ func main() {
 	system.Register(r, system.Deps{Config: cfg, Logger: slog.Default(), Registry: reg})
 	srv.MountStatic(r)
 
+	// The front door (Caddy) publishes the public port and forwards back to the
+	// daemon; with proxy_enabled=false the daemon listens on that port itself.
+	// Bringing it up never fails the boot: a broken proxy must not remove the
+	// recovery door on cfg.Port.
+	if err := proxy.Ensure(context.Background(), cfg, reg, slog.Default()); err != nil {
+		log.Printf("[proxy] %v", err)
+	}
+
 	httpSrv := &http.Server{
-		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
+		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(proxy.ListenPort(cfg))),
 		Handler:           r,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 	log.Printf("sahd listening on %s (public %d, project %s)", httpSrv.Addr, cfg.PublicPort, cfg.Project)
+
+	// Bring up (or hot-reload) the one public port. This never fails the boot:
+	// a broken proxy must not remove the recovery door on cfg.Port.
 
 	go func() {
 		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
