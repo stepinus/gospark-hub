@@ -55,10 +55,19 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) { r.mux.Ser
 type Server struct {
 	Cfg  config.Config
 	Dist string
+	// CoverRoots are searched in order for /cover-sources/ files: local recipes
+	// first, then every source's covers directory. The daemon fills this from
+	// the registry manager; New falls back to the checkout copies.
+	CoverRoots []string
 }
 
 func New(cfg config.Config) *Server {
-	return &Server{Cfg: cfg, Dist: filepath.Join(cfg.BaseDir, "frontend", "dist")}
+	s := &Server{Cfg: cfg, Dist: filepath.Join(cfg.BaseDir, "frontend", "dist")}
+	legacy := filepath.Join(cfg.BaseDir, "registry", "covers")
+	if st, err := os.Stat(legacy); err == nil && st.IsDir() {
+		s.CoverRoots = []string{legacy}
+	}
+	return s
 }
 
 // assetSuffixes: a missing file with one of these must 404, never fall through
@@ -71,10 +80,10 @@ var assetSuffixes = map[string]bool{
 }
 
 func (s *Server) MountStatic(r *Router) {
-	// Original cover sources, served whole.
-	covers := filepath.Join(s.Cfg.BaseDir, "registry", "covers")
-	if st, err := os.Stat(covers); err == nil && st.IsDir() {
-		r.Mount("/cover-sources/", http.StripPrefix("/cover-sources/", http.FileServer(http.Dir(covers))))
+	// Cover sources, served whole from every root that may hold one. A local
+	// cover wins over a vendored cover of the same name.
+	if len(s.CoverRoots) > 0 {
+		r.Mount("/cover-sources/", http.StripPrefix("/cover-sources/", http.HandlerFunc(s.serveCover)))
 	}
 
 	// The sah CLI, shipped as-is; /sah/install.sh and /sah/version are dynamic
@@ -107,6 +116,27 @@ func (s *Server) MountStatic(r *Router) {
 	})
 
 	r.HandleFunc("/", s.serveSPA)
+}
+
+// serveCover serves the first matching file across the cover roots. Only
+// regular files are served: a directory must not turn into a listing of the
+// registry home, and a missing file must stay a 404 for every root.
+func (s *Server) serveCover(w http.ResponseWriter, req *http.Request) {
+	rel := strings.TrimPrefix(path.Clean("/"+req.URL.Path), "/")
+	if rel == "" || rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
+		http.NotFound(w, req)
+		return
+	}
+	for _, root := range s.CoverRoots {
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		st, err := os.Stat(full)
+		if err != nil || !st.Mode().IsRegular() {
+			continue
+		}
+		http.ServeFile(w, req, full)
+		return
+	}
+	http.NotFound(w, req)
 }
 
 func (s *Server) serveSPA(w http.ResponseWriter, req *http.Request) {

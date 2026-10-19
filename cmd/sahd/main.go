@@ -22,6 +22,7 @@ import (
 	modelsapi "gospark-hub/internal/api/models"
 	oauthapi "gospark-hub/internal/api/oauthapi"
 	recipesapi "gospark-hub/internal/api/recipes"
+	registriesapi "gospark-hub/internal/api/registries"
 	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/auth"
 	"gospark-hub/internal/config"
@@ -121,13 +122,15 @@ func main() {
 	reg := registry.NewCache(mgr.Roots()...)
 	dock := dockerx.New(cfg, reg, db, slog.Default())
 
-	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg})
+	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr})
 	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
 	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock}})
 	oauthapi.Register(r, oauthapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Service: oauthSvc})
 	system.Register(r, system.Deps{Config: cfg, Logger: slog.Default(), Registry: reg})
+	registriesapi.Register(r, registriesapi.Deps{Manager: mgr, Cache: reg, Runtime: dock, Logger: slog.Default()})
+	srv.CoverRoots = mgr.CoverRoots()
 	srv.MountStatic(r)
 
 	// The front door (Caddy) publishes the public port and forwards back to the
