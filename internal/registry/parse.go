@@ -207,12 +207,14 @@ func parseNative(v any, defaultPort int) *RecipeNative {
 		return nil
 	}
 	return &RecipeNative{
-		Engine:      stringField(m, "engine", ""),
-		Model:       stringField(m, "model", ""),
-		Args:        stringSlice(m, "args"),
-		Env:         stringMap(m, "env"),
-		Port:        intField(m, "port", defaultPort),
-		EngineBuild: parseEngineBuild(m["engine_build"]),
+		Engine:       stringField(m, "engine", ""),
+		Model:        stringField(m, "model", ""),
+		Args:         stringSlice(m, "args"),
+		Env:          stringMap(m, "env"),
+		Port:         intField(m, "port", defaultPort),
+		EngineBuild:  parseEngineBuild(m["engine_build"]),
+		Vision:       boolField(m, "vision", false),
+		RuntimeImage: stringField(m, "runtime_image", ""),
 	}
 }
 
@@ -226,11 +228,10 @@ func parseEngineBuild(v any) *RecipeEngineBuild {
 		return nil
 	}
 	return &RecipeEngineBuild{
-		Image:       stringField(m, "image", ""),
-		VisionImage: stringField(m, "vision_image", ""),
-		Artifacts:   stringSlice(m, "artifacts"),
-		Command:     stringField(m, "command", ""),
-		Env:         stringMap(m, "env"),
+		Image:     stringField(m, "image", ""),
+		Artifacts: stringSlice(m, "artifacts"),
+		Command:   stringField(m, "command", ""),
+		Env:       stringMap(m, "env"),
 	}
 }
 

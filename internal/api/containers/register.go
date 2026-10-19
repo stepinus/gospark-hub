@@ -183,7 +183,17 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 	// response keeps the shape the UI expects so its install button does not
 	// change behaviour.
 	if rec.IsNative() {
-		if rec.Native == nil || rec.Native.EngineBuild == nil {
+		if rec.Native == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
+			return
+		}
+		// A vision recipe needs the engine's shared Python runtime; it is one
+		// copy per engine, so a second recipe pays nothing for it.
+		if err := h.ensureRuntime(r.Context(), rec); err != nil {
+			writeJSON(w, http.StatusConflict, map[string]string{"detail": err.Error()})
+			return
+		}
+		if rec.Native.EngineBuild == nil {
 			writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
 			return
 		}
@@ -232,6 +242,25 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "building", "slug": slug})
 }
 
+// ensureRuntime makes sure the engine's shared Python runtime exists for a
+// recipe that serves images. The image it is extracted from is the recipe's
+// runtime_image, falling back to the engine build image: both are the same
+// builder in practice.
+func (h *handler) ensureRuntime(ctx context.Context, rec registry.Recipe) error {
+	if h.engines == nil || rec.Native == nil || !rec.Native.Vision {
+		return nil
+	}
+	image := rec.Native.RuntimeImage
+	if image == "" && rec.Native.EngineBuild != nil {
+		image = rec.Native.EngineBuild.Image
+	}
+	if image == "" {
+		return errors.New("recipe serves images but names no runtime_image")
+	}
+	_, err := h.engines.EnsureRuntime(ctx, rec.Native.Engine, image)
+	return err
+}
+
 // ensureEngineBuild assembles the patched engine client a native recipe runs
 // on. The recipe's directory is the build command's working directory and the
 // slug names the client directory.
@@ -242,13 +271,12 @@ func (h *handler) ensureEngineBuild(ctx context.Context, rec registry.Recipe) (e
 	eb := rec.Native.EngineBuild
 	dir, _ := h.reg.Dir(rec.Slug)
 	return h.engines.EnsureBuild(ctx, engines.BuildSpec{
-		Recipe:      rec.Slug,
-		Engine:      rec.Native.Engine,
-		Image:       eb.Image,
-		Artifacts:   eb.Artifacts,
-		Command:     eb.Command,
-		Dir:         dir,
-		VisionImage: eb.VisionImage,
+		Recipe:    rec.Slug,
+		Engine:    rec.Native.Engine,
+		Image:     eb.Image,
+		Artifacts: eb.Artifacts,
+		Command:   eb.Command,
+		Dir:       dir,
 	})
 }
 
@@ -478,6 +506,26 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 		}
 		enginePath = path
 	}
+	// A vision recipe needs the engine's shared runtime: the patched engine runs
+	// its tower as a Python helper on it, the stock engine only needs the CUDA
+	// libraries it carries. One runtime serves every recipe of the engine.
+	if rec.Native.Vision {
+		if _, err := h.engines.RuntimePath(rec.Native.Engine); err != nil {
+			writeJSON(w, http.StatusConflict, map[string]string{"detail": "Engine runtime is not installed"})
+			return
+		}
+		clientPython := ""
+		if rec.Native.EngineBuild != nil {
+			candidate := filepath.Join(h.engines.BuildDir(rec.Native.Engine, rec.Slug), "python")
+			if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+				clientPython = candidate
+			}
+		}
+		for k, v := range h.engines.RuntimeEnv(rec.Native.Engine, clientPython) {
+			env[k] = v
+		}
+	}
+
 	model, err := h.natives.ResolveModel(rec.Native.Model)
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})

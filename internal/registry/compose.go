@@ -13,11 +13,11 @@ import (
 
 // _CONTEXT_FLAGS lists the compose command flags that set the context window.
 var contextFlags = map[string]bool{
-	"--max-model-len":   true,
-	"--max-seq-len":     true,
+	"--max-model-len":    true,
+	"--max-seq-len":      true,
 	"--max-total-tokens": true,
-	"--ctx-size":        true,
-	"-c":                true,
+	"--ctx-size":         true,
+	"-c":                 true,
 }
 
 // _RESERVE_FLAGS lists the compose command flags that reserve GPU memory.
