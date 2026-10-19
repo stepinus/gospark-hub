@@ -126,10 +126,14 @@ type RecipeNative struct {
 // to the client directory. The Hub applies no patches itself — the engine
 // build is the model repository's knowledge.
 type RecipeEngineBuild struct {
-	Image     string            `json:"image,omitempty"`
-	Artifacts []string          `json:"artifacts,omitempty"`
-	Command   string            `json:"command,omitempty"`
-	Env       map[string]string `json:"env,omitempty"`
+	Image string `json:"image,omitempty"`
+	// VisionImage names the image whose python runs the engine's vision
+	// helper when the checkpoint's vision path is Python. Empty means the
+	// engine starts its own helper.
+	VisionImage string            `json:"vision_image,omitempty"`
+	Artifacts   []string          `json:"artifacts,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
 }
 
 // RecipeEngineBuildStatus is the runtime half of the same block: whether the

@@ -36,6 +36,10 @@ import (
 )
 
 const (
+	// visionWrapperName is the script a client directory carries when its
+	// vision helper runs inside the builder image.
+	visionWrapperName = "vision-python"
+
 	buildsDirName = "builds"
 	buildFileName = "build.json"
 	// buildMarkerDir names the staging directory a build is assembled in;
@@ -72,6 +76,11 @@ type BuildSpec struct {
 	Command string
 	// Dir is the recipe directory, the working directory of Command.
 	Dir string
+	// VisionImage, when set, makes the client carry a `vision-python`
+	// wrapper: the engine's vision helper needs a python with torch, cuDNN
+	// and HPC-X OpenMPI, which only the builder image has. The wrapper runs
+	// the helper inside that image and keeps the engine itself on the host.
+	VisionImage string
 }
 
 // Build is one client directory on disk. Path is the directory, not part of
@@ -194,6 +203,9 @@ func (m *Manager) EnsureBuild(ctx context.Context, spec BuildSpec) (Build, error
 	}
 	dir := m.BuildDir(spec.Engine, spec.Recipe)
 	if rec, ok := readBuildRecord(dir); ok {
+		if err := writeVisionWrapper(dir, spec.VisionImage); err != nil {
+			return Build{}, err
+		}
 		return rec.build(dir), nil
 	}
 
@@ -245,11 +257,24 @@ func (m *Manager) EnsureBuild(ctx context.Context, spec BuildSpec) (Build, error
 	defer os.RemoveAll(tmp)
 
 	for _, artifact := range spec.Artifacts {
-		src := strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(artifact)), "/")
+		// "dest=src" puts the artifact at an explicit path inside the client
+		// (a vision runtime wants runtime/bin/python3.12, not a flat
+		// python3.12 beside the engine). A plain path keeps the basename.
+		entry, src := splitArtifact(artifact)
+		src = strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(src)), "/")
 		if src == "" || src == "." || src == ".." {
 			return Build{}, fmt.Errorf("engines: bad artifact %q", artifact)
 		}
-		dst := filepath.Join(tmp, filepath.Base(src))
+		if entry == "" {
+			entry = filepath.Base(src)
+		}
+		if entry == "" || entry == "." || strings.HasPrefix(entry, "..") || filepath.IsAbs(entry) {
+			return Build{}, fmt.Errorf("engines: bad artifact destination %q", artifact)
+		}
+		dst := filepath.Join(tmp, filepath.FromSlash(entry))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return Build{}, fmt.Errorf("artifact dir %s: %w", filepath.Dir(dst), err)
+		}
 		out, code, err := m.run()(ctx, "", "docker", "cp", id+":/"+src, dst)
 		if err != nil {
 			return Build{}, fmt.Errorf("docker cp %s: %w", src, err)
@@ -263,6 +288,10 @@ func (m *Manager) EnsureBuild(ctx context.Context, spec BuildSpec) (Build, error
 	// artifact list entry must fail here, not at launch.
 	if st, err := os.Stat(filepath.Join(tmp, "bin", eng.Binary)); err != nil || st.IsDir() {
 		return Build{}, fmt.Errorf("engine build has no bin/%s (artifacts %v)", eng.Binary, spec.Artifacts)
+	}
+
+	if err := writeVisionWrapper(tmp, spec.VisionImage); err != nil {
+		return Build{}, err
 	}
 
 	rec := buildRecord{
@@ -392,4 +421,40 @@ func lastLine(out string) string {
 		}
 	}
 	return ""
+}
+
+// splitArtifact understands the two artifact forms: "/image/path" (kept under
+// its basename in the client) and "client/path=/image/path".
+func splitArtifact(artifact string) (dest, src string) {
+	if before, after, ok := strings.Cut(artifact, "="); ok {
+		return strings.TrimSpace(before), strings.TrimSpace(after)
+	}
+	return "", artifact
+}
+
+// writeVisionWrapper drops the vision-python script into a client directory.
+// The engine runs `<TENSORFOLD_VISION_PYTHON> -m tensorfold.vision.native_helper`,
+// so a shell script that forwards its arguments into the builder image is
+// enough: the helper keeps the image's python, torch, cuDNN and MPI, the engine
+// stays on the host.
+func writeVisionWrapper(dir, image string) error {
+	path := filepath.Join(dir, visionWrapperName)
+	if image == "" {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove vision wrapper: %w", err)
+		}
+		return nil
+	}
+	script := `#!/bin/sh
+# Written by Spark AI Hub: the vision helper of a patched engine needs the
+# builder image's python 3.12 (torch, cuDNN, HPC-X OpenMPI).
+exec docker run --rm -i --init --gpus all   -e PYTHONPATH=/opt/tensorfold/python   -e TENSORFOLD_NO_UPDATE_CHECK=1   -v "${HF_HUB_CACHE:-$HOME/.cache/huggingface}:/hf:ro"   --entrypoint python3 ` + image + ` "$@"
+`
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("vision wrapper dir: %w", err)
+	}
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		return fmt.Errorf("vision wrapper: %w", err)
+	}
+	return nil
 }

@@ -242,12 +242,13 @@ func (h *handler) ensureEngineBuild(ctx context.Context, rec registry.Recipe) (e
 	eb := rec.Native.EngineBuild
 	dir, _ := h.reg.Dir(rec.Slug)
 	return h.engines.EnsureBuild(ctx, engines.BuildSpec{
-		Recipe:    rec.Slug,
-		Engine:    rec.Native.Engine,
-		Image:     eb.Image,
-		Artifacts: eb.Artifacts,
-		Command:   eb.Command,
-		Dir:       dir,
+		Recipe:      rec.Slug,
+		Engine:      rec.Native.Engine,
+		Image:       eb.Image,
+		Artifacts:   eb.Artifacts,
+		Command:     eb.Command,
+		Dir:         dir,
+		VisionImage: eb.VisionImage,
 	})
 }
 

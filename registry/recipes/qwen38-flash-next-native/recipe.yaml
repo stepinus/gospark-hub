@@ -1,7 +1,7 @@
 name: "Qwen3.8-Flash-Next Native"
 slug: qwen38-flash-next-native
 version: "1.0.0"
-description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams with an fp8 KV cache and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. Images stay with the container recipe: the patched engine's vision path runs a Python helper that needs the builder image's interpreter (3.12 with torch and its HPC-X OpenMPI), which the extracted client does not carry. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
+description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams with an fp8 KV cache and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. Images and video work: the patched engine's vision helper runs inside the builder image (python 3.12 with torch, cuDNN and HPC-X OpenMPI), so the tower keeps its container runtime while the engine itself is native. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
 author: "spark-ai-hub"
 source: "local"
 category: llm
@@ -15,6 +15,8 @@ tags:
   - int4
   - qwen
   - reasoning
+  - multimodal
+  - vision
   - tool-use
   - speculative-decoding
   - mtp
@@ -41,10 +43,15 @@ native:
   # built client into its engine home and runs it from there.
   engine_build:
     image: "tensorfold-qwen38:zig-db28187"
+    # The patched engine's vision path is a Python helper: it runs inside this
+    # image (python 3.12 with torch, cuDNN and HPC-X OpenMPI), the engine
+    # itself stays on the host.
+    vision_image: "tensorfold-qwen38:zig-db28187"
     artifacts: ["/opt/tensorfold/native/bin", "/opt/tensorfold/share", "/opt/tensorfold/python", "/opt/tensorfold/fatbin"]
     env:
       TENSORFOLD_CUDA_KERNELS: "share/tensorfold/cuda/sm121"
       TENSORFOLD_VISION_PYTHONPATH: "python"
+      TENSORFOLD_VISION_PYTHON: "vision-python"
   # Resolved by the daemon to the snapshot in the local Hugging Face cache:
   # no download, no copy, the folder fetch-weights.sh filled.
   model: "hf:nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6887e18c089fdea8509a33e63429a3300"
@@ -68,6 +75,9 @@ native:
     - "--top-k"
     - "20"
     - "--thinking"
+    - "--vision"
+    - "--vision-max-images"
+    - "50"
   env:
     # MTP chain length and the width up to which the running product picks
     # drafts; defaults of the single-Spark recipe this copies.

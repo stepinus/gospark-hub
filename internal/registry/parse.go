@@ -226,10 +226,11 @@ func parseEngineBuild(v any) *RecipeEngineBuild {
 		return nil
 	}
 	return &RecipeEngineBuild{
-		Image:     stringField(m, "image", ""),
-		Artifacts: stringSlice(m, "artifacts"),
-		Command:   stringField(m, "command", ""),
-		Env:       stringMap(m, "env"),
+		Image:       stringField(m, "image", ""),
+		VisionImage: stringField(m, "vision_image", ""),
+		Artifacts:   stringSlice(m, "artifacts"),
+		Command:     stringField(m, "command", ""),
+		Env:         stringMap(m, "env"),
 	}
 }
 

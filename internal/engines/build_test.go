@@ -373,3 +373,18 @@ func TestEnsureBuildRejectsIncompleteSpec(t *testing.T) {
 		t.Error("BuildPath accepted a path slug")
 	}
 }
+
+// TestSplitArtifact pins both artifact forms: the flat one keeps the image
+// basename, the explicit one puts the files where the vision runtime needs them.
+func TestSplitArtifact(t *testing.T) {
+	cases := []struct{ in, dest, src string }{
+		{"/opt/tensorfold/share", "", "/opt/tensorfold/share"},
+		{"runtime/bin/python3.12=/usr/bin/python3.12", "runtime/bin/python3.12", "/usr/bin/python3.12"},
+	}
+	for _, c := range cases {
+		dest, src := splitArtifact(c.in)
+		if dest != c.dest || src != c.src {
+			t.Fatalf("splitArtifact(%q) = %q, %q; want %q, %q", c.in, dest, src, c.dest, c.src)
+		}
+	}
+}
