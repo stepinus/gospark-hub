@@ -87,7 +87,7 @@ func newTestServer(t *testing.T, regDir string) (*httptest.Server, *store.DB) {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	cfg := config.Config{Project: "testproj", DataDir: t.TempDir(), RegistryPath: regDir}
+	cfg := config.Config{Project: "testproj", AppProjectPrefix: "testproj", AppNetwork: "testproj-net", DataDir: t.TempDir(), RegistryPath: regDir}
 	r := web.NewRouter()
 	Register(r, Deps{
 		Config:   cfg,
