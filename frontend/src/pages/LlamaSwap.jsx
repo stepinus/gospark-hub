@@ -29,17 +29,6 @@ import YamlEditor from '../components/YamlEditor'
  * card does — a model can always be taken out of a group again.
  */
 
-const HIDDEN_KEY = 'llamaswap-hidden'
-
-function loadHidden() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')
-    return new Set(Array.isArray(raw) ? raw : [])
-  } catch {
-    return new Set()
-  }
-}
-
 export default function LlamaSwap() {
   const user = useAuth((s) => s.user)
   const isAdmin = !user || user.role === 'admin'
@@ -54,8 +43,6 @@ export default function LlamaSwap() {
   const [dragging, setDragging] = useState(null)
   const [measuring, setMeasuring] = useState({})
   const [query, setQuery] = useState('')
-  const [showHidden, setShowHidden] = useState(false)
-  const [hidden, setHidden] = useState(loadHidden)
 
   const load = useCallback(async () => {
     const res = await getLlamaswap()
@@ -164,33 +151,15 @@ export default function LlamaSwap() {
     await load()
   }
 
-  // Hiding is a local preference, not a config change: the catalogue belongs to
-  // the machine, "out of my way" belongs to this browser.
-  const toggleHidden = (id) => {
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      try {
-        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]))
-      } catch {
-        /* private window: the choice lasts for this visit */
-      }
-      return next
-    })
-  }
-
   const matches = useCallback((id, name) => {
     const q = query.trim().toLowerCase()
     if (!q) return true
     return id.toLowerCase().includes(q) || (name || '').toLowerCase().includes(q)
   }, [query])
 
-  // visible = matches the search AND is not hidden (or hidden cards are shown)
   const isVisible = useCallback(
-    (id) => matches(id, state?.config?.models?.[id]?.name || state?.recipes?.find((r) => r.slug === id)?.name) &&
-      (showHidden || !hidden.has(id)),
-    [matches, state, showHidden, hidden],
+    (id) => matches(id, state?.config?.models?.[id]?.name || state?.recipes?.find((r) => r.slug === id)?.name),
+    [matches, state],
   )
 
   const recipesBySlug = useMemo(() => {
@@ -381,14 +350,6 @@ export default function LlamaSwap() {
               placeholder="Filter by name or id…"
               className="w-56 bg-surface-high border border-outline-dim rounded-lg px-2.5 py-1.5 text-[11px] text-text placeholder:text-text-dim"
             />
-            {hidden.size > 0 && (
-              <button
-                onClick={() => setShowHidden((v) => !v)}
-                className="px-3 py-1.5 rounded-lg bg-surface-high border border-outline-dim text-[11px] font-semibold cursor-pointer"
-              >
-                {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
-              </button>
-            )}
             <button
               onClick={addGroup}
               disabled={busy !== null}
@@ -422,13 +383,6 @@ export default function LlamaSwap() {
                     <span className="text-[10px] text-text-dim">
                       {r.memory_gb ? `${r.memory_gb} GB` : '—'}
                     </span>
-                    <button
-                      onClick={() => toggleHidden(r.slug)}
-                      title="Hide this card"
-                      className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-text"
-                    >
-                      ⊘
-                    </button>
                   </div>
                 ))}
             </div>
@@ -451,7 +405,6 @@ export default function LlamaSwap() {
               onDragStart={setDragging}
               onDropModel={(model) => moveModel(model, name)}
               onRemove={(model) => moveModel(model, '')}
-              onToggleHidden={toggleHidden}
             />
           ))}
           <GroupColumn
@@ -465,10 +418,8 @@ export default function LlamaSwap() {
             running={running}
             dragging={dragging}
             isVisible={isVisible}
-            hidden={hidden}
             onDragStart={setDragging}
             onDropModel={(model) => moveModel(model, '')}
-            onToggleHidden={toggleHidden}
             ungrouped
           />
         </div>
@@ -542,12 +493,10 @@ function GroupColumn({
   onDragStart,
   onDropModel,
   onRemove,
-  onToggleHidden,
   ungrouped,
 }) {
   const members = group?.members || []
   const visible = members.filter((id) => isVisible(id))
-  const hiddenHere = members.length - visible.length
   // Expected load: a Hub recipe knows its memory_gb, anything else falls back
   // to the last measurement. Hiding a card does not take it out of a group, so
   // the totals still count every member.
@@ -588,7 +537,6 @@ function GroupColumn({
         {totalGB ? ` of ${totalGB} GB` : ''}
         {freeGB > 0 ? ` · ${freeGB.toFixed(0)} GB free now` : ''}
         {unknown > 0 ? ` · ${unknown} unknown` : ''}
-        {hiddenHere > 0 ? ` · ${hiddenHere} hidden` : ''}
         {name && group?.swap === false ? ' · swap off' : ''}
         {name && group?.persistent ? ' · persistent' : ''}
       </p>
@@ -613,13 +561,6 @@ function GroupColumn({
               {running.has(id) && <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />}
               <span className="text-[11px] text-text truncate">{models[id]?.name || id}</span>
               <div className="ml-auto flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onToggleHidden(id) }}
-                  title="Hide this card"
-                  className="cursor-pointer border-none bg-transparent p-0 text-[10px] leading-none text-text-dim hover:text-text"
-                >
-                  ⊘
-                </button>
                 {!ungrouped && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onRemove(id) }}
@@ -644,7 +585,7 @@ function GroupColumn({
         ))}
         {visible.length === 0 && (
           <p className="text-[10px] text-text-dim m-0 py-2">
-            {members.length === 0 ? 'Nothing here.' : `All ${members.length} hidden or filtered out.`}
+            {members.length === 0 ? 'Nothing here.' : `All ${members.length} filtered out by the search.`}
           </p>
         )}
       </div>

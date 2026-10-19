@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store'
 import { useThemedLogo } from '../hooks/useThemedLogo'
+import HideButton from './HideButton'
 import { posterFor } from '../covers'
 import { formatParams } from './RecipeCard'
 import { speedLabel } from '../models'
@@ -104,6 +105,8 @@ export default function PosterCard({ recipe, highlight = null }) {
             />
           </span>
         )}
+
+        <HideButton slug={recipe.slug} className="absolute bottom-2.5 left-2.5 z-10 text-white/70" />
 
         <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
           {/* The sorted metric, unless that metric is speed — the pill below

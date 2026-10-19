@@ -12,6 +12,19 @@ function conflictsWith(target, other) {
   return port != null && other.ui?.port === port
 }
 
+// Models hidden from the catalogue. A local preference, not config: the Hub
+// keeps serving a hidden recipe, it just stops drawing its card.
+const HIDDEN_KEY = 'spark-ai-hub-hidden'
+
+function loadHidden() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')
+    return new Set(Array.isArray(raw) ? raw : [])
+  } catch {
+    return new Set()
+  }
+}
+
 const getInitialTheme = () => {
   const saved = localStorage.getItem('spark-ai-hub-theme')
   if (saved === 'light' || saved === 'dark') return saved
@@ -48,6 +61,21 @@ export const useStore = create((set, get) => ({
   launchRequest: null,
   _logWs: null,
   theme: getInitialTheme(),
+  hidden: loadHidden(),
+  showHidden: false,
+
+  toggleHidden: (slug) => set((state) => {
+    const next = new Set(state.hidden)
+    if (next.has(slug)) next.delete(slug)
+    else next.add(slug)
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]))
+    } catch {
+      /* private window: the choice lasts for this visit */
+    }
+    return { hidden: next }
+  }),
+  setShowHidden: (showHidden) => set({ showHidden }),
 
   toggleTheme: () => {
     const next = get().theme === 'dark' ? 'light' : 'dark'

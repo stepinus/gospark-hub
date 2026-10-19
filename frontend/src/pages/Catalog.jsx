@@ -26,6 +26,9 @@ function getSectionId(recipe) {
 
 export default function Catalog({ search = '' }) {
   const recipes = useStore((s) => s.recipes)
+  const hidden = useStore((s) => s.hidden)
+  const showHidden = useStore((s) => s.showHidden)
+  const setShowHidden = useStore((s) => s.setShowHidden)
   const [category, setCategory] = useState('all')
 
   const matches = useMemo(() => (r) => {
@@ -41,8 +44,8 @@ export default function Catalog({ search = '' }) {
   }, [category, search])
 
   const filtered = useMemo(
-    () => recipes.filter((r) => !isModel(r) && matches(r)),
-    [recipes, matches],
+    () => recipes.filter((r) => !isModel(r) && matches(r) && (showHidden || !hidden.has(r.slug))),
+    [recipes, matches, showHidden, hidden],
   )
   // A search for "qwen" here should not come back empty just because the
   // Qwen models moved: say how many are waiting on the Agents page. The search
@@ -68,10 +71,11 @@ export default function Catalog({ search = '' }) {
     const push = (r) => {
       if (r && !seen.has(r.slug)) { seen.add(r.slug); out.push(r) }
     }
-    recipes.filter((r) => r.running || r.starting).sort(byRelease).forEach(push)
-    recipes.filter((r) => !isModel(r) && getSectionId(r) === 'spark-ai-hub').sort(byRelease).forEach(push)
+    const shown = (r) => showHidden || !hidden.has(r.slug)
+    recipes.filter((r) => (r.running || r.starting) && shown(r)).sort(byRelease).forEach(push)
+    recipes.filter((r) => !isModel(r) && getSectionId(r) === 'spark-ai-hub' && shown(r)).sort(byRelease).forEach(push)
     return out.slice(0, 5)
-  }, [recipes])
+  }, [recipes, hidden, showHidden])
 
   const isBrowsing = !search && category === 'all'
 
@@ -95,6 +99,17 @@ export default function Catalog({ search = '' }) {
           </button>
         ))}
       </div>
+
+      {hidden.size > 0 && (
+        <div className="px-6 pt-2">
+          <button
+            onClick={() => setShowHidden(!showHidden)}
+            className="rounded-full border border-outline bg-transparent px-3 py-1.5 text-[11px] font-semibold text-text-muted transition-colors hover:border-text-dim hover:text-text cursor-pointer"
+          >
+            {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
+          </button>
+        </div>
+      )}
 
       {agentHits > 0 && (
         <div className="px-6 pt-3">

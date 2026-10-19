@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store'
 import { useThemedLogo } from '../hooks/useThemedLogo'
+import HideButton from './HideButton'
 import { formatParams } from './RecipeCard'
 import { buildLabel, displayName, formatDuration, primaryArena } from '../models'
 import { openUrl as openUrlFor } from './RecipeCard'
@@ -327,7 +328,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
   return (
     <Link
       to={`/app/${recipe.slug}`}
-      className="grid items-center gap-x-1.5 rounded-lg px-2 py-1.5 no-underline text-inherit transition-colors hover:bg-surface-high"
+      className="group grid items-center gap-x-1.5 rounded-lg px-2 py-1.5 no-underline text-inherit transition-colors hover:bg-surface-high"
       style={{ gridTemplateColumns: v.columns }}
     >
       {v.lead === 'rank' && (
@@ -387,6 +388,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
             ★
           </span>
         )}
+        <HideButton slug={recipe.slug} className="shrink-0" />
       </span>
       )}
 

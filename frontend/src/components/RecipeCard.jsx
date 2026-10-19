@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store'
 import { useThemedLogo } from '../hooks/useThemedLogo'
+import HideButton from './HideButton'
 import { speedLabel } from '../models'
 import { openUrl } from '../lib/urls'
 
@@ -53,6 +54,8 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
       to={`/app/${recipe.slug}`}
       className="relative block no-underline text-inherit overflow-hidden bg-surface rounded-2xl p-4 card-hover cursor-pointer group"
     >
+      <HideButton slug={recipe.slug} className="absolute right-2 top-2 z-10" />
+
       {/* Running indicator - top border */}
       {recipe.running && (
         <div className={`absolute top-0 left-0 right-0 h-[2px] ${

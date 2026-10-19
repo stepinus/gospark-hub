@@ -78,12 +78,19 @@ function useConnectInfo() {
 
 export default function Agents({ search = '' }) {
   const recipes = useStore((s) => s.recipes)
+  const hidden = useStore((s) => s.hidden)
+  const showHidden = useStore((s) => s.showHidden)
+  const setShowHidden = useStore((s) => s.setShowHidden)
   const authEnabled = useAuth((s) => s.authEnabled)
   const apiKey = useApiKey()
   const info = useConnectInfo()
 
-  const models = useMemo(() => recipes.filter(isAgentModel), [recipes])
-  const media = useMemo(() => recipes.filter(isMediaModel), [recipes])
+  const shown = useMemo(
+    () => (r) => showHidden || !hidden.has(r.slug),
+    [showHidden, hidden],
+  )
+  const models = useMemo(() => recipes.filter((r) => isAgentModel(r) && shown(r)), [recipes, shown])
+  const media = useMemo(() => recipes.filter((r) => isMediaModel(r) && shown(r)), [recipes, shown])
   const matches = useMemo(() => {
     const q = search.toLowerCase()
     return (r) => !q || r.name.toLowerCase().includes(q) || r.tags.some((t) => t.includes(q))
@@ -169,6 +176,16 @@ export default function Agents({ search = '' }) {
           { id: 'media-models', label: 'Media models', count: groupModels(mediaVisible, () => 0).length, where: '/mcp' },
         ]}
       />
+      {hidden.size > 0 && (
+        <div className="px-4 pt-6 sm:px-6">
+          <button
+            onClick={() => setShowHidden(!showHidden)}
+            className="rounded-full border border-outline bg-transparent px-3 py-1.5 text-[11px] font-semibold text-text-muted transition-colors hover:border-text-dim hover:text-text cursor-pointer"
+          >
+            {showHidden ? `Hide hidden (${hidden.size})` : `Show hidden (${hidden.size})`}
+          </button>
+        </div>
+      )}
       <div className="pt-8">
         <ModelShelves
           id="agent-models"
