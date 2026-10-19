@@ -54,7 +54,7 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
       to={`/app/${recipe.slug}`}
       className="relative block no-underline text-inherit overflow-hidden bg-surface rounded-2xl p-4 card-hover cursor-pointer group"
     >
-      <HideButton slug={recipe.slug} className="absolute right-2 top-2 z-10" />
+      <HideButton slug={recipe.slug} className="absolute right-1.5 top-1.5 z-20" />
 
       {/* Running indicator - top border */}
       {recipe.running && (
@@ -132,7 +132,7 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
         </div>
 
         {/* Action */}
-        <div className="shrink-0 flex flex-col items-end gap-1.5 mt-1">
+        <div className="shrink-0 flex flex-col items-end gap-1.5 mt-1 pr-8">
           {isBuilding && (
             <span className="text-primary text-xs font-medium font-label animate-pulse">
               <span className="inline-block animate-spin">⟳</span> Building

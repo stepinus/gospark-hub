@@ -388,7 +388,7 @@ function BuildRow({ recipe, variant, v, rank, highlight, onFrontier }) {
             ★
           </span>
         )}
-        <HideButton slug={recipe.slug} className="shrink-0" />
+        <HideButton slug={recipe.slug} size="sm" className="ml-1" />
       </span>
       )}
 
