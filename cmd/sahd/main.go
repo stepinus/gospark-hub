@@ -19,8 +19,8 @@ import (
 	containersapi "gospark-hub/internal/api/containers"
 	filesapi "gospark-hub/internal/api/files"
 	mcpapi "gospark-hub/internal/api/mcp"
-	oauthapi "gospark-hub/internal/api/oauthapi"
 	modelsapi "gospark-hub/internal/api/models"
+	oauthapi "gospark-hub/internal/api/oauthapi"
 	recipesapi "gospark-hub/internal/api/recipes"
 	"gospark-hub/internal/api/system"
 	"gospark-hub/internal/auth"
@@ -53,7 +53,7 @@ func (r runtime) Running(ctx context.Context, slug string) (bool, error) {
 	return r.d.IsRecipeRunning(ctx, slug), nil
 }
 
-func (r runtime) Ready(slug string) bool          { return r.d.IsReady(slug) }
+func (r runtime) Ready(slug string) bool       { return r.d.IsReady(slug) }
 func (r runtime) StartHealthCheck(slug string) { r.d.StartHealthCheck(context.Background(), slug) }
 func (r runtime) Stop(ctx context.Context, slug string) error {
 	_, err := r.d.StopRecipe(ctx, slug)
