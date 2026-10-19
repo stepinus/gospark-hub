@@ -1,7 +1,7 @@
 name: "Qwen3.8-Flash-Next Native"
 slug: qwen38-flash-next-native
 version: "1.0.0"
-description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. The engine's native CUDA vision path wants the tower under MLX tensor names (vision_tower.*) and this checkpoint carries them as model.visual.*, so the native recipe serves text only: images stay with the container recipe. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
+description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, two concurrent streams and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. The engine's native CUDA vision path wants the tower under MLX tensor names (vision_tower.*) and this checkpoint carries them as model.visual.*, so the native recipe serves text only: images stay with the container recipe. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
 author: "spark-ai-hub"
 source: "local"
 category: llm
@@ -44,8 +44,12 @@ native:
     - "8888"
     - "--context"
     - "262144"
+    # The container serves four streams because its Python engine keeps the KV
+    # cache in fp8 (1,056 bytes a token a layer). The native engine has no such
+    # switch: four full 262,144-token windows want 31.14 GiB and the budget here
+    # is 18.82 GiB, so the window stays and the streams drop to two.
     - "--parallel"
-    - "4"
+    - "2"
     - "--max-tokens"
     - "32768"
     - "--temperature"
