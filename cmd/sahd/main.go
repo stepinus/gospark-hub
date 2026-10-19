@@ -76,7 +76,11 @@ func (r runtime) Launch(ctx context.Context, slug string, user *store.User, orig
 
 // runner tells the model proxy which apps are up, so a request lands on the
 // container that is actually serving a model.
-type runner struct{ d *dockerx.Docker }
+type runner struct {
+	d   *dockerx.Docker
+	n   *native.Runner
+	reg *registry.Cache
+}
 
 func (r runner) RunningSlugs(ctx context.Context) ([]string, error) {
 	slugs, err := r.d.InstalledSlugs(ctx)
@@ -87,6 +91,23 @@ func (r runner) RunningSlugs(ctx context.Context) ([]string, error) {
 	for _, slug := range slugs {
 		if r.d.IsRecipeRunning(ctx, slug) {
 			out = append(out, slug)
+		}
+	}
+	// Native recipes run as systemd --user units, so dockerx cannot see them;
+	// without this the proxy's model list and routing skipped every native
+	// model (they never showed up in /v1/models or on the Agents page).
+	if r.n != nil && r.reg != nil {
+		recipes, err := r.reg.All()
+		if err != nil {
+			return nil, err
+		}
+		for _, rec := range recipes {
+			if !rec.IsNative() {
+				continue
+			}
+			if running, err := r.n.Running(ctx, rec.Slug); err == nil && running {
+				out = append(out, rec.Slug)
+			}
 		}
 	}
 	return out, nil
@@ -137,7 +158,7 @@ func main() {
 	enginesapi.Register(r, enginesapi.Deps{Engines: enginesMgr, Native: nativeRunner, Reg: reg, Logger: slog.Default()})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
-	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock}})
+	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock, n: nativeRunner, reg: reg}})
 	oauthapi.Register(r, oauthapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Service: oauthSvc})
 	system.Register(r, system.Deps{Config: cfg, Logger: slog.Default(), Registry: reg})
 	registriesapi.Register(r, registriesapi.Deps{Manager: mgr, Cache: reg, Runtime: dock, Logger: slog.Default()})

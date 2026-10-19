@@ -73,9 +73,19 @@ type upstream struct {
 	entries []map[string]any
 }
 
-// internalURL returns how the daemon reaches an app through the front door.
-func internalURL(cfg config.Config, slug string) string {
-	return fmt.Sprintf("http://127.0.0.1:%d/run/%s", cfg.PublicPort, slug)
+// internalURL returns how the daemon reaches an app. Containers are only
+// reachable through the front door's /run/<slug> route; a native recipe
+// listens on its own host port, and with the front door disabled that route
+// does not exist at all — which is why native models never showed up.
+func internalURL(cfg config.Config, rec registry.Recipe) string {
+	if rec.IsNative() && rec.Native != nil {
+		port := rec.Native.Port
+		if port == 0 {
+			port = rec.UI.Port
+		}
+		return fmt.Sprintf("http://127.0.0.1:%d", port)
+	}
+	return fmt.Sprintf("http://127.0.0.1:%d/run/%s", cfg.PublicPort, rec.Slug)
 }
 
 // RunningSlugs uses the configured Runner to discover running compose projects.
@@ -209,7 +219,7 @@ func (p *Proxy) ModelsList(ctx context.Context) ([]map[string]any, error) {
 }
 
 func (p *Proxy) probe(ctx context.Context, rec registry.Recipe) (*upstream, error) {
-	base := internalURL(p.deps.Config, rec.Slug) + "/v1"
+	base := internalURL(p.deps.Config, rec) + "/v1"
 	req, err := http.NewRequestWithContext(ctx, "GET", base+"/models", nil)
 	if err != nil {
 		return nil, err

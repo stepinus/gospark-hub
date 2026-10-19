@@ -1,4 +1,4 @@
-name: "Qwen3.8-27B Uncensored Native"
+name: "Qwen3.8-27B Uncensored INT4 DFlash2 (native)"
 slug: qwen38-27b-uncensored-native
 version: "1.0.0"
 description: "OrcaRouter's abliterated Qwen3.8-27B (MLX affine 4-bit, group 64, the format the stock TensorFold CUDA engine reads natively) served on the host without a container, with z-lab's DFlash2 drafter. The weights come out of the container image that used to serve this model — the checkpoint is on disk, so launching copies nothing and builds no image. Four streams at the full 262,144-token window fit in 71 GiB of budget after the 15.4 GiB of weights, which is the whole point of dropping the per-model runtime: the image was 74 GB for a 19 GB checkpoint. Images and video work through the checkpoint's own tower, as in the container recipe; the CUDA libraries come from the engine's shared runtime."
@@ -42,7 +42,7 @@ native:
   model: "/home/nvidia/models/qwen38-27b-uncensored/model"
   args:
     - "--name"
-    - "Qwen3.8-27B-Uncensored"
+    - "Qwen3.8-27B Uncensored INT4 DFlash2 (native)"
     - "--port"
     - "8890"
     - "--context"
@@ -75,6 +75,6 @@ requires_hf_token: false
 context_tokens: 262144
 integration:
   api_url: "<HUB>/v1"
-  model_id: "Qwen3.8-27B-Uncensored"
+  model_id: "Qwen3.8-27B Uncensored INT4 DFlash2 (native)"
   api_key: "<API_KEY>"
   max_context: "262144"
