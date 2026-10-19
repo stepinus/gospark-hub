@@ -10,14 +10,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"gospark-hub/internal/auth"
+	"gospark-hub/internal/bench"
 	swap "gospark-hub/internal/llamaswap"
 	"gospark-hub/internal/registry"
 	"gospark-hub/internal/store"
@@ -103,7 +102,9 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out["recipes"] = h.recipes(r.Context())
-	out["total_memory_gb"] = totalMemoryGB()
+	memory := bench.Memory()
+	out["memory"] = memory
+	out["total_memory_gb"] = memory.TotalGB
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -268,7 +269,6 @@ func (h *handler) measure(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, measurement)
 }
 
-
 // recipes lists the Hub recipes llama-swap can front: the language models, with
 // the memory a group would need and the port the sidecar should proxy to.
 func (h *handler) recipes(ctx context.Context) []map[string]any {
@@ -370,29 +370,6 @@ func (h *handler) sidecarToken() (string, error) {
 		return "", err
 	}
 	return token, nil
-}
-
-// totalMemoryGB is the machine's RAM, the denominator of the group fill bars.
-func totalMemoryGB() float64 {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.HasPrefix(line, "MemTotal:") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			return 0
-		}
-		kb, err := strconv.ParseFloat(fields[1], 64)
-		if err != nil {
-			return 0
-		}
-		return math.Round(kb / 1024 / 1024 * 10) / 10
-	}
-	return 0
 }
 
 func (h *handler) admin(w http.ResponseWriter, r *http.Request) bool {

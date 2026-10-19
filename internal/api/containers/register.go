@@ -25,6 +25,7 @@ import (
 	"github.com/coder/websocket"
 
 	"gospark-hub/internal/auth"
+	"gospark-hub/internal/bench"
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
 	"gospark-hub/internal/engines"
@@ -85,6 +86,8 @@ func Register(r *web.Router, deps Deps) {
 	r.Handle("GET", "/api/containers", h.listContainers)
 	r.Handle("GET", "/ws/build/{slug}", h.buildWS)
 	r.Handle("GET", "/ws/logs/{slug}", h.logsWS)
+	r.Handle("POST", "/api/recipes/{slug}/benchmark", h.benchmark)
+	r.Handle("GET", "/api/recipes/benchmarks", h.benchmarks)
 }
 
 type buildState struct {
@@ -633,6 +636,60 @@ func (h *handler) serveFlags(ctx context.Context, enginePath string) map[string]
 	h.engineFlagsCache[enginePath] = flags
 	h.mu.Unlock()
 	return flags
+}
+
+// benchmarksPath is where on-demand measurements live: one file, one entry per
+// recipe, overwritten by each run.
+func (h *handler) benchmarksPath() string {
+	return filepath.Join(h.cfg.DataDir, "benchmarks.json")
+}
+
+// benchmarks answers the last measurement per recipe.
+func (h *handler) benchmarks(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"benchmarks": bench.LoadAll(h.benchmarksPath())})
+}
+
+// benchmark runs the minimal benchmark against a RUNNING recipe and records
+// it: one real request through the app's own port, prefill and decode from the
+// stream, then the memory the process or container actually holds. Measuring a
+// stopped recipe would measure nothing, so it is a 409.
+func (h *handler) benchmark(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	rec, ok := h.reg.Get(slug)
+	if !ok {
+		notFound(w, "Recipe not found")
+		return
+	}
+	running := false
+	if rec.IsNative() && h.natives != nil {
+		running, _ = h.natives.Running(r.Context(), slug)
+	} else {
+		running = h.d.IsRecipeRunning(r.Context(), slug)
+	}
+	if !running {
+		writeJSON(w, http.StatusConflict, map[string]string{"detail": "Recipe is not running"})
+		return
+	}
+
+	port := rec.UI.Port
+	if rec.IsNative() && rec.Native != nil && rec.Native.Port != 0 {
+		port = rec.Native.Port
+	}
+	measurement, err := bench.Measure(r.Context(), fmt.Sprintf("http://127.0.0.1:%d", port), "", rec.Name)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"detail": err.Error()})
+		return
+	}
+	measurement.Target = slug
+	if rec.IsNative() {
+		measurement.MemoryBytes, measurement.MemorySource = bench.ProcessMemory(bench.PIDForPort(port))
+	} else if name := h.d.AnyContainerName(r.Context(), slug); name != "" {
+		measurement.MemoryBytes, measurement.MemorySource = bench.ContainerMemory(r.Context(), name)
+	}
+	if err := bench.Save(h.benchmarksPath(), slug, measurement); err != nil {
+		h.log.Error("save benchmark", "slug", slug, "err", err)
+	}
+	writeJSON(w, http.StatusOK, measurement)
 }
 
 func (h *handler) stop(w http.ResponseWriter, r *http.Request) {

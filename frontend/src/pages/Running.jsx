@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
+import { benchmarkRecipe, getBenchmarks } from '../lib/api'
 import { useThemedLogo } from '../hooks/useThemedLogo'
 import { openUrl } from '../components/RecipeCard'
 
@@ -8,11 +9,25 @@ export default function Running() {
   const selectRecipe = useStore((s) => s.selectRecipe)
   const launchOrSwap = useStore((s) => s.launchOrSwap)
   const stopRecipe = useStore((s) => s.stopRecipe)
-  const metrics = useStore((s) => s.metrics)
   const installing = useStore((s) => s.installing)
   const updating = useStore((s) => s.updating)
 
   const building = recipes.filter((r) => installing[r.slug] || updating[r.slug])
+
+  // Last measurement per recipe, read once and refreshed after each run.
+  const [benchmarks, setBenchmarks] = useState({})
+  useEffect(() => {
+    ;(async () => {
+      const res = await getBenchmarks()
+      if (res.ok) setBenchmarks(res.data?.benchmarks || {})
+    })()
+  }, [])
+
+  const runBenchmark = async (slug) => {
+    const res = await benchmarkRecipe(slug)
+    if (res.ok) setBenchmarks((prev) => ({ ...prev, [slug]: res.data }))
+    return res
+  }
   const running = recipes.filter((r) => r.running || r.starting)
   const installed = recipes.filter((r) => r.installed && !r.running && !r.starting && !installing[r.slug] && !updating[r.slug])
 
@@ -47,7 +62,14 @@ export default function Running() {
             <BuildingCard key={r.slug} recipe={r} onSelect={selectRecipe} isUpdating={!!updating[r.slug]} />
           ))}
           {running.map((r) => (
-            <RunningCard key={r.slug} recipe={r} onSelect={selectRecipe} onStop={stopRecipe} />
+            <RunningCard
+              key={r.slug}
+              recipe={r}
+              onSelect={selectRecipe}
+              onStop={stopRecipe}
+              benchmark={benchmarks[r.slug]}
+              onBenchmark={runBenchmark}
+            />
           ))}
         </div>
       )}
@@ -100,9 +122,20 @@ function BuildingCard({ recipe, onSelect, isUpdating }) {
   )
 }
 
-function RunningCard({ recipe, onSelect, onStop }) {
+function RunningCard({ recipe, onSelect, onStop, benchmark, onBenchmark }) {
   const [logoFailed, setLogoFailed] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [measuring, setMeasuring] = useState(false)
+  const [benchError, setBenchError] = useState('')
+
+  const handleBenchmark = async (e) => {
+    e.stopPropagation()
+    setMeasuring(true)
+    setBenchError('')
+    const res = await onBenchmark(recipe.slug)
+    if (!res.ok) setBenchError(res.error)
+    setMeasuring(false)
+  }
   const logoUrl = useThemedLogo(recipe.logo)
   const isReady = recipe.ready
   const borderColor = isReady ? 'border-l-primary' : 'border-l-warning'
@@ -179,6 +212,15 @@ function RunningCard({ recipe, onSelect, onStop }) {
               Open
             </a>
           )}
+          {isReady && (
+            <button
+              disabled={measuring}
+              onClick={handleBenchmark}
+              className="px-3 py-1.5 bg-surface-high text-text-muted border border-outline-dim rounded-xl text-xs font-medium cursor-pointer hover:bg-surface-highest hover:text-text transition-all disabled:opacity-50"
+            >
+              {measuring ? '⟳ Measuring…' : 'Benchmark'}
+            </button>
+          )}
           <button
             disabled={stopping}
             onClick={handleStop}
@@ -188,6 +230,31 @@ function RunningCard({ recipe, onSelect, onStop }) {
           </button>
         </div>
       </div>
+
+      {(benchmark || benchError) && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-outline-dim/40 pt-2 text-[11px] text-text-dim">
+          {benchError && <span className="text-error">{benchError}</span>}
+          {benchmark && (
+            <>
+              <span>
+                prefill <b className="text-text">{benchmark.prefill_tps}</b> tok/s
+                <span> · {benchmark.prompt_tokens} tok / {benchmark.ttft_ms} ms</span>
+              </span>
+              <span>
+                decode <b className="text-text">{benchmark.decode_tps}</b> tok/s
+                <span> · {benchmark.decode_tokens} tok / {benchmark.total_ms} ms</span>
+              </span>
+              <span>
+                memory{' '}
+                <b className="text-text">
+                  {benchmark.memory_bytes ? `${(benchmark.memory_bytes / 1024 ** 3).toFixed(1)} GiB` : '—'}
+                </b>
+                {benchmark.memory_source ? <span> · {benchmark.memory_source}</span> : null}
+              </span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

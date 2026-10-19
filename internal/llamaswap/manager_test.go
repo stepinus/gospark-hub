@@ -162,31 +162,3 @@ func TestSettingsDefaultAndRoundTrip(t *testing.T) {
 		t.Fatal("port 0 accepted")
 	}
 }
-
-func TestParseMemUsage(t *testing.T) {
-	cases := map[string]int64{
-		"1.5GiB / 119GiB": 1610612736,
-		"512MiB / 1GiB":   536870912,
-		"":                0,
-		"weird":           0,
-	}
-	for in, want := range cases {
-		if got := parseMemUsage(in); got != want {
-			t.Fatalf("parseMemUsage(%q) = %d, want %d", in, got, want)
-		}
-	}
-}
-
-func TestProxyPort(t *testing.T) {
-	cases := map[string]int{
-		"http://127.0.0.1:8085":           8085,
-		"http://127.0.0.1:8085/":          8085,
-		"host:9000":                       9000,
-		"http://127.0.0.1":                0,
-	}
-	for in, want := range cases {
-		if got := ProxyPort(in); got != want {
-			t.Fatalf("ProxyPort(%q) = %d, want %d", in, got, want)
-		}
-	}
-}

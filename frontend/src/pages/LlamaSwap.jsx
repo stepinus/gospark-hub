@@ -371,7 +371,7 @@ export default function LlamaSwap() {
               models={models}
               measurements={measurements}
               recipes={recipesBySlug}
-              totalGB={state?.total_memory_gb || 0}
+              memory={state?.memory}
               running={running}
               dragging={dragging}
               onDragStart={setDragging}
@@ -385,7 +385,7 @@ export default function LlamaSwap() {
             models={models}
             measurements={measurements}
             recipes={recipesBySlug}
-            totalGB={state?.total_memory_gb || 0}
+            memory={state?.memory}
             running={running}
             dragging={dragging}
             onDragStart={setDragging}
@@ -446,7 +446,7 @@ export default function LlamaSwap() {
   )
 }
 
-function GroupColumn({ name, title, group, models, measurements, recipes, totalGB, running, dragging, onDragStart, onDropModel, ungrouped }) {
+function GroupColumn({ name, title, group, models, measurements, recipes, memory, running, dragging, onDragStart, onDropModel, ungrouped }) {
   const members = group?.members || []
   // Expected load: a Hub recipe knows its memory_gb, anything else falls back
   // to the last measurement.
@@ -459,7 +459,13 @@ function GroupColumn({ name, title, group, models, measurements, recipes, totalG
   const known = loads.filter(Boolean)
   const usedGB = known.reduce((a, b) => a + b, 0)
   const unknown = members.length - known.length
+  const totalGB = memory?.total_gb || 0
+  const freeGB = memory?.available_gb || 0
   const fill = totalGB ? Math.min(100, (usedGB / totalGB) * 100) : 0
+  // A group that wants more than the machine has free right now will evict
+  // something else or fail to load: that is the number that matters, not just
+  // the total.
+  const overFree = freeGB > 0 && usedGB > freeGB
 
   return (
     <div
@@ -479,6 +485,7 @@ function GroupColumn({ name, title, group, models, measurements, recipes, totalG
       <p className="text-[10px] text-text-dim m-0 mt-0.5">
         {usedGB > 0 ? `≈ ${usedGB.toFixed(0)} GB` : 'no memory data'}
         {totalGB ? ` of ${totalGB} GB` : ''}
+        {freeGB > 0 ? ` · ${freeGB.toFixed(0)} GB free now` : ''}
         {unknown > 0 ? ` · ${unknown} unknown` : ''}
         {name && group?.swap === false ? ' · swap off' : ''}
         {name && group?.persistent ? ' · persistent' : ''}
@@ -486,7 +493,7 @@ function GroupColumn({ name, title, group, models, measurements, recipes, totalG
       {totalGB > 0 && (
         <div className="mt-1.5 h-1.5 w-full rounded-full bg-surface-highest overflow-hidden">
           <div
-            className={`h-full rounded-full ${fill > 90 ? 'bg-error' : fill > 70 ? 'bg-tertiary' : 'bg-primary'}`}
+            className={`h-full rounded-full ${overFree ? 'bg-error' : fill > 70 ? 'bg-tertiary' : 'bg-primary'}`}
             style={{ width: `${fill}%` }}
           />
         </div>

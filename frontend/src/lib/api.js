@@ -107,6 +107,19 @@ export function saveEngineSettings(name, settings) {
   return request('PUT', `/api/engines/${encodeURIComponent(name)}/settings`, settings)
 }
 
+/* Benchmarks */
+
+// One real request against a running recipe: prefill, decode and the memory it
+// holds. The daemon records the result, so the card keeps showing it.
+export function benchmarkRecipe(slug) {
+  return request('POST', `/api/recipes/${encodeURIComponent(slug)}/benchmark`)
+}
+
+// { benchmarks: { slug: measurement } }
+export function getBenchmarks() {
+  return request('GET', '/api/recipes/benchmarks')
+}
+
 /* llama-swap sidecar */
 
 // The sidecar the Hub installs and runs itself: the upstream binary, its YAML
