@@ -1,0 +1,588 @@
+[
+  {
+    "name": "web_search",
+    "title": "Web search",
+    "description": "Search the web privately through SearXNG on the Spark. Returns titles, URLs and snippets; read a result in full with web_fetch. Use it for current information and anything beyond your training data, and cite the URLs you use.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "What to search for."
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 8,
+          "description": "How many results to return."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "web_fetch",
+    "title": "Fetch web page",
+    "description": "Read one web page, fetched from the Spark, as markdown (HTML) or text. HTTPS only (an admin account may also read http:// pages on its local network); sends no cookies, so pages that need a login show what an anonymous visitor sees. Long pages are truncated.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "An https:// URL."
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "generate_image",
+    "title": "Generate image",
+    "description": "Create an image from a text prompt on the Spark. Write a detailed, visual prompt (subject, setting, lighting, style, composition); put any text that must appear in the image in quotes. Returns a job_id at once, not the image: then call get_image with it until the image arrives. Do not start the render again.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "What the image should show."
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "enum": [
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3"
+          ],
+          "default": "1:1"
+        },
+        "negative_prompt": {
+          "type": "string",
+          "description": "Things to keep out of the image."
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reuse a seed to reproduce an image. Omit for random."
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Sampling steps. Leave this out: each model then uses the steps its model card recommends (list_image_models shows them — a step-distilled model wants 4, a full diffusion model 50). Set it only when the user asks."
+        },
+        "model": {
+          "type": "string",
+          "description": "A model id from list_image_models. Omit to use whichever is running."
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_image",
+    "title": "Edit image",
+    "description": "Edit one to three images with a natural-language instruction on the Spark, e.g. 'replace the background with a rainy neon street, keep the person unchanged'. Returns a job_id at once, not the image: then call get_image with it until the image arrives. Do not start the render again.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The edit to make."
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "description": "Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Sampling steps. Leave this out: each model then uses the steps its model card recommends (list_image_models shows them — a step-distilled model wants 4, a full diffusion model 50). Set it only when the user asks."
+        },
+        "model": {
+          "type": "string",
+          "description": "A model id from list_image_models. Omit to use whichever is running."
+        }
+      },
+      "required": [
+        "prompt",
+        "images"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_image",
+    "title": "Get image",
+    "description": "Collect the image job that generate_image or edit_image started. Waits up to 20 s; returns the image when done, or \"Not done yet\", in which case call get_image again with the same job_id until it returns the image or an error.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "generate_video",
+    "title": "Generate video",
+    "description": "Start rendering a short video on the Spark from a text prompt; from a first frame, a last frame or both (image-to-video); from reference pictures, clips and sounds that set who and what appears (multi-reference, audio-reference); or from an input video to edit, extend or inpaint (video-to-video). list_video_models says which inputs, shapes and lengths each model takes. Returns a job_id at once, not the video: then call get_video with it until the video arrives (rendering takes minutes). Do not start the render again. Describe the motion and camera as well as the scene.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "What happens in the video."
+        },
+        "image": {
+          "type": "string",
+          "description": "Optional picture: the first frame for image-to-video, or <Picture 1> for a multi-reference model. Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "last_image": {
+          "type": "string",
+          "description": "Optional last frame the clip ends on (models that list last-frame); with `image` too, the clip goes from one to the other. Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "description": "More reference pictures, <Picture 2>, <Picture 3> and so on, for multi-reference models. Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "audio": {
+          "type": "string",
+          "description": "Optional reference sound, <Audio 1>: a voice or soundtrack for audio-reference models. A URL returned by generate_music, an upload's URL (create_upload, or My files), or a public http(s) WAV URL."
+        },
+        "video": {
+          "type": "string",
+          "description": "Optional input video to edit (models that list video-to-video). A URL returned by get_video, an upload's URL (create_upload, or My files), or a public http(s) video URL."
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "description": "Length. Omit for the model's default; each model's max_seconds is in list_video_models."
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "enum": [
+            "16:9",
+            "9:16",
+            "21:9",
+            "4:3",
+            "1:1",
+            "3:4"
+          ],
+          "description": "Shape; each model's aspect_ratios are in list_video_models. Omit for 16:9, or for a first/last-frame clip to follow the picture."
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Leave this out: the model card's setting is used."
+        },
+        "model": {
+          "type": "string",
+          "description": "A model id from list_video_models. Omit to use whichever is running."
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_video",
+    "title": "Get video",
+    "description": "Collect the video job that generate_video started. Waits up to 20 s; returns the video URL and a still frame when done, or \"Not done yet\" with its progress, in which case call get_video again with the same job_id until it returns the video or an error.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_video_models",
+    "title": "List video models",
+    "description": "List the Spark's video models: what each accepts, whether it is running, and the settings its model card recommends; plus the memory free to start one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "generate_3d",
+    "title": "Generate 3D model",
+    "description": "Start turning one picture of an object into a textured 3D model (GLB) on the Spark. Use a picture of one whole object, centered. list_3d_models says what background each model takes: models that cut the object out themselves take any photo; for the others use a plain background, which the Hub cuts away first (a PNG whose background is already transparent is used as it is). Without a picture, make one first with generate_image, asking for the object \"centered on a plain white background\". With more pictures of the same object from other sides (`views`; models that list multi-view in list_3d_models), the sides and back are built from them instead of guessed: real photos work best, as drawn views often disagree with each other. Returns a job_id at once, not the model: then call get_3d with it until the model arrives (it takes minutes). Do not start it again.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "The picture to build from: the front view. Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "views": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string"
+            },
+            "back": {
+              "type": "string"
+            },
+            "right": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Optional more views of the same object, for models that list multi-view: `left` is the object turned to face the picture's left (its left side to the camera), `back` its back, `right` its right side. Same rules as image: one object, plain background, a URL."
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Leave this out: the model's own setting (50) is used."
+        },
+        "model": {
+          "type": "string",
+          "description": "A model id from list_3d_models. Omit to use whichever is running."
+        }
+      },
+      "required": [
+        "image"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_3d",
+    "title": "Get 3D model",
+    "description": "Collect the job that generate_3d started. Waits up to 20 s; returns the GLB's URL and the cut-out picture it was built from when done, or \"Not done yet\", in which case call get_3d again with the same job_id until it returns the model or an error.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_3d_models",
+    "title": "List 3D models",
+    "description": "List the Spark's 3D models: what each takes and makes, and whether it is running; plus the memory free to start one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "generate_music",
+    "title": "Generate music",
+    "description": "Compose a song on the Spark: lyrics plus a style caption in, a stereo WAV out. Put structure tags ([Verse], [Chorus], [Bridge], [Outro]) each on its own line in the lyrics. Describe genre, instruments, tempo (BPM), mood and production in style. Returns a job_id at once, not the song: then call get_music with it until the song arrives (composing takes minutes). Do not start it again.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "lyrics": {
+          "type": "string",
+          "description": "The lyrics, with structure tags on their own lines."
+        },
+        "style": {
+          "type": "string",
+          "description": "Genre, instrumentation, tempo, mood, production."
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 360,
+          "description": "Maximum length; the model may end the song sooner. Omit for 30."
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model": {
+          "type": "string",
+          "description": "Omit to use whichever music model is running."
+        }
+      },
+      "required": [
+        "lyrics",
+        "style"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_music",
+    "title": "Get music",
+    "description": "Collect the song job that generate_music started. Waits up to 20 s; returns the song URL when done, or \"Not done yet\", in which case call get_music again with the same job_id until it returns the song or an error.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_upload",
+    "title": "Create upload link",
+    "description": "Get a one-time link to upload one image, MP4/MOV video or sound file (WAV, MP3, FLAC, Ogg) from your workspace to the Hub, without any key. Run the returned curl command with your file; it prints JSON whose `url` you then pass to edit_image (images) or generate_video (image, video or audio). The link works once and expires in 15 minutes; call this again for each file.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_download",
+    "title": "Create download link",
+    "description": "Get a short-lived link to download one of the user's Hub files (an image, video, 3D model or song URL from the other tools, or an upload) into your workspace, without any key. Run the returned curl command. The link expires in 15 minutes; call this again whenever you need it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The Hub URL of the image, video, 3D model or song."
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_file",
+    "title": "Delete file",
+    "description": "Delete one of the user's Hub files for good: an image, video, 3D model or song URL from the other tools, or an upload. Only when the user asks for it; it cannot be undone.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The Hub URL of the image, video, 3D model, song or upload."
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "decide",
+    "title": "Decide",
+    "description": "Ask the Spark's decision model typed questions about a state: text or JSON, plus up to 4 images and 2 videos. It does not write text; for each question it returns a probability for every allowed answer, the same every time for the same input. Use it to categorize, triage, score or check things, e.g. sort images and videos into the user's categories with one choice question whose criteria name each category and describe it. Act on confident answers and ask the user about uncertain ones instead of overriding the model. Answers come back in the call.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "description": "What to decide about: text, or a JSON object/array. With media, say what it is and add any context."
+        },
+        "questions": {
+          "type": "object",
+          "description": "Question id -> question. Each has `type`: \"choice\" (criteria maps each option id to a one-line description), \"score\" (criteria lists ordered levels, lowest first) or \"noul\" (yes/no, no criteria); and `instructions`: the question in plain words. Up to 64 questions, answered together.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "choice",
+                  "score",
+                  "noul"
+                ]
+              },
+              "instructions": {
+                "type": "string"
+              },
+              "criteria": {
+                "type": [
+                  "object",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "description": "Images to look at. Each item is a URL returned by generate_image or edit_image, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) image URL. Never a file path or the file's contents: the model runs on the Spark, not where you are, so upload the file first with create_upload."
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "description": "MP4 videos to watch, sampled at 2 frames a second, up to 64 frames. Each item is a URL returned by generate_video, an upload's URL (create_upload, or the Hub's My files page), or a public http(s) video URL; never a file path."
+        },
+        "model": {
+          "type": "string",
+          "description": "A model id from list_decision_models. Omit to use whichever is running."
+        }
+      },
+      "required": [
+        "state",
+        "questions"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "start_model",
+    "title": "Start model",
+    "description": "Start one of the Spark's stopped image, video, 3D, music or decision models, or SearXNG (model \"searxng\"), the search engine web_search runs on, so the other tools can use it. Loading takes from under a minute to about 15 minutes for the largest. Waits up to 20 s; returns once the model is ready, or \"Not done yet\", in which case call start_model again with the same model until it is ready. Refused when the model needs more memory than is free: the error names what is running, and stop_model can free a model among them.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "A model id from list_image_models, list_video_models, list_3d_models or list_decision_models, a music model, or \"searxng\" for the search engine web_search runs on."
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "stop_model",
+    "title": "Stop model",
+    "description": "Stop a running image, video, 3D, music or decision model, or SearXNG (model \"searxng\"), to free its memory, e.g. to start another with start_model. Refused while the model is rendering a job. Only these can be stopped here; LLMs and every other app are managed in the Hub.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "A model id from list_image_models, list_video_models, list_3d_models or list_decision_models, a music model, or \"searxng\" for the search engine web_search runs on."
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "list_decision_models",
+    "title": "List decision models",
+    "description": "List the Spark's decision models, such as Cloudflare's Clef: what each reads (text, images, videos) and whether it is running; plus the memory free to start one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "list_image_models",
+    "title": "List image models",
+    "description": "List the Spark's image models: what each does, whether it is running, and the settings its model card recommends; plus the memory free to start one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  }
+]
