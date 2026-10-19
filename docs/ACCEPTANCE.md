@@ -66,6 +66,29 @@
 поставляются с кодом, их приносит источник. `TestRegistryList` и data-driven тесты
 пропускаются, когда каталога нет.
 
+## Фаза 9 — движки на хосте и нативные рецепты (2026-10-19)
+
+| Проверка | Как | Итог |
+|---|---|---|
+| Движок виден до установки | `GET /api/engines`, пустой `ENGINE_HOME` | `{"name":"tensorfold","installed":false,"latest":"1.1.1"}` |
+| Установка | `POST /api/engines/tensorfold/install` | 5,5 с: скачивание 22 МБ, сумма sha256 сверена, `tensorfold/1.1.1/`, симлинк `current`; `current/bin/tensorfold-native --version` → `1.1.1` |
+| Повторная установка | тот же вызов | 409 «Engine tensorfold 1.1.1 is already installed» |
+| Обновление без новой версии | `POST …/update` | `{"version":"1.1.1","changed":false}` |
+| Удаление | `DELETE /api/engines/tensorfold` | каталог снесён, `installed:false`; установка заново — 200 |
+| Запущенный нативный рецепт | юнит `gospark-native-qwen38-flash-next-native` поднят, `DELETE`/`update` | 409 «A native recipe is running on this engine» |
+| Рецепт-натив | `GET /api/recipes/qwen38-flash-next-native` | `kind: native`, блок `native` с движком, `hf:`-ссылкой, аргументами и env |
+| Флаги запуска нативного рецепта | юнит активен / остановлен | `running`/`ready` идут за `systemctl --user is-active` |
+| Проводка запуска | временный рецепт с несуществующим путём модели → `POST …/launch` | 200, юнит `gospark-native-bogus-native` создан, движок запустился и записал в `<data>/logs/bogus-native.log`: «… is neither a directory nor a Hugging Face repo id» |
+| Остановка | `POST …/stop` | `{"status":"stopped"}`, юнита нет |
+| Страница Engines | headless Chrome, `/engines` | карточка TensorFold, «Version 1.1.1 · up to date», `Update` задизейблен, `Delete` активен |
+| Карточка нативного рецепта | `/app/qwen38-flash-next-native` | бейдж «Native», кнопка `Launch`, установки нет |
+| Контейнерные рецепты | `GET /api/recipes`, parity | без поля `kind`, всё как раньше |
+| Тесты | `go test ./... -count=1` | 20 пакетов зелёные |
+
+Не проверено живьём: загрузка самого чекпоинта Qwen3.8-Flash-Next (потолок памяти движка
+97,24 ГиБ, на машине в момент проверки свободно 91 гибибайт). Проводка запуска проверена
+движком на заведомо неверном пути модели.
+
 ## Вывод
 
 Функциональный паритет по HTTP, данным рецептов, статике и экранам достигнут и проверяется
