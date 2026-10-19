@@ -5,6 +5,9 @@ import { useThemedLogo } from '../hooks/useThemedLogo'
 import HideButton from './HideButton'
 import { speedLabel } from '../models'
 import { openUrl } from '../lib/urls'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 // Where "Open" points. Lives in lib/urls.js with everything else the Hub says
 // about its own address; re-exported here because ModelList, PosterCard,
@@ -22,8 +25,8 @@ export function formatParams(recipe) {
 // you are ranking on stands out from the specs around it.
 function chipClass(active) {
   return active
-    ? 'text-[10px] font-label font-bold text-primary-on bg-primary px-2 py-0.5 rounded-full'
-    : 'text-[10px] font-label text-text-muted bg-surface-high px-2 py-0.5 rounded-full'
+    ? 'border-primary bg-primary text-primary-foreground'
+    : 'border-border bg-muted text-muted-foreground'
 }
 
 // `hideCategories` is set for the Ready-to-Serve Models section, where every
@@ -50,127 +53,126 @@ export default function RecipeCard({ recipe, hideCategories = false, highlight =
     : [recipe.category]
 
   return (
-    <Link
-      to={`/app/${recipe.slug}`}
-      className="relative block no-underline text-inherit overflow-hidden bg-surface rounded-2xl p-4 card-hover cursor-pointer group"
-    >
-      {/* Running indicator - top border */}
-      {recipe.running && (
-        <div className={`absolute top-0 left-0 right-0 h-[2px] ${
-          recipe.ready
-            ? 'bg-primary'
-            : 'bg-warning animate-pulse'
-        }`} />
-      )}
-
-      {/* The hide control gets its own strip at the top of the card: it never
-          lies on the action button, whatever the card contains. */}
-      <div className="mb-1 flex items-center justify-end">
-        <HideButton slug={recipe.slug} always />
-      </div>
-
-      <div className="flex items-start gap-3.5">
-        {/* Icon */}
-        {logoUrl && !logoFailed ? (
-          <img
-            src={logoUrl}
-            alt={recipe.name}
-            className="w-14 h-14 rounded-xl object-contain bg-surface-high p-2 shrink-0 transition-transform group-hover:scale-105"
-            onError={() => setLogoFailed(true)}
+    <Link to={`/app/${recipe.slug}`} className="group relative block no-underline text-inherit">
+      <Card className="relative gap-0 overflow-hidden rounded-lg border-border bg-card p-4 shadow-none transition-colors group-hover:border-primary/30">
+        {/* Running indicator - top border */}
+        {recipe.running && (
+          <div
+            className={`absolute inset-x-0 top-0 h-[2px] ${recipe.ready ? 'bg-primary' : 'bg-warning animate-pulse'}`}
           />
-        ) : (
-          <div className="w-14 h-14 rounded-xl bg-surface-high flex items-center justify-center text-2xl shrink-0 transition-transform group-hover:scale-105">
-            {recipe.icon || '◻'}
-          </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Wraps to two lines rather than truncating — names like
-              "Nemotron-3.5 Lightning 30B-A3B NVFP4 + DSpark" lose their
-              meaning the moment the tail is cut off. */}
-          <h3 className="font-semibold text-sm text-text leading-tight line-clamp-2 break-words m-0 font-display" title={recipe.name}>
-            {recipe.name}
-          </h3>
-          <p className="text-[11px] text-text-dim mt-0.5 m-0">{recipe.author}</p>
-          <p className="text-xs text-text-muted mt-1.5 m-0 line-clamp-1">{recipe.description}</p>
+        {/* The hide control gets its own strip at the top of the card: it never
+            lies on the action button, whatever the card contains. */}
+        <div className="mb-1 flex items-center justify-end">
+          <HideButton slug={recipe.slug} always />
+        </div>
 
-          {/* Tags */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {!hideCategories && recipeCategories.slice(0, 2).map((cat) => (
-              <span key={cat} className="text-[10px] font-label text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">
-                {cat}
+        <div className="flex items-start gap-3.5">
+          {/* Icon */}
+          {logoUrl && !logoFailed ? (
+            <img
+              src={logoUrl}
+              alt={recipe.name}
+              className="h-14 w-14 shrink-0 rounded-md border border-border bg-muted object-contain p-2"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-2xl">
+              {recipe.icon || '◻'}
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="min-w-0 flex-1">
+            {/* Wraps to two lines rather than truncating — names like
+                "Nemotron-3.5 Lightning 30B-A3B NVFP4 + DSpark" lose their
+                meaning the moment the tail is cut off. */}
+            <h3 className="m-0 line-clamp-2 break-words font-display text-sm font-semibold leading-tight text-foreground" title={recipe.name}>
+              {recipe.name}
+            </h3>
+            <p className="m-0 mt-0.5 text-[11px] text-muted-foreground/80">{recipe.author}</p>
+            <p className="m-0 mt-1.5 line-clamp-1 text-xs text-muted-foreground">{recipe.description}</p>
+
+            {/* Tags */}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {!hideCategories && recipeCategories.slice(0, 2).map((cat) => (
+                <Badge key={cat} variant="outline" className="h-4 px-1.5 text-[10px] text-muted-foreground">
+                  {cat}
+                </Badge>
+              ))}
+              {!recipe.docker?.gpu && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-muted-foreground">CPU</Badge>
+              )}
+              {recipe.engine && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-muted-foreground">{recipe.engine}</Badge>
+              )}
+              {recipe.arch && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px] uppercase text-muted-foreground">
+                  {recipe.arch === 'moe' ? 'MoE' : 'Dense'}
+                </Badge>
+              )}
+              {recipe.params_b != null && (
+                <Badge variant="outline" className={`h-4 px-1.5 font-mono text-[10px] tabular-nums ${chipClass(highlight === 'params')}`}>
+                  {formatParams(recipe)}
+                </Badge>
+              )}
+              {recipe.quantization && (
+                <Badge variant="outline" className={`h-4 px-1.5 font-mono text-[10px] tabular-nums ${chipClass(false)}`}>
+                  {recipe.quantization}
+                </Badge>
+              )}
+              {recipe.weights_gb != null && (
+                <Badge variant="outline" className={`h-4 px-1.5 font-mono text-[10px] tabular-nums ${chipClass(highlight === 'size')}`}>
+                  {recipe.weights_gb} GB
+                </Badge>
+              )}
+              {recipe.tokens_per_second != null && (
+                <Badge
+                  variant="outline"
+                  className={`h-4 px-1.5 font-mono text-[10px] tabular-nums ${highlight === 'speed'
+                    ? chipClass(true)
+                    : 'border-primary/30 bg-primary/10 text-primary'}`}
+                >
+                  {speedLabel(recipe)}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Action */}
+          <div className="mt-1 flex shrink-0 flex-col items-end gap-1.5">
+            {isBuilding && (
+              <span className="animate-pulse text-xs font-medium text-primary">
+                <span className="inline-block animate-spin">⟳</span> Building
               </span>
-            ))}
-            {!recipe.docker?.gpu && (
-              <span className="text-[10px] font-label text-text-dim bg-surface-high px-2 py-0.5 rounded-full">CPU</span>
             )}
-            {recipe.engine && (
-              <span className="text-[10px] font-label text-text-muted bg-surface-high px-2 py-0.5 rounded-full">{recipe.engine}</span>
-            )}
-            {recipe.arch && (
-              <span className="text-[10px] font-label text-text-muted bg-surface-high px-2 py-0.5 rounded-full uppercase">
-                {recipe.arch === 'moe' ? 'MoE' : 'Dense'}
+            {isUpdating && (
+              <span className="animate-pulse text-xs font-medium text-primary">
+                <span className="inline-block animate-spin">⟳</span> Updating
               </span>
             )}
-            {recipe.params_b != null && (
-              <span className={chipClass(highlight === 'params')}>
-                {formatParams(recipe)}
-              </span>
+            {!isBusy && recipe.running && recipe.ready && (
+              <Button asChild variant="secondary" size="xs">
+                <a href={openUrl(recipe)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  Open
+                </a>
+              </Button>
             )}
-            {recipe.quantization && (
-              <span className={chipClass(false)}>{recipe.quantization}</span>
+            {!isBusy && recipe.starting && (
+              <span className="animate-pulse text-[11px] font-medium text-warning">Starting...</span>
             )}
-            {recipe.weights_gb != null && (
-              <span className={chipClass(highlight === 'size')}>{recipe.weights_gb} GB</span>
+            {!isBusy && !recipe.running && !recipe.starting && !recipe.installed && (
+              <Button size="xs" onClick={handleInstall}>
+                Install
+              </Button>
             )}
-            {recipe.tokens_per_second != null && (
-              <span className={highlight === 'speed'
-                ? chipClass(true)
-                : 'text-[10px] font-label text-primary bg-primary/10 px-2 py-0.5 rounded-full'}
-              >
-                {speedLabel(recipe)}
-              </span>
+            {!isBusy && !recipe.running && !recipe.starting && recipe.installed && (
+              <Badge variant="outline" className="h-5 px-2 text-[11px] text-muted-foreground">Stopped</Badge>
             )}
           </div>
         </div>
-
-        {/* Action */}
-        <div className="shrink-0 flex flex-col items-end gap-1.5 mt-1">
-          {isBuilding && (
-            <span className="text-primary text-xs font-medium font-label animate-pulse">
-              <span className="inline-block animate-spin">⟳</span> Building
-            </span>
-          )}
-          {isUpdating && (
-            <span className="text-primary text-xs font-medium font-label animate-pulse">
-              <span className="inline-block animate-spin">⟳</span> Updating
-            </span>
-          )}
-          {!isBusy && recipe.running && recipe.ready && (
-            <a
-              href={openUrl(recipe)}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="btn-secondary px-3.5 py-1.5 text-[11px] font-semibold no-underline"
-            >
-              Open
-            </a>
-          )}
-          {!isBusy && recipe.starting && (
-            <span className="text-warning text-[11px] font-medium font-label animate-pulse">Starting...</span>
-          )}
-          {!isBusy && !recipe.running && !recipe.starting && !recipe.installed && (
-            <button onClick={handleInstall} className="btn-primary px-3.5 py-1.5 text-[11px] font-semibold">
-              Install
-            </button>
-          )}
-          {!isBusy && !recipe.running && !recipe.starting && recipe.installed && (
-            <span className="text-text-dim text-[11px] font-label bg-surface-high px-2.5 py-1 rounded-lg">Stopped</span>
-          )}
-        </div>
-      </div>
+      </Card>
     </Link>
   )
 }
