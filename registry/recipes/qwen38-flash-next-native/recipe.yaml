@@ -1,7 +1,7 @@
 name: "Qwen3.8-Flash-Next Native"
 slug: qwen38-flash-next-native
 version: "1.0.0"
-description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams, vision and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
+description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. The engine's native CUDA vision path wants the tower under MLX tensor names (vision_tower.*) and this checkpoint carries them as model.visual.*, so the native recipe serves text only: images stay with the container recipe. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
 author: "spark-ai-hub"
 source: "local"
 category: llm
@@ -14,7 +14,6 @@ tags:
   - no-container
   - int4
   - qwen
-  - multimodal
   - reasoning
   - tool-use
   - speculative-decoding
@@ -55,11 +54,7 @@ native:
     - "0.95"
     - "--top-k"
     - "20"
-    - "--thinking"
-    - "--vision"
-    - "--vision-max-images"
-    - "50"
-  env:
+    env:
     # MTP chain length and the width up to which the running product picks
     # drafts; defaults of the single-Spark recipe this copies.
     TF_FLASHNEXT_DRAFTS: "6"
