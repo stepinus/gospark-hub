@@ -107,6 +107,55 @@ export function saveEngineSettings(name, settings) {
   return request('PUT', `/api/engines/${encodeURIComponent(name)}/settings`, settings)
 }
 
+/* llama-swap sidecar */
+
+// The sidecar the Hub installs and runs itself: the upstream binary, its YAML
+// config and live state. Admin only, like the engines.
+export function getLlamaswap() {
+  return request('GET', '/api/llamaswap')
+}
+
+export function installLlamaswap(version = '') {
+  const suffix = version ? `?version=${encodeURIComponent(version)}` : ''
+  return request('POST', `/api/llamaswap/install${suffix}`)
+}
+
+export function updateLlamaswap() {
+  return request('POST', '/api/llamaswap/update')
+}
+
+export function startLlamaswap() {
+  return request('POST', '/api/llamaswap/start')
+}
+
+export function stopLlamaswap() {
+  return request('POST', '/api/llamaswap/stop')
+}
+
+export function saveLlamaswapSettings(settings) {
+  return request('PUT', '/api/llamaswap/settings', settings)
+}
+
+// { yaml: "..." }
+export function getLlamaswapConfig() {
+  return request('GET', '/api/llamaswap/config')
+}
+
+export function saveLlamaswapConfig(yaml) {
+  return request('PUT', '/api/llamaswap/config', { yaml })
+}
+
+// Rewrites only the groups section, keeping the rest of the file as it was.
+export function saveLlamaswapGroups(groups) {
+  return request('PUT', '/api/llamaswap/groups', groups)
+}
+
+// One real request through the sidecar, reported as prefill/decode tok/s plus
+// the memory the model holds afterwards.
+export function measureLlamaswapModel(model) {
+  return request('POST', `/api/llamaswap/models/${encodeURIComponent(model)}/measure`)
+}
+
 /* Local recipes */
 
 // { recipes: [{ slug, name, origin, modified }] }

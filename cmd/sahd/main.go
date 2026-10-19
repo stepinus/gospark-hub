@@ -19,6 +19,7 @@ import (
 	authapi "gospark-hub/internal/api/auth"
 	containersapi "gospark-hub/internal/api/containers"
 	enginesapi "gospark-hub/internal/api/engines"
+	llamaswapapi "gospark-hub/internal/api/llamaswap"
 	filesapi "gospark-hub/internal/api/files"
 	mcpapi "gospark-hub/internal/api/mcp"
 	modelsapi "gospark-hub/internal/api/models"
@@ -30,6 +31,7 @@ import (
 	"gospark-hub/internal/config"
 	"gospark-hub/internal/dockerx"
 	"gospark-hub/internal/engines"
+	"gospark-hub/internal/llamaswap"
 	"gospark-hub/internal/native"
 	"gospark-hub/internal/oauth"
 	"gospark-hub/internal/proxy"
@@ -153,9 +155,16 @@ func main() {
 	enginesMgr := engines.NewManager(cfg.EngineHome)
 	nativeRunner := native.NewRunner(filepath.Join(cfg.DataDir, "logs"))
 
+	// llama-swap is a sidecar binary the Hub downloads and runs itself, on the
+	// same pattern as the engines: one release archive, one systemd --user
+	// unit, one YAML config the page edits.
+	swapMgr := llamaswap.NewManager(os.Getenv("LLAMASWAP_HOME"))
+	swapService := &llamaswap.Service{Manager: swapMgr}
+
 	recipesapi.Register(r, recipesapi.Deps{Runtime: dock, Cache: reg, Manager: mgr, Engines: enginesMgr, Native: nativeRunner})
 	containersapi.Register(r, containersapi.Deps{Config: cfg, Registry: reg, Logger: slog.Default(), DB: db, Docker: dock, Engines: enginesMgr, Native: nativeRunner})
 	enginesapi.Register(r, enginesapi.Deps{Engines: enginesMgr, Native: nativeRunner, Reg: reg, Logger: slog.Default()})
+	llamaswapapi.Register(r, llamaswapapi.Deps{Manager: swapMgr, Service: swapService, Registry: reg, Logger: slog.Default()})
 	filesapi.Register(r, filesapi.Deps{Config: cfg, Store: db, Logger: log.Default(), Registry: reg})
 	mcpapi.Register(r, mcpapi.Deps{Config: cfg, Store: db, Registry: reg, Logger: log.Default(), Runtime: runtime{d: dock}})
 	modelsapi.Register(r, modelsapi.Deps{Config: cfg, Registry: reg, Store: db, Logger: log.Default(), Runner: runner{d: dock, n: nativeRunner, reg: reg}})

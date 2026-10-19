@@ -17,6 +17,7 @@ import Running from './pages/Running'
 import System from './pages/System'
 import Settings from './pages/Settings'
 import Engines from './pages/Engines'
+import LlamaSwap from './pages/LlamaSwap'
 import RecipeDetail from './pages/RecipeDetail'
 
 const NAV_ITEMS = [
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
 // active account, so these are the nav items that are conditional.
 const ADMIN_NAV_ITEMS = [
   { path: '/users', label: 'Users', icon: UsersIcon },
+  { path: '/llamaswap', label: 'llama-swap', icon: SwapIcon },
   { path: '/engines', label: 'Engines', icon: ChipIcon },
   { path: '/settings', label: 'Settings', icon: SlidersIcon },
 ]
@@ -43,6 +45,7 @@ const PAGE_TITLES = {
   '/about': 'About',
   '/account': 'Account',
   '/users': 'Users',
+  '/llamaswap': 'llama-swap',
   '/engines': 'Engines',
   '/settings': 'Settings',
   '/files': 'My files',
@@ -259,6 +262,7 @@ export default function App() {
             <Route path="/account" element={<Account />} />
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/llamaswap" element={<LlamaSwap />} />
             <Route path="/engines" element={<Engines />} />
             <Route path="/files" element={<Files />} />
             <Route path="/upload" element={<Navigate to="/files" replace />} />
@@ -329,6 +333,14 @@ function ChipIcon({ className }) {
 
 /* Sliders: the two knobs that matter here — which repositories are read, and
    whether they are in sync. */
+function SwapIcon({ className }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 8h13l-3-3M20 16H7l3 3" />
+    </svg>
+  )
+}
+
 function SlidersIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
