@@ -199,7 +199,7 @@ func (p *Proxy) ModelsList(ctx context.Context) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []map[string]any
+	out := []map[string]any{} // an empty model list is [], never null
 	for _, up := range ups {
 		for _, e := range up.entries {
 			out = append(out, e)

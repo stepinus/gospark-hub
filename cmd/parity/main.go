@@ -56,6 +56,13 @@ var cases = []caseSpec{
 	{name: "media", method: "GET", path: "/api/media"},
 	{name: "sah-version", method: "GET", path: "/sah/version"},
 	{name: "spa-index", method: "GET", path: "/"},
+	// Model proxy error paths: the shape of the refusal has to match too, since
+	// every client library parses it.
+	{name: "v1-models-unauth", method: "GET", path: "/v1/models"},
+	{name: "v1-chat-unauth", method: "POST", path: "/v1/chat/completions",
+		body: `{"model":"x","messages":[{"role":"user","content":"hi"}]}`},
+	{name: "v1-messages-unauth", method: "POST", path: "/v1/messages",
+		body: `{"model":"x","messages":[{"role":"user","content":"hi"}],"max_tokens":8}`},
 }
 
 type side struct {
