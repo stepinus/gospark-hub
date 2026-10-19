@@ -26,7 +26,12 @@ const (
 	defaultSourceURL     = "https://github.com/WaxacaBytes/spark-ai-hub"
 	defaultSourceSubpath = "registry/recipes"
 	defaultSourceRef     = "main"
-	gitTimeout           = 120 * time.Second
+
+	// Our own repository ships the folder but no recipes in it: it is the
+	// place our recipes will be published, and an empty source costs nothing.
+	ownSourceURL = "https://github.com/stepinus/gospark-hub"
+	ownSourceRef = "master"
+	gitTimeout   = 120 * time.Second
 )
 
 var (
@@ -114,7 +119,7 @@ func NewManager(home string) (*Manager, error) {
 		return nil, fmt.Errorf("read %s: %w", m.sourcesPath(), err)
 	}
 
-	m.sources = []Source{defaultSource()}
+	m.sources = defaultSources()
 	if err := m.saveLocked(); err != nil {
 		return nil, err
 	}
@@ -495,6 +500,10 @@ func (m *Manager) syncOne(src *Source) error {
 		if covers == "" {
 			covers = deriveCovers(sub)
 		}
+		// A subpath the repository does not have yet is a valid, empty source:
+		// git sparse-checkout only warns about it and the source stays at zero
+		// recipes, which is what our own repository looks like before its first
+		// published recipe.
 		args := []string{"-C", dest, "sparse-checkout", "set", sub}
 		if covers != "" {
 			args = append(args, covers)
@@ -571,12 +580,23 @@ func validSourceID(id string) bool {
 	return true
 }
 
-func defaultSource() Source {
-	return Source{
-		ID:      sourceID(defaultSourceURL, defaultSourceSubpath),
-		URL:     defaultSourceURL,
-		Ref:     defaultSourceRef,
-		Subpath: defaultSourceSubpath,
+// defaultSources is what a fresh registry home starts with: the upstream
+// catalogue and our own repository, whose recipes folder is empty until we
+// publish something there.
+func defaultSources() []Source {
+	return []Source{
+		{
+			ID:      sourceID(defaultSourceURL, defaultSourceSubpath),
+			URL:     defaultSourceURL,
+			Ref:     defaultSourceRef,
+			Subpath: defaultSourceSubpath,
+		},
+		{
+			ID:      sourceID(ownSourceURL, defaultSourceSubpath),
+			URL:     ownSourceURL,
+			Ref:     ownSourceRef,
+			Subpath: defaultSourceSubpath,
+		},
 	}
 }
 

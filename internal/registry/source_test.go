@@ -120,8 +120,8 @@ func TestNewManagerSeedsDefaultSource(t *testing.T) {
 	}
 
 	list := m.List()
-	if len(list) != 1 {
-		t.Fatalf("sources = %d, want 1", len(list))
+	if len(list) != 2 {
+		t.Fatalf("sources = %d, want 2", len(list))
 	}
 	src := list[0]
 	if src.URL != defaultSourceURL {
@@ -161,8 +161,8 @@ func TestNewManagerSeedsEmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
-	if got := len(m.List()); got != 1 {
-		t.Fatalf("sources = %d, want 1", got)
+	if got := len(m.List()); got != 2 {
+		t.Fatalf("sources = %d, want 2", got)
 	}
 }
 
@@ -244,8 +244,8 @@ func TestAddReportsEachBadLine(t *testing.T) {
 	if len(errs) != 3 {
 		t.Fatalf("errors = %d, want 3: %v", len(errs), errs)
 	}
-	if got := len(m.List()); got != 1 {
-		t.Fatalf("sources = %d, want only the default", got)
+	if got := len(m.List()); got != 2 {
+		t.Fatalf("sources = %d, want only the two defaults", got)
 	}
 }
 
@@ -525,5 +525,28 @@ func TestSyncWholeRepositoryWithoutSubpath(t *testing.T) {
 	cache := NewCache(roots...)
 	if _, ok := cache.Get("demo"); !ok {
 		t.Fatal("cache does not see recipe from whole repository")
+	}
+}
+
+// TestDefaultSourcesListsBothRepositories pins the fresh-install defaults: the
+// upstream catalogue and our own repository, whose recipes folder is empty
+// until the first recipe is published there.
+func TestDefaultSourcesListsBothRepositories(t *testing.T) {
+	m, err := NewManager(t.TempDir())
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	list := m.List()
+	if len(list) != 2 {
+		t.Fatalf("sources = %d, want 2", len(list))
+	}
+	want := []struct{ url, ref, sub string }{
+		{"https://github.com/WaxacaBytes/spark-ai-hub", "main", "registry/recipes"},
+		{"https://github.com/stepinus/gospark-hub", "master", "registry/recipes"},
+	}
+	for i, w := range want {
+		if list[i].URL != w.url || list[i].Ref != w.ref || list[i].Subpath != w.sub {
+			t.Fatalf("source %d = %+v, want %s %s %s", i, list[i], w.url, w.ref, w.sub)
+		}
 	}
 }
