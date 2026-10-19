@@ -1,0 +1,84 @@
+name: "Qwen3.8-Flash-Next Native"
+slug: qwen38-flash-next-native
+version: "1.0.0"
+description: "Qwen3.8-Flash-Next served by the TensorFold engine installed on the host, without a container: the same 177B-parameter hybrid linear/full-attention model (6B active), the same 262,144-token window, four concurrent streams, vision and MTP drafting as the container recipe, but the runtime is one binary the Hub installs once on the Engines page. The checkpoint is NVIDIA's quantization-aware-distilled FP4 build (NVFP4 routed experts, MXFP8 elsewhere, MTP head) already in the local Hugging Face cache, so launching copies no weights and builds no image. It is a reasoning model — the chain-of-thought arrives in reasoning_content, so allow a few hundred max_tokens or the visible answer comes back empty."
+author: "spark-ai-hub"
+source: "local"
+category: llm
+logo: "/logos/qwen.png"
+tags:
+  - llm
+  - moe
+  - tensorfold
+  - native
+  - no-container
+  - int4
+  - qwen
+  - multimodal
+  - reasoning
+  - tool-use
+  - speculative-decoding
+  - mtp
+  - long-context
+requirements:
+  min_memory_gb: 115
+  recommended_memory_gb: 128
+  disk_gb: 0
+  cuda_compute: "12.1"
+ui:
+  type: api-only
+  port: 8888
+  proxy: true
+  path: "/v1/models"
+# A native recipe is a launch config, not an image: kind selects the host
+# process runner and the block below is what it passes to the engine.
+kind: native
+native:
+  engine: tensorfold
+  # Resolved by the daemon to the snapshot in the local Hugging Face cache:
+  # no download, no copy, the folder fetch-weights.sh filled.
+  model: "hf:nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6887e18c089fdea8509a33e63429a3300"
+  args:
+    - "--name"
+    - "Qwen3.8-Flash-Next"
+    - "--port"
+    - "8888"
+    - "--context"
+    - "262144"
+    - "--parallel"
+    - "4"
+    - "--max-tokens"
+    - "32768"
+    - "--temperature"
+    - "1.0"
+    - "--top-p"
+    - "0.95"
+    - "--top-k"
+    - "20"
+    - "--thinking"
+    - "--vision"
+    - "--vision-max-images"
+    - "50"
+  env:
+    # MTP chain length and the width up to which the running product picks
+    # drafts; defaults of the single-Spark recipe this copies.
+    TF_FLASHNEXT_DRAFTS: "6"
+    TF_FLASHNEXT_PRODUCT_STREAMS: "5"
+  port: 8888
+status: experimental
+engine: "TensorFold"
+params_b: 177
+active_params_b: 6
+arch: moe
+quantization: "NVFP4"
+speculative_method: "mtp"
+artificial_analysis_index: 46
+weights_gb: 96
+release_date: "2026-08-26"
+requires_hf_token: false
+context_tokens: 262144
+integration:
+  api_url: "<HUB>/v1"
+  model_id: "Qwen3.8-Flash-Next"
+  api_key: "<API_KEY>"
+  max_context: "262144"
