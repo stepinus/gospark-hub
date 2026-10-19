@@ -30,8 +30,9 @@
 
 | Пункт | Почему не проверено | Как проверить |
 |---|---|---|
-| Реальная установка приложения | качается 20–40 ГБ образ | лёгкий рецепт: `POST /api/recipes/searxng/install`, затем `/ws/build/searxng` |
-| Запуск/остановка и `/run/{slug}/` | нужен установленный контейнер | `POST .../launch`, потом открыть `/run/searxng/` без сессии (ждём 302) и с сессией (ждём 200) |
+| Реальная установка приложения | — | **проверено живьём** на `searxng`: install → pull по `docker compose -p spark-ai-hub-searxng` → `[spark-ai-hub] searxng installed successfully!`, образ на месте |
+| Запуск/остановка и `/run/{slug}/` | — | **проверено живьём**: launch → контейнер `spark-ai-hub-searxng` Up, статус `starting` → `running+ready` после health-check; `/run/searxng/` без сессии → `302 /` от Caddy, с сессией → `200 text/html` с живым SearXNG |
+| Полное удаление | — | **проверено живьём**: stop → контейнер погас, remove → контейнер и образ `searxng/searxng:2026.9.19-…` удалены (`docker images` пусто), `installed=false`, `has_leftovers=false` |
 | Кадры `/ws/build` и `/ws/logs` | нужен реальный install | тот же прогон, сравнить текстовые маркеры `[done]`, `[spark-ai-hub:ready]`, `[spark-ai-hub:error]` |
 | Вызовы MCP-инструментов | нужен запущенный медиа-рецепт | `POST /mcp` с `tools/call` на запущенном ComfyUI/ACE-Step |
 | `/v1` и `/v1/messages` против живой модели | нужен запущенный LLM-рецепт | `curl` через `sah`-ключ на `/v1/chat/completions` |

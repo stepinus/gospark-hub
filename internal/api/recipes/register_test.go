@@ -19,6 +19,11 @@ func (fakeDeps) InstalledRecipes(context.Context) (map[string]struct{}, error) {
 }
 
 func (fakeDeps) HasLeftovers(context.Context, string) (bool, error) { return false, nil }
+func (fakeDeps) IsRecipeRunning(context.Context, string) bool       { return false }
+func (fakeDeps) IsReady(string) bool                                { return false }
+func (fakeDeps) GetPending(string) string                           { return "" }
+func (fakeDeps) GetStartupError(string) string                      { return "" }
+func (fakeDeps) StartHealthCheck(context.Context, string)           {}
 
 func setBaseDir(t *testing.T) {
 	t.Helper()
@@ -128,4 +133,3 @@ func TestListCategoryAndSearch(t *testing.T) {
 		t.Fatal("search for vision returned no results")
 	}
 }
-

@@ -21,6 +21,13 @@ import (
 type Deps interface {
 	InstalledRecipes(ctx context.Context) (map[string]struct{}, error)
 	HasLeftovers(ctx context.Context, slug string) (bool, error)
+	// Runtime state, per recipe. Upstream derives all six flags from the
+	// pending action plus "container runs" plus "health check passed".
+	IsRecipeRunning(ctx context.Context, slug string) bool
+	IsReady(slug string) bool
+	GetPending(slug string) string
+	GetStartupError(slug string) string
+	StartHealthCheck(ctx context.Context, slug string)
 }
 
 // Register mounts GET /api/recipes and GET /api/recipes/{slug}.
@@ -111,26 +118,46 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 	}
 
 	rec.Error = nil
+	pending := ""
+	running := false
+	if h.deps != nil {
+		pending = h.deps.GetPending(rec.Slug)
+		if msg := h.deps.GetStartupError(rec.Slug); msg != "" {
+			rec.Error = &msg
+		}
+	}
+
 	if _, ok := installed[rec.Slug]; ok {
 		rec.Installed = true
-		rec.Installing = false
-		rec.Running = false
-		rec.Ready = false
-		rec.Starting = false
-		// has_leftovers is intentionally left untouched (sticky).
+		rec.Installing = pending == "installing"
+		running = h.deps != nil && h.deps.IsRecipeRunning(ctx, rec.Slug)
+		rec.Ready = running && h.deps.IsReady(rec.Slug)
+		switch pending {
+		case "launching":
+			rec.Starting = true
+			rec.Running = false
+		case "stopping":
+			rec.Running = false
+			rec.Starting = false
+		default:
+			rec.Starting = running && !rec.Ready
+			rec.Running = running && rec.Ready
+		}
+		if rec.Starting || (running && !rec.Ready) {
+			go h.deps.StartHealthCheck(context.Background(), rec.Slug)
+		}
+		// has_leftovers keeps its sticky value while installed.
 	} else {
 		rec.Installed = false
 		rec.Running = false
 		rec.Ready = false
-		rec.Starting = false
-		rec.Installing = false
+		rec.Starting = pending == "launching"
+		rec.Installing = pending == "installing"
 		if !rec.Starting && !rec.Installing {
 			h.leftoverMu.Lock()
-			if !h.leftovers[rec.Slug] {
-				if h.deps != nil {
-					if has, _ := h.deps.HasLeftovers(ctx, rec.Slug); has {
-						h.leftovers[rec.Slug] = true
-					}
+			if !h.leftovers[rec.Slug] && h.deps != nil {
+				if has, _ := h.deps.HasLeftovers(ctx, rec.Slug); has {
+					h.leftovers[rec.Slug] = true
 				}
 			}
 			rec.HasLeftovers = h.leftovers[rec.Slug]

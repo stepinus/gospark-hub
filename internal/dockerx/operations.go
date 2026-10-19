@@ -350,9 +350,9 @@ func (d *Docker) findProjectImages(ctx context.Context, slug string) []string {
 
 	var matched []string
 	for _, img := range composeImages {
-		if !d.isOwnImage(img) {
-			continue
-		}
+		// No ownership filter here: the image list comes from the recipe's own
+		// compose file, so it IS the app's artifact. Upstream deletes exactly
+		// these on remove/purge, which is what makes uninstall total.
 		if _, ok := present[imageRef(img)]; !ok {
 			continue
 		}
