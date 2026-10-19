@@ -54,6 +54,40 @@ native:
     - "0.95"
     - "--top-k"
     - "20"
+    - "--thinking"
+  env:
+    # MTP chain length and the width up to which the running product picks
+    # drafts; defaults of the single-Spark recipe this copies.
+    TF_FLASHNEXT_DRAFTS: "6"
+    TF_FLASHNEXT_PRODUCT_STREAMS: "5"
+  port: 8888
+  proxy: true
+  path: "/v1/models"
+# A native recipe is a launch config, not an image: kind selects the host
+# process runner and the block below is what it passes to the engine.
+kind: native
+native:
+  engine: tensorfold
+  # Resolved by the daemon to the snapshot in the local Hugging Face cache:
+  # no download, no copy, the folder fetch-weights.sh filled.
+  model: "hf:nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6887e18c089fdea8509a33e63429a3300"
+  args:
+    - "--name"
+    - "Qwen3.8-Flash-Next"
+    - "--port"
+    - "8888"
+    - "--context"
+    - "262144"
+    - "--parallel"
+    - "4"
+    - "--max-tokens"
+    - "32768"
+    - "--temperature"
+    - "1.0"
+    - "--top-p"
+    - "0.95"
+    - "--top-k"
+    - "20"
     env:
     # MTP chain length and the width up to which the running product picks
     # drafts; defaults of the single-Spark recipe this copies.
