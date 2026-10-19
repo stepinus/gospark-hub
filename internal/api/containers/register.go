@@ -36,6 +36,10 @@ type Deps struct {
 	Registry *registry.Cache
 	Logger   *slog.Logger
 	DB       *store.DB
+	// Docker is the daemon-wide container service. State it keeps (pending
+	// actions, readiness, startup errors) must be the same one the recipes
+	// list reads, so the caller passes its instance in.
+	Docker *dockerx.Docker
 }
 
 // Register mounts the container routes. The caller owns the middleware.
@@ -44,11 +48,15 @@ func Register(r *web.Router, deps Deps) {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	dock := deps.Docker
+	if dock == nil {
+		dock = dockerx.New(deps.Config, deps.Registry, deps.DB, logger)
+	}
 	h := &handler{
 		cfg:    deps.Config,
 		reg:    deps.Registry,
 		log:    logger,
-		d:      dockerx.New(deps.Config, deps.Registry, deps.DB, logger),
+		d:      dock,
 		builds: map[string]*buildState{},
 	}
 

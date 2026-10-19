@@ -35,7 +35,8 @@
 | Полное удаление | — | **проверено живьём**: stop → контейнер погас, remove → контейнер и образ `searxng/searxng:2026.9.19-…` удалены (`docker images` пусто), `installed=false`, `has_leftovers=false` |
 | Кадры `/ws/build` и `/ws/logs` | — | **проверено живьём**: `/ws/logs/searxng` отдал `[spark-ai-hub:ready]`, затем сообщение приложения и чистое закрытие; build-лог шёл теми же строками, что и `build-status` |
 | Вызовы MCP-инструментов | — | **проверено живьём**: `tools/call web_search` к запущенному SearXNG вернул настоящие результаты (NVIDIA DGX Spark), то есть путь MCP → приложение → ответ работает |
-| `/v1` и `/v1/messages` против живой модели | нужен запущенный LLM-рецепт (десятки ГБ) | `curl` через ключ на `/v1/chat/completions` после установки любого LLM-рецепта |
+| `/v1` и `/v1/messages` против живой модели | — | **проверено живьём** на Qwen3.8-27B INT4 из готового образа: `/v1/models` отдаёт модель, `/v1/chat/completions` ответил «2+2 equals 4» за 2.8 с (`usage` 65/33, reasoning 24), `/v1/messages` вернул `hello` в Anthropic-формате, `usage_events` записал запрос и токены |
+| Переиспользование готового образа | — | **проверено живьём**: образ `spark-ai-hub/tensorfold-qwen38-27b-uncensored-int4:tf-v0.6.0-14963e7` уже был на машине, установка его не собирала и не тянула (`Using existing local image …`), запуск шёл `up -d` без `--build` |
 | OAuth-цикл | — | **проверено живьём**: регистрация клиента → `/oauth/authorize` с PKCE S256, вход и согласие → `code` → `/oauth/token` → `sah-oat-…` → `POST /mcp` с Bearer отвечает `initialize` |
 | Список MCP-инструментов | — | **проверено живьём**: 21 инструмент, имена, `inputSchema` и описания совпадают с апстримом |
 | `sah` CLI | отдаётся как есть, Python-скрипт | `curl -s /sah/install.sh \| sh` на чистой машине |

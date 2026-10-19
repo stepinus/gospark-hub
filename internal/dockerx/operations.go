@@ -39,25 +39,30 @@ func (d *Docker) InstallRecipe(ctx context.Context, slug, apiKey, hubURL string,
 	buildRecipe := recipe.Docker.Build
 	onLine(fmt.Sprintf("[spark-ai-hub] Starting install for %s...", slug))
 
-	sub := "pull"
-	if buildRecipe {
-		sub = "build"
-	}
-	args := append(d.composeArgs(slug, dir), sub)
-	onLine("[spark-ai-hub] Running: " + strings.Join(append([]string{"docker"}, args...), " "))
+	if img, ok := d.LocalImage(ctx, slug); ok {
+		onLine("[spark-ai-hub] Using existing local image " + img +
+			" (weights are baked in, so nothing is built or pulled)")
+	} else {
+		sub := "pull"
+		if buildRecipe {
+			sub = "build"
+		}
+		args := append(d.composeArgs(slug, dir), sub)
+		onLine("[spark-ai-hub] Running: " + strings.Join(append([]string{"docker"}, args...), " "))
 
-	rc, err := d.Client.Stream(ctx, dir, d.launchEnv(apiKey, hubURL), true, onLine, args...)
-	if err != nil {
-		return err
-	}
-	if rc != 0 {
-		onLine(fmt.Sprintf("[spark-ai-hub] Install failed with exit code %d", rc))
-		return nil
-	}
+		rc, err := d.Client.Stream(ctx, dir, d.launchEnv(apiKey, hubURL), true, onLine, args...)
+		if err != nil {
+			return err
+		}
+		if rc != 0 {
+			onLine(fmt.Sprintf("[spark-ai-hub] Install failed with exit code %d", rc))
+			return nil
+		}
 
-	if buildRecipe {
-		onLine("[spark-ai-hub] Pruning build cache (the image now holds the weights)...")
-		onLine("[spark-ai-hub] Build cache " + d.pruneBuildCache(ctx))
+		if buildRecipe {
+			onLine("[spark-ai-hub] Pruning build cache (the image now holds the weights)...")
+			onLine("[spark-ai-hub] Build cache " + d.pruneBuildCache(ctx))
+		}
 	}
 	if err := d.DB.UpsertInstalledRecipe(ctx, slug, d.ComposeProject(slug)); err != nil {
 		return err
@@ -94,6 +99,25 @@ func (d *Docker) UpdateRecipe(ctx context.Context, slug, apiKey, hubURL string, 
 
 	recipe, _ := d.Reg.Get(slug)
 	env := d.launchEnv(apiKey, hubURL)
+	// A new launch starts with a clean slate; the old failure belongs to the
+	// previous attempt and would otherwise show as this one's error.
+	d.ClearStartupError(slug)
+
+	if img, ok := d.LocalImage(ctx, slug); recipe.Docker.Build && ok {
+		onLine("[spark-ai-hub] Using existing local image " + img + ", no rebuild")
+		upArgs := append(d.composeArgs(slug, dir), "up", "-d")
+		onLine("[spark-ai-hub] Running: " + strings.Join(append([]string{"docker"}, upArgs...), " "))
+		rc, err := d.Client.Stream(ctx, dir, env, true, onLine, upArgs...)
+		if err != nil {
+			return err
+		}
+		if rc != 0 {
+			onLine(fmt.Sprintf("[spark-ai-hub] Launch failed with exit code %d", rc))
+			return nil
+		}
+		onLine(fmt.Sprintf("[spark-ai-hub] %s launched from existing image!", slug))
+		return nil
+	}
 
 	if recipe.Docker.Build {
 		onLine(fmt.Sprintf("[spark-ai-hub] Rebuilding local image for %s...", slug))

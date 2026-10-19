@@ -34,6 +34,12 @@ case "$cmd" in
     fi
     ;;
   inspect) printf '%s\n' "$FAKE_INSPECT" ;;
+  image)
+    if [ "$1" = "inspect" ]; then
+      if [ -n "$FAKE_IMAGE_PRESENT" ]; then exit 0; else exit 1; fi
+    fi
+    ;;
+
   logs) printf '%s\n' "$FAKE_LOGS" ;;
   images) printf '%s\n' "$FAKE_IMAGES" ;;
   volume)

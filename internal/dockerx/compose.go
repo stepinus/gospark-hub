@@ -1,6 +1,7 @@
 package dockerx
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,4 +45,25 @@ func imageRef(image string) string {
 		return image
 	}
 	return image + ":latest"
+}
+
+// LocalImage returns the first image a recipe's compose declares that already
+// exists on this machine. Recipes bake weights into their image, so a present
+// image is a finished artifact: rebuilding it would re-download gigabytes and
+// change nothing. Empty second value means "nothing local to reuse".
+func (d *Docker) LocalImage(ctx context.Context, slug string) (string, bool) {
+	dir, ok := d.RecipeDir(slug)
+	if !ok {
+		return "", false
+	}
+	for _, img := range ParseComposeImages(dir) {
+		if img == "" {
+			continue
+		}
+		_, _, code := d.Client.Output(ctx, "image", "inspect", imageRef(img))
+		if code == 0 {
+			return imageRef(img), true
+		}
+	}
+	return "", false
 }

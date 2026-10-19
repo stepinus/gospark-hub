@@ -78,10 +78,12 @@ services:
       # startup (~2.5M FP8 tokens, eight full 262K windows), shared by every
       # stream and never given back; the server holds ~97 GiB from the first
       # second. Mia's KV_POOL_GB=auto gives 78 on a Spark with ~109 GiB free.
-      - TENSORFOLD_KV_POOL_GIB=78
+      # Overridable so the recipe can start next to other GPU work: compose
+      # reads .env from this directory, and 78 GiB only fits an idle Spark.
+      - TENSORFOLD_KV_POOL_GIB=${TENSORFOLD_KV_POOL_GIB:-78}
       # Startup reserve left out of MemAvailable (patch 0004): 0, the whole of
       # MemAvailable is the budget.
-      - TENSORFOLD_MEMORY_RESERVE_GIB=0
+      - TENSORFOLD_MEMORY_RESERVE_GIB=${TENSORFOLD_MEMORY_RESERVE_GIB:-0}
       # Up to 50 images a request sharing 16,384 visual tokens, and a
       # 16,384-token video budget (Mia's patch 0001).
       - TENSORFOLD_MAX_IMAGES=50
@@ -106,9 +108,9 @@ services:
       # Eight requests decoded together, each with the model's native
       # 262,144-token window. A single request decodes as fast as alone.
       - --parallel
-      - "8"
+      - "${TENSORFOLD_PARALLEL:-8}"
       - --context
-      - "262144"
+      - "${TENSORFOLD_CONTEXT:-262144}"
       # Qwen's thinking-mode sampling; a request's own values win.
       - --temperature
       - "1.0"
