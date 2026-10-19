@@ -1,7 +1,48 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Users as UsersIcon } from 'lucide-react'
 import { useAuth } from '../auth'
-import { Avatar, Card, Field, Stat, fmt } from './Account'
+import { fmt } from './Account'
 import { size } from '../lib/size'
+import { PageHeader, EmptyState, SectionTitle, Stat } from '@/components/page-shell'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 /* Admin-only: who has access to this Hub, and what they have been using.
  *
@@ -26,30 +67,44 @@ export default function Users() {
 
   useEffect(() => { load() }, [load])
 
-  if (error) return <div className="px-6 py-20 text-center text-text-dim text-sm">{error}</div>
-  if (!data) return <div className="px-6 py-20 text-center text-text-dim text-sm">Loading users…</div>
+  if (error) {
+    return (
+      <div className="page">
+        <p className="m-0 text-sm leading-relaxed text-muted-foreground">{error}</p>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="page flex flex-col gap-3">
+        <p className="m-0 text-sm text-muted-foreground">Loading users…</p>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3 border-b border-border py-3">
+            <Skeleton className="size-9 shrink-0 rounded-full" />
+            <div className="flex flex-1 flex-col gap-2">
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+            <Skeleton className="h-5 w-16" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   const pending = data.users.filter((u) => u.status === 'pending')
   const rest = data.users.filter((u) => u.status !== 'pending')
 
   return (
-    <div className="px-6 py-6 pb-12 max-w-4xl mx-auto animate-fadeIn flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap mb-1">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight font-display m-0">Users</h1>
-          <p className="text-sm text-text-dim m-0 mt-1">
-            Approve access and see how the Spark is being used.
-          </p>
-        </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="px-3.5 py-2 rounded-xl bg-primary text-primary-on border-none text-xs font-bold cursor-pointer hover:opacity-90 transition-opacity"
-        >
-          Add user
-        </button>
-      </div>
+    <div className="page flex flex-col gap-6">
+      <PageHeader
+        title="Users"
+        description="Approve access and see how the Spark is being used."
+        actions={<Button onClick={() => setCreating(true)}>Add user</Button>}
+      />
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Users" value={fmt(data.totals.users)} />
         <Stat label="Awaiting approval" value={fmt(data.totals.pending)} />
         <Stat label="Requests" value={fmt(data.totals.requests)} />
@@ -58,28 +113,45 @@ export default function Users() {
       </div>
 
       {pending.length > 0 && (
-        <Card
-          title={`Waiting for approval · ${pending.length}`}
-          subtitle="These people signed up and cannot sign in until you let them."
-        >
-          <div className="flex flex-col gap-2">
-            {pending.map((u) => (
-              <UserRow key={u.id} user={u} me={me} onChanged={load} />
-            ))}
-          </div>
-        </Card>
+        <section className="flex flex-col gap-3">
+          <SectionTitle hint="These people signed up and cannot sign in until you let them.">
+            {`Waiting for approval · ${pending.length}`}
+          </SectionTitle>
+          <Card className="gap-0 p-5 shadow-none">
+            <Table>
+              <UserTableHead />
+              <TableBody>
+                {pending.map((u) => (
+                  <UserRow key={u.id} user={u} me={me} onChanged={load} />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </section>
       )}
 
-      <Card title="Accounts" subtitle="Sorted by how much of the Spark each account has used.">
-        <div className="flex flex-col gap-2">
-          {rest.map((u) => (
-            <UserRow key={u.id} user={u} me={me} onChanged={load} />
-          ))}
-          {rest.length === 0 && (
-            <p className="text-sm text-text-dim m-0">No approved accounts yet.</p>
-          )}
-        </div>
-      </Card>
+      <section className="flex flex-col gap-3">
+        <SectionTitle hint="Sorted by how much of the Spark each account has used.">
+          Accounts
+        </SectionTitle>
+        {rest.length === 0 ? (
+          <EmptyState
+            icon={<UsersIcon className="h-6 w-6" />}
+            title="No approved accounts yet."
+          />
+        ) : (
+          <Card className="gap-0 p-5 shadow-none">
+            <Table>
+              <UserTableHead />
+              <TableBody>
+                {rest.map((u) => (
+                  <UserRow key={u.id} user={u} me={me} onChanged={load} />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+      </section>
 
       {creating && (
         <CreateUserModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load() }} />
@@ -88,17 +160,53 @@ export default function Users() {
   )
 }
 
+/* ── the shared column headings ──────────────────────────────────────────── */
+
+function UserTableHead() {
+  return (
+    <TableHeader>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="h-8 pl-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          Account
+        </TableHead>
+        <TableHead className="hidden h-8 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
+          requests
+        </TableHead>
+        <TableHead className="hidden h-8 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground md:table-cell">
+          tokens
+        </TableHead>
+        <TableHead className="hidden h-8 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground lg:table-cell">
+          30d
+        </TableHead>
+        <TableHead className="hidden h-8 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
+          files
+        </TableHead>
+        <TableHead className="hidden h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground md:table-cell">
+          role
+        </TableHead>
+        <TableHead className="h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          status
+        </TableHead>
+        <TableHead className="h-8 pr-0 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          actions
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+  )
+}
+
 /* ── one account ─────────────────────────────────────────────────────────── */
 
 const STATUS_STYLE = {
-  pending: 'bg-warning/15 text-warning',
-  active: 'bg-primary/15 text-primary',
-  rejected: 'bg-error-surface text-error',
+  pending: 'border-warning/30 bg-warning/10 text-warning',
+  active: 'border-success/30 bg-success/10 text-success',
+  rejected: 'border-destructive/30 bg-destructive/10 text-destructive',
 }
 
 function UserRow({ user, me, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const isSelf = user.id === me?.id
 
   const patch = async (body, confirmText) => {
@@ -121,9 +229,6 @@ function UserRow({ user, me, onChanged }) {
   }
 
   const remove = async () => {
-    if (!window.confirm(
-      `Delete ${user.email}?\n\nTheir API key stops working immediately and their usage history is removed. This cannot be undone.`
-    )) return
     setBusy(true)
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' })
@@ -138,104 +243,164 @@ function UserRow({ user, me, onChanged }) {
   }
 
   return (
-    <div className="bg-surface-low rounded-xl border border-outline-dim overflow-hidden">
-      <div className="flex items-center gap-3 px-3 py-2.5 flex-wrap">
-        <Avatar user={user} size={36} />
-        <div className="min-w-[9rem] flex-1">
-          <div className="text-sm font-semibold text-text truncate">
-            {user.name || user.email}
-            {isSelf && <span className="ml-2 text-[10px] text-text-dim font-label">you</span>}
+    <>
+      <TableRow className={open ? 'bg-muted/50' : undefined}>
+        <TableCell className="pl-0 whitespace-normal">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-9">
+              <AvatarFallback className="bg-muted text-[11px] font-medium text-muted-foreground">
+                {initials(user)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium text-foreground">
+                  {user.name || user.email}
+                </span>
+                {isSelf && (
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">you</span>
+                )}
+              </div>
+              <div className="truncate font-mono text-[11px] text-muted-foreground">{user.email}</div>
+              {user.storage.files > 0 && (
+                <div className="text-[11px] text-muted-foreground sm:hidden">
+                  {size(user.storage.bytes)} of files
+                </div>
+              )}
+            </div>
           </div>
-          <div className="text-[11px] text-text-dim truncate">{user.email}</div>
-          {user.storage.files > 0 && (
-            <div className="sm:hidden text-[11px] text-text-muted">{size(user.storage.bytes)} of files</div>
+        </TableCell>
+
+        <TableCell className="hidden text-right font-mono text-xs tabular-nums text-foreground sm:table-cell">
+          {fmt(user.usage.requests)}
+        </TableCell>
+        <TableCell className="hidden text-right font-mono text-xs tabular-nums text-foreground md:table-cell">
+          {fmt(user.usage.total_tokens)}
+        </TableCell>
+        <TableCell className="hidden text-right font-mono text-xs tabular-nums text-foreground lg:table-cell">
+          {fmt(user.usage.tokens_30d)}
+        </TableCell>
+        <TableCell className="hidden text-right font-mono text-xs tabular-nums text-foreground sm:table-cell">
+          {user.storage.files ? size(user.storage.bytes) : '0'}
+        </TableCell>
+
+        <TableCell className="hidden md:table-cell">
+          {user.role === 'admin' && (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-[0.12em]">
+              admin
+            </Badge>
           )}
-        </div>
+        </TableCell>
+        <TableCell>
+          <Badge
+            variant="outline"
+            className={`text-[10px] uppercase tracking-[0.12em] ${STATUS_STYLE[user.status] || ''}`}
+          >
+            {user.status}
+          </Badge>
+        </TableCell>
 
-        <div className="hidden sm:flex items-center gap-4 text-right">
-          <Metric label="requests" value={fmt(user.usage.requests)} />
-          <Metric label="tokens" value={fmt(user.usage.total_tokens)} />
-          <Metric label="30d" value={fmt(user.usage.tokens_30d)} />
-          <Metric label="files" value={user.storage.files ? size(user.storage.bytes) : '0'} />
-        </div>
-
-        <span className={`text-[10px] font-bold font-label uppercase tracking-wide px-2 py-1 rounded-md ${STATUS_STYLE[user.status]}`}>
-          {user.status}
-        </span>
-        {user.role === 'admin' && (
-          <span className="text-[10px] font-bold font-label uppercase tracking-wide px-2 py-1 rounded-md bg-surface-highest text-text-muted">
-            admin
-          </span>
-        )}
-
-        {user.status === 'pending' ? (
-          <div className="flex gap-2">
-            <button disabled={busy} onClick={() => patch({ status: 'active' })} className={btnApprove}>
-              Approve
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => patch({ status: 'rejected' }, `Reject ${user.email}? They will not be able to sign in.`)}
-              className={btnReject}
-            >
-              Reject
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => setOpen(!open)} className={btnQuiet}>
-            {open ? 'Close' : 'Manage'}
-          </button>
-        )}
-      </div>
+        <TableCell className="pr-0 text-right">
+          {user.status === 'pending' ? (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" disabled={busy} onClick={() => patch({ status: 'active' })}>
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => patch({ status: 'rejected' }, `Reject ${user.email}? They will not be able to sign in.`)}
+              >
+                Reject
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setOpen(!open)}>
+              {open ? 'Close' : 'Manage'}
+            </Button>
+          )}
+        </TableCell>
+      </TableRow>
 
       {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-outline-dim flex flex-col gap-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
-            <Stat label="Requests" value={fmt(user.usage.requests)} />
-            <Stat label="Tokens in" value={fmt(user.usage.prompt_tokens)} />
-            <Stat label="Tokens out" value={fmt(user.usage.completion_tokens)} />
-            <Stat label="Tokens · 24h" value={fmt(user.usage.tokens_24h)} />
-          </div>
-          <div className="text-[11px] text-text-dim">
-            Joined {shortDate(user.created_at)}
-            {user.last_login_at && ` · last signed in ${shortDate(user.last_login_at)}`}
-            {user.usage.last_used_at && ` · last model call ${shortDate(user.usage.last_used_at)}`}
-          </div>
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={8} className="p-0">
+            <div className="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 pb-4 pt-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Stat className="border-border bg-background px-3 py-2" label="Requests" value={fmt(user.usage.requests)} />
+                <Stat className="border-border bg-background px-3 py-2" label="Tokens in" value={fmt(user.usage.prompt_tokens)} />
+                <Stat className="border-border bg-background px-3 py-2" label="Tokens out" value={fmt(user.usage.completion_tokens)} />
+                <Stat className="border-border bg-background px-3 py-2" label="Tokens · 24h" value={fmt(user.usage.tokens_24h)} />
+              </div>
+              <p className="m-0 text-[11px] text-muted-foreground">
+                Joined {shortDate(user.created_at)}
+                {user.last_login_at && ` · last signed in ${shortDate(user.last_login_at)}`}
+                {user.usage.last_used_at && ` · last model call ${shortDate(user.usage.last_used_at)}`}
+              </p>
 
-          <div className="flex gap-2 flex-wrap">
-            {user.status === 'active' ? (
-              <button
-                disabled={busy}
-                onClick={() => patch({ status: 'rejected' }, `Revoke access for ${user.email}? They are signed out immediately and their API key stops working.`)}
-                className={btnReject}
-              >
-                Revoke access
-              </button>
-            ) : (
-              <button disabled={busy} onClick={() => patch({ status: 'active' })} className={btnApprove}>
-                Restore access
-              </button>
-            )}
-            <button
-              disabled={busy}
-              onClick={() => patch(
-                { role: user.role === 'admin' ? 'user' : 'admin' },
-                user.role === 'admin'
-                  ? `Remove administrator rights from ${user.email}?`
-                  : `Make ${user.email} an administrator? They will be able to approve and remove users, including you.`
-              )}
-              className={btnQuiet}
-            >
-              {user.role === 'admin' ? 'Remove admin' : 'Make admin'}
-            </button>
-            <ResetPassword userId={user.id} email={user.email} />
-            {!isSelf && (
-              <button disabled={busy} onClick={remove} className={btnReject}>Delete</button>
-            )}
-          </div>
-        </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {user.status === 'active' ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => patch({ status: 'rejected' }, `Revoke access for ${user.email}? They are signed out immediately and their API key stops working.`)}
+                  >
+                    Revoke access
+                  </Button>
+                ) : (
+                  <Button size="sm" disabled={busy} onClick={() => patch({ status: 'active' })}>
+                    Restore access
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => patch(
+                    { role: user.role === 'admin' ? 'user' : 'admin' },
+                    user.role === 'admin'
+                      ? `Remove administrator rights from ${user.email}?`
+                      : `Make ${user.email} an administrator? They will be able to approve and remove users, including you.`
+                  )}
+                >
+                  {user.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                </Button>
+                <ResetPassword userId={user.id} email={user.email} />
+                {!isSelf && (
+                  <Button size="sm" variant="destructive" disabled={busy} onClick={() => setConfirmDelete(true)}>
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
       )}
-    </div>
+
+      {confirmDelete && (
+        <AlertDialog open onOpenChange={(next) => { if (!next) setConfirmDelete(false) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{`Delete ${user.email}?`}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Their API key stops working immediately and their usage history is removed.
+                This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy} onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction variant="destructive" disabled={busy} onClick={remove}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   )
 }
 
@@ -245,7 +410,11 @@ function ResetPassword({ userId, email }) {
   const [msg, setMsg] = useState(null)
 
   if (!open) {
-    return <button onClick={() => setOpen(true)} className={btnQuiet}>Set password</button>
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Set password
+      </Button>
+    )
   }
 
   const save = async () => {
@@ -264,16 +433,20 @@ function ResetPassword({ userId, email }) {
   }
 
   return (
-    <span className="flex items-center gap-2">
-      <input
+    <div className="flex items-center gap-2">
+      <Input
         type="text" value={value} onChange={(e) => setValue(e.target.value)}
         placeholder="New password" autoComplete="off"
-        className="px-3 py-1.5 bg-surface-high rounded-lg text-text text-xs outline-none border border-outline-dim focus:border-primary/40 w-40"
+        className="h-8 w-40 text-xs"
       />
-      <button onClick={save} disabled={value.length < 8} className={btnApprove}>Set</button>
-      <button onClick={() => { setOpen(false); setMsg(null) }} className={btnQuiet}>Cancel</button>
-      {msg && <span className="text-[11px] text-error">{msg}</span>}
-    </span>
+      <Button size="sm" onClick={save} disabled={value.length < 8}>
+        Set
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => { setOpen(false); setMsg(null) }}>
+        Cancel
+      </Button>
+      {msg && <span className="text-[11px] leading-relaxed text-destructive">{msg}</span>}
+    </div>
   )
 }
 
@@ -305,63 +478,80 @@ function CreateUserModal({ onClose, onCreated }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
-      onClick={onClose}
-    >
-      <div className="w-full max-w-sm bg-surface rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-semibold text-sm font-display m-0 mb-1">Add a user</h3>
-        <p className="text-[11px] text-text-dim m-0 mb-4 leading-relaxed">
-          The account is active right away — no approval step. Send them the email and
-          password you set here; they can change both from their Account page.
-        </p>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent className="gap-4">
+        <DialogHeader>
+          <DialogTitle className="font-display text-sm font-semibold tracking-tight">
+            Add a user
+          </DialogTitle>
+          <DialogDescription className="text-[11px] leading-relaxed">
+            The account is active right away — no approval step. Send them the email and
+            password you set here; they can change both from their Account page.
+          </DialogDescription>
+        </DialogHeader>
+
         <form onSubmit={submit} className="flex flex-col gap-3">
           <Field label="Name" value={name} onChange={setName} placeholder="Optional" />
           <Field label="Email" type="email" value={email} onChange={setEmail} required />
           <Field label="Password" type="text" value={password} onChange={setPassword}
                  hint="At least 8 characters." autoComplete="off" required />
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold font-label text-text-dim uppercase tracking-wide">Role</span>
-            <select
-              value={role} onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-surface-high rounded-xl text-text text-sm outline-none border border-outline-dim focus:border-primary/40 transition-all"
-            >
-              <option value="user">User — full access to apps and models</option>
-              <option value="admin">Admin — can also manage users</option>
-            </select>
-          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Role
+            </Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User — full access to apps and models</SelectItem>
+                <SelectItem value="admin">Admin — can also manage users</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {error && (
-            <div className="text-xs text-error bg-error-surface rounded-xl px-3 py-2.5">{error}</div>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
+              {error}
+            </div>
           )}
-          <div className="flex gap-2 mt-1">
-            <button type="submit" disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl bg-primary text-primary-on border-none text-sm font-bold cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity">
+
+          <div className="mt-1 flex gap-2">
+            <Button type="submit" disabled={busy} className="flex-1">
               {busy ? 'Creating…' : 'Create user'}
-            </button>
-            <button type="button" onClick={onClose}
-                    className="px-4 py-2.5 rounded-xl bg-surface-high text-text border border-outline-dim text-sm font-semibold cursor-pointer hover:bg-surface-highest transition-colors">
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 /* ── bits ────────────────────────────────────────────────────────────────── */
 
-const btnApprove = 'px-3 py-1.5 rounded-lg bg-primary text-primary-on border-none text-xs font-bold cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity whitespace-nowrap'
-const btnReject = 'px-3 py-1.5 rounded-lg bg-error-surface text-error border border-error/30 text-xs font-semibold cursor-pointer hover:bg-error/15 disabled:opacity-50 transition-colors whitespace-nowrap'
-const btnQuiet = 'px-3 py-1.5 rounded-lg bg-surface-high text-text border border-outline-dim text-xs font-semibold cursor-pointer hover:bg-surface-highest transition-colors whitespace-nowrap'
-
-function Metric({ label, value }) {
+function Field({ label, hint, value, onChange, ...rest }) {
   return (
-    <div>
-      <div className="text-sm font-bold font-display text-text leading-tight">{value}</div>
-      <div className="text-[10px] text-text-dim font-label uppercase tracking-wide">{label}</div>
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </Label>
+      <Input
+        {...rest}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 placeholder:text-muted-foreground/70"
+      />
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </div>
   )
+}
+
+function initials(user) {
+  return (user.name || user.email || '?').trim().slice(0, 1).toUpperCase()
 }
 
 function shortDate(s) {
