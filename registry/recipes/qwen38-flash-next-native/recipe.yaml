@@ -41,7 +41,7 @@ native:
   # built client into its engine home and runs it from there.
   engine_build:
     image: "tensorfold-qwen38:zig-db28187"
-    artifacts: ["native/bin", "share", "python", "fatbin"]
+    artifacts: ["/opt/tensorfold/native/bin", "/opt/tensorfold/share", "/opt/tensorfold/python", "/opt/tensorfold/fatbin"]
     env:
       TENSORFOLD_CUDA_KERNELS: "share/tensorfold/cuda/sm121"
       TENSORFOLD_VISION_PYTHONPATH: "python"

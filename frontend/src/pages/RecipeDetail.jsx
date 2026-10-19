@@ -150,6 +150,10 @@ function RecipeDetailPage({ slug }) {
   // present on native recipes (the daemon keeps container JSON unchanged).
   const isNative = recipe.kind === 'native'
   const native = recipe.native || {}
+  // A model can need its own patched engine build (the model repository's patch
+  // series). The daemon extracts it into the engine home; until that folder is
+  // there, launching is refused.
+  const engineBuild = recipe.engine_build || null
   const isReady = recipe.ready
   const cLogs = containerLogs[recipe.slug] || []
   const bLogs = buildLogs[recipe.slug] || []
@@ -356,6 +360,7 @@ function RecipeDetailPage({ slug }) {
                 {native.engine && <SpecBadge label="Engine" value={native.engine} />}
                 {native.model && <SpecBadge label="Model" value={native.model} />}
                 {native.port != null && <SpecBadge label="Port" value={String(native.port)} />}
+                {engineBuild && <SpecBadge label="Engine build" value={engineBuild.ready ? 'built' : 'not built'} />}
               </>
             ) : (
               <SpecBadge label="Disk" value={`${recipe.requirements?.disk_gb ?? 10} GB`} />
@@ -415,9 +420,19 @@ function RecipeDetailPage({ slug }) {
                 <span className="inline-block animate-spin mr-1">⟳</span>Uninstalling
               </div>
             )}
+            {isNative && engineBuild && !engineBuild.ready && !isBusy && !isRemoving && (
+              <button onClick={() => installRecipe(recipe.slug)} className="btn-primary px-6 py-2.5 text-sm font-bold">
+                Build engine
+              </button>
+            )}
+            {isNative && engineBuild?.ready && !recipe.running && !isBusy && !isRemoving && (
+              <button disabled={isRemoving} onClick={handleRemove} className="px-4 py-2.5 bg-error-surface text-error border-none rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50">
+                Remove engine
+              </button>
+            )}
             {(isNative || recipe.installed) && !recipe.running && !recipe.starting && !isBusy && !isRemoving && (
               <>
-                <button disabled={launching || isRemoving} onClick={handleLaunch} className="btn-primary px-6 py-2.5 text-sm font-bold">
+                <button disabled={launching || isRemoving || (engineBuild && !engineBuild.ready)} onClick={handleLaunch} className="btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50">
                   {launching ? '...' : '▶ Launch'}
                 </button>
                 {!isNative && (
