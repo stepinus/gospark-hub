@@ -7,7 +7,6 @@ import PosterCard from '../components/PosterCard'
 import CardRow from '../components/CardRow'
 import { byLab, byRelease } from '../components/ModelShelves'
 import { isModel } from '../models'
-import Hero from '../components/Hero'
 import { EmptyState } from '@/components/page-shell'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -67,28 +66,12 @@ export default function Catalog({ search = '' }) {
     }
   }, [filtered])
 
-  // Hero picks: whatever is running, then the freshest Spark-optimized apps,
-  // capped at five so the dots stay meaningful.
-  const heroPicks = useMemo(() => {
-    const seen = new Set()
-    const out = []
-    const push = (r) => {
-      if (r && !seen.has(r.slug)) { seen.add(r.slug); out.push(r) }
-    }
-    const shown = (r) => showHidden || !hidden.has(r.slug)
-    recipes.filter((r) => (r.running || r.starting) && shown(r)).sort(byRelease).forEach(push)
-    recipes.filter((r) => !isModel(r) && getSectionId(r) === 'spark-ai-hub' && shown(r)).sort(byRelease).forEach(push)
-    return out.slice(0, 5)
-  }, [recipes, hidden, showHidden])
-
   const isBrowsing = !search && category === 'all'
 
   return (
     <div className="pb-14">
-      {isBrowsing && heroPicks.length > 0 && <Hero picks={heroPicks} />}
-
       {/* ─── Category filters ─── */}
-      <div className={`flex overflow-x-auto px-6 pb-2 ${isBrowsing ? 'pt-2' : 'pt-6'}`}>
+      <div className={`flex overflow-x-auto px-6 pb-2 pt-6`}>
         <ToggleGroup
           type="single"
           value={category}
