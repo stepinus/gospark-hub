@@ -532,6 +532,27 @@
 		reverse_proxy spark-ai-hub-pixal3d-api:30000
 	}
 
+	# pixal3d-mv-api
+	@probe-pixal3d-mv-api {
+		path /run/pixal3d-mv-api/*
+		header X-Sah-Probe "<token>"
+	}
+	handle @probe-pixal3d-mv-api {
+		uri strip_prefix /run/pixal3d-mv-api
+		reverse_proxy spark-ai-hub-pixal3d-mv-api:30000
+	}
+	redir /run/pixal3d-mv-api /run/pixal3d-mv-api/ 308
+	handle_path /run/pixal3d-mv-api/* {
+		forward_auth host.docker.internal:9110 {
+			uri /api/auth/me
+			@denied status 401 403
+			handle_response @denied {
+				redir * / 302
+			}
+		}
+		reverse_proxy spark-ai-hub-pixal3d-mv-api:30000
+	}
+
 	# pixal3d-spark
 	@probe-pixal3d-spark {
 		path /run/pixal3d-spark/*
