@@ -4,15 +4,19 @@
 package web
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"gospark-hub/frontend"
 	"gospark-hub/internal/config"
 )
 
@@ -55,6 +59,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) { r.mux.Ser
 type Server struct {
 	Cfg  config.Config
 	Dist string
+	// dist is the SPA tree actually served: the copy embedded in the binary,
+	// or the checkout's frontend/dist when the binary carries no index.html.
+	dist fs.FS
 	// CoverRoots are searched in order for /cover-sources/ files: local recipes
 	// first, then every source's covers directory. The daemon fills this from
 	// the registry manager; New falls back to the checkout copies.
@@ -66,11 +73,24 @@ type Server struct {
 
 func New(cfg config.Config) *Server {
 	s := &Server{Cfg: cfg, Dist: filepath.Join(cfg.BaseDir, "frontend", "dist")}
+	s.dist = pickDist(s.Dist)
 	legacy := filepath.Join(cfg.BaseDir, "registry", "covers")
 	if st, err := os.Stat(legacy); err == nil && st.IsDir() {
 		s.CoverRoots = []string{legacy}
 	}
 	return s
+}
+
+// pickDist prefers the SPA compiled into the binary, so a release binary runs
+// with no frontend/ directory beside it. A binary built without `npm run build`
+// carries no index.html and falls through to whatever is on disk.
+func pickDist(dir string) fs.FS {
+	if sub, err := fs.Sub(frontend.Dist, "dist"); err == nil {
+		if _, err := fs.Stat(sub, "index.html"); err == nil {
+			return sub
+		}
+	}
+	return os.DirFS(dir)
 }
 
 // assetSuffixes: a missing file with one of these must 404, never fall through
@@ -106,9 +126,15 @@ func (s *Server) MountStatic(r *Router) {
 		r.Mount("/sah/", http.StripPrefix("/sah/", http.FileServer(http.Dir(sahDir))))
 	}
 
-	assets := filepath.Join(s.Dist, "assets")
-	if st, err := os.Stat(assets); err == nil && st.IsDir() {
-		r.Mount("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assets))))
+	if assets, err := fs.Sub(s.dist, "assets"); err == nil {
+		if st, err := fs.Stat(assets, "."); err == nil && st.IsDir() {
+			// Asset names carry a content hash: they never change under a name.
+			immutable := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				http.FileServer(http.FS(assets)).ServeHTTP(w, req)
+			})
+			r.Mount("/assets/", http.StripPrefix("/assets/", immutable))
+		}
 	}
 
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, req *http.Request) {
@@ -147,10 +173,9 @@ func (s *Server) serveCover(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveSPA(w http.ResponseWriter, req *http.Request) {
 	clean := path.Clean("/" + req.URL.Path)
 	rel := strings.TrimPrefix(clean, "/")
-	if rel != "" {
-		full := filepath.Join(s.Dist, filepath.FromSlash(rel))
-		if st, err := os.Stat(full); err == nil && !st.IsDir() {
-			http.ServeFile(w, req, full)
+	if rel != "" && rel != "." {
+		if st, err := fs.Stat(s.dist, rel); err == nil && !st.IsDir() {
+			s.serveDistFile(w, req, rel)
 			return
 		}
 		if assetSuffixes[strings.ToLower(path.Ext(rel))] {
@@ -158,15 +183,25 @@ func (s *Server) serveSPA(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	index := filepath.Join(s.Dist, "index.html")
-	if _, err := os.Stat(index); err != nil {
-		log.Printf("spa: %s missing — run `npm run build` in frontend/", index)
+	if _, err := fs.Stat(s.dist, "index.html"); err != nil {
+		log.Printf("spa: %s/index.html missing — run `npm run build` in frontend/", s.Dist)
 		http.NotFound(w, req)
 		return
 	}
 	// index.html names the hashed bundle, so it must always revalidate.
 	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeFile(w, req, index)
+	s.serveDistFile(w, req, "index.html")
+}
+
+// serveDistFile serves one file out of the resolved SPA tree — embedded or on
+// disk, the caller does not care which.
+func (s *Server) serveDistFile(w http.ResponseWriter, req *http.Request, name string) {
+	b, err := fs.ReadFile(s.dist, name)
+	if err != nil {
+		http.NotFound(w, req)
+		return
+	}
+	http.ServeContent(w, req, path.Base(name), time.Time{}, bytes.NewReader(b))
 }
 
 func fileSHA256(path string) (string, error) {
