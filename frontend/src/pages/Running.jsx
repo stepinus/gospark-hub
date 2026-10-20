@@ -113,18 +113,20 @@ function BuildingCard({ recipe, onSelect, isUpdating }) {
       onClick={() => onSelect(recipe.slug)}
       className="cursor-pointer flex-row items-center gap-4 p-4 opacity-80 shadow-none transition-colors hover:ring-foreground/20"
     >
-      {logoUrl && !logoFailed ? (
-        <img
-          src={logoUrl}
-          alt={recipe.name}
-          className="h-12 w-12 shrink-0 rounded-lg bg-muted object-contain p-2"
-          onError={() => setLogoFailed(true)}
-        />
-      ) : (
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-xl text-foreground">
-          {recipe.icon || '◻'}
-        </div>
-      )}
+      <div className="shrink-0">
+        {logoUrl && !logoFailed ? (
+          <img
+            src={logoUrl}
+            alt={recipe.name}
+            className="h-12 w-12 shrink-0 rounded-lg bg-muted object-contain p-2"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-xl text-foreground">
+            {recipe.icon || '◻'}
+          </div>
+        )}
+      </div>
 
       <div className="min-w-0 flex-1">
         <h3 className="m-0 truncate font-display text-sm font-semibold text-foreground">{recipe.name}</h3>
@@ -173,18 +175,20 @@ function RunningCard({ recipe, onSelect, onStop, benchmark, onBenchmark }) {
           name keeps the width it needs. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         {/* Icon */}
-        {logoUrl && !logoFailed ? (
-          <img
-            src={logoUrl}
-            alt={recipe.name}
-            className="h-12 w-12 shrink-0 rounded-lg bg-muted object-contain p-2"
-            onError={() => setLogoFailed(true)}
-          />
-        ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-xl text-foreground">
-            {recipe.icon || '◻'}
-          </div>
-        )}
+        <div className="shrink-0">
+          {logoUrl && !logoFailed ? (
+            <img
+              src={logoUrl}
+              alt={recipe.name}
+              className="h-12 w-12 shrink-0 rounded-lg bg-muted object-contain p-2"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-xl text-foreground">
+              {recipe.icon || '◻'}
+            </div>
+          )}
+        </div>
 
         {/* Info */}
         <div className="min-w-0 flex-1">
@@ -319,18 +323,20 @@ function StoppedCard({ recipe, onSelect, onLaunch }) {
       onClick={() => onSelect(recipe.slug)}
       className="cursor-pointer flex-row items-center gap-3 p-4 shadow-none transition-colors hover:ring-foreground/20"
     >
-      {logoUrl && !logoFailed ? (
-        <img
-          src={logoUrl}
-          alt={recipe.name}
-          className="h-10 w-10 shrink-0 rounded-lg bg-muted object-contain p-1.5"
-          onError={() => setLogoFailed(true)}
-        />
-      ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-lg text-foreground">
-          {recipe.icon || '◻'}
-        </div>
-      )}
+      <div className="shrink-0">
+        {logoUrl && !logoFailed ? (
+          <img
+            src={logoUrl}
+            alt={recipe.name}
+            className="h-10 w-10 shrink-0 rounded-lg bg-muted object-contain p-1.5"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-lg text-foreground">
+            {recipe.icon || '◻'}
+          </div>
+        )}
+      </div>
 
       <div className="min-w-0 flex-1">
         <h3 className="m-0 truncate font-display text-sm font-semibold text-foreground">{recipe.name}</h3>

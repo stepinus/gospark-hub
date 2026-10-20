@@ -274,16 +274,16 @@ export default function Settings() {
             title="No sources yet."
           />
         ) : (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="h-8 pl-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                <TableHead className="h-8 w-[46%] pl-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Source
                 </TableHead>
-                <TableHead className="h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                <TableHead className="h-8 w-[22%] text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Synced
                 </TableHead>
-                <TableHead className="hidden h-8 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
+                <TableHead className="hidden h-8 w-[14%] text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:table-cell">
                   Recipes
                 </TableHead>
                 <TableHead className="h-8 pr-0 text-right text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
@@ -372,7 +372,7 @@ function SourceRow({ source, busy, disabled, onSync, onRemove }) {
   const recipes = typeof source.recipes === 'number' ? source.recipes : null
   return (
     <TableRow>
-      <TableCell className="max-w-0 pl-0 align-top">
+      <TableCell className="pl-0 align-top">
         <div className="break-all text-sm text-foreground">{source.url}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
           {source.ref && <span className="font-mono">{source.ref}</span>}
