@@ -169,6 +169,11 @@ export function measureLlamaswapModel(model) {
   return request('POST', `/api/llamaswap/models/${encodeURIComponent(model)}/measure`)
 }
 
+// Removes the model from config.yaml outright (the × only ungroups it).
+export function deleteLlamaswapModel(model) {
+  return request('DELETE', `/api/llamaswap/models/${encodeURIComponent(model)}`)
+}
+
 /* Local recipes */
 
 // { recipes: [{ slug, name, origin, modified }] }

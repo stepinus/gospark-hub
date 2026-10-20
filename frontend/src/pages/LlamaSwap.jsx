@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth'
 import {
+  deleteLlamaswapModel,
   getLlamaswap,
   getLlamaswapConfig,
   installLlamaswap,
@@ -12,6 +13,7 @@ import {
   stopLlamaswap,
   updateLlamaswap,
 } from '../lib/api'
+import { Trash2 } from 'lucide-react'
 import YamlEditor from '../components/YamlEditor'
 import CopyField from '../components/CopyField'
 import AddressPicker, { hostOptions } from '../components/AddressPicker'
@@ -53,6 +55,9 @@ export default function LlamaSwap() {
   const [dragging, setDragging] = useState(null)
   const [measuring, setMeasuring] = useState({})
   const [query, setQuery] = useState('')
+  // Deleting a model is not ungrouping: it removes the entry from config.yaml,
+  // which is the only way to get a dead model out of the catalogue.
+  const [deleting, setDeleting] = useState(null)
   // Where this Spark is reachable from elsewhere: the daemon reads mDNS,
   // Tailscale and the routing table, so the address offered here is not the
   // 127.0.0.1 the page happens to be open on.
@@ -146,6 +151,47 @@ export default function LlamaSwap() {
       return
     }
     setError('')
+    await load()
+  }
+
+  // Deleting a model is a config edit, not a group edit: the entry disappears
+  // from config.yaml (and from every group), which is how a dead model leaves
+  // the catalogue for good.
+  const removeModel = async (model) => {
+    const label = state?.config?.models?.[model]?.name || model
+    if (!window.confirm(`Delete ${label} from config.yaml? This removes the model, not just its group.`)) {
+      return
+    }
+    setDeleting(model)
+    const res = await deleteLlamaswapModel(model)
+    setDeleting(null)
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+    setError('')
+    setNotice(`Deleted ${label} from config.yaml.`)
+    await load()
+  }
+
+  // Removing a group keeps its models: they fall back to Ungrouped, which is
+  // the same shape the config had before the group existed.
+  const removeGroup = async (name) => {
+    const members = (state?.config?.groups?.[name]?.members || []).length
+    if (!window.confirm(`Delete group "${name}"? Its ${members} model(s) stay in the config and move to Ungrouped.`)) {
+      return
+    }
+    const groups = { ...(state?.config?.groups || {}) }
+    delete groups[name]
+    setBusy('groups')
+    const res = await saveLlamaswapGroups(groups)
+    setBusy(null)
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+    setError('')
+    setNotice(`Group "${name}" removed; its models are ungrouped.`)
     await load()
   }
 
@@ -514,6 +560,9 @@ export default function LlamaSwap() {
                   onDragStart={setDragging}
                   onDropModel={(model) => moveModel(model, name)}
                   onRemove={(model) => moveModel(model, '')}
+                  onDelete={removeModel}
+                  deleting={deleting}
+                  onDeleteGroup={removeGroup}
                 />
               ))}
               <GroupColumn
@@ -529,6 +578,8 @@ export default function LlamaSwap() {
                 isVisible={isVisible}
                 onDragStart={setDragging}
                 onDropModel={(model) => moveModel(model, '')}
+                onDelete={removeModel}
+                deleting={deleting}
                 ungrouped
               />
             </div>
@@ -615,6 +666,9 @@ function GroupColumn({
   onDragStart,
   onDropModel,
   onRemove,
+  onDelete,
+  deleting,
+  onDeleteGroup,
   ungrouped,
 }) {
   const members = group?.members || []
@@ -660,6 +714,17 @@ function GroupColumn({
           {title || name}
         </h3>
         <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{members.length}</span>
+        {name && onDeleteGroup && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onDeleteGroup(name)}
+            title="Delete this group (models stay in the config)"
+            className="ml-auto text-[10px] text-muted-foreground hover:text-destructive"
+          >
+            ×
+          </Button>
+        )}
       </div>
       <p className="m-0 mt-1 text-[10px] leading-relaxed text-muted-foreground">
         {usedGB > 0 ? `≈ ${usedGB.toFixed(0)} GB` : 'no memory data'}
@@ -695,6 +760,16 @@ function GroupColumn({
                     ×
                   </Button>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={(e) => { e.stopPropagation(); onDelete?.(id) }}
+                  disabled={!onDelete || deleting === id}
+                  title="Delete from config.yaml"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  {deleting === id ? '⟳' : <Trash2 className="h-3 w-3" />}
+                </Button>
               </div>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">

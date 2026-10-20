@@ -54,6 +54,7 @@ func Register(r *web.Router, deps Deps) {
 	r.Handle("PUT", "/api/llamaswap/groups", h.putGroups)
 	r.Handle("PUT", "/api/llamaswap/settings", h.putSettings)
 	r.Handle("POST", "/api/llamaswap/models/{model}/measure", h.measure)
+	r.Handle("DELETE", "/api/llamaswap/models/{model}", h.deleteModel)
 }
 
 type handler struct{ deps Deps }
@@ -270,6 +271,41 @@ func (h *handler) measure(w http.ResponseWriter, r *http.Request) {
 		h.logf("save measurement: %v", err)
 	}
 	writeJSON(w, http.StatusOK, measurement)
+}
+
+// deleteModel drops a model from the config for good. The × on a card only
+// takes it out of a group; this is the one that shrinks the catalogue, so it
+// refuses while the sidecar has that model loaded (its process would outlive
+// the entry that knows how to stop it).
+func (h *handler) deleteModel(w http.ResponseWriter, r *http.Request) {
+	if !h.admin(w, r) {
+		return
+	}
+	model := r.PathValue("model")
+	if h.deps.Service != nil {
+		if running, _ := h.deps.Service.Running(r.Context()); running {
+			client := swap.NewClient(h.deps.Manager.Settings().Port, h.apiKey())
+			if models, err := client.Running(r.Context()); err == nil {
+				for _, live := range models {
+					if live.Model == model {
+						writeJSON(w, http.StatusConflict, map[string]string{
+							"detail": model + " is loaded — unload it before deleting it",
+						})
+						return
+					}
+				}
+			}
+		}
+	}
+	err := h.deps.Manager.DeleteModel(model)
+	switch {
+	case errors.Is(err, swap.ErrNoSuchModel):
+		writeJSON(w, http.StatusNotFound, map[string]string{"detail": err.Error()})
+	case err != nil:
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "model": model})
+	}
 }
 
 // recipes lists the Hub recipes llama-swap can front: the language models, with

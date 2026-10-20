@@ -88,6 +88,70 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// ErrNoSuchModel means the config has no model with that id.
+var ErrNoSuchModel = errors.New("no such model in the config")
+
+// DeleteModel removes a model from the config for good, and drops it from every
+// group that lists it — a group member that names no model fails Validate, so
+// the two edits belong to one write. Comments and the rest of the file survive
+// because the YAML tree is edited, not re-serialised from structs.
+func (m *Manager) DeleteModel(id string) error {
+	text, err := m.ConfigYAML()
+	if err != nil {
+		return err
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(text), &doc); err != nil {
+		return fmt.Errorf("parse config: %w", err)
+	}
+	if len(doc.Content) == 0 {
+		return errors.New("config is empty")
+	}
+	root := doc.Content[0]
+	removed := false
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value != "models" {
+			continue
+		}
+		models := root.Content[i+1]
+		for j := 0; j+1 < len(models.Content); j += 2 {
+			if models.Content[j].Value == id {
+				models.Content = append(models.Content[:j], models.Content[j+2:]...)
+				removed = true
+				break
+			}
+		}
+	}
+	if !removed {
+		return ErrNoSuchModel
+	}
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value != "groups" {
+			continue
+		}
+		for j := 0; j+1 < len(root.Content[i+1].Content); j += 2 {
+			group := root.Content[i+1].Content[j+1]
+			for k := 0; k+1 < len(group.Content); k += 2 {
+				if group.Content[k].Value != "members" {
+					continue
+				}
+				kept := make([]*yaml.Node, 0, len(group.Content[k+1].Content))
+				for _, member := range group.Content[k+1].Content {
+					if member.Value != id {
+						kept = append(kept, member)
+					}
+				}
+				group.Content[k+1].Content = kept
+			}
+		}
+	}
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return err
+	}
+	return m.SaveConfigYAML(string(out))
+}
+
 // Config reads and parses the managed config.
 func (m *Manager) Config() (*Config, error) {
 	text, err := m.ConfigYAML()
