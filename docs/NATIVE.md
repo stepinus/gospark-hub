@@ -170,7 +170,13 @@ ref форка qwen38 нигде не записаны ни в рецепте, �
 
 | рецепт | install.client | install.runtime | что окажется на диске |
 | --- | --- | --- | --- |
-| `minicpm-v47-native` (текст) | сборка `jkuepker/TensorFold@0b1fd2b` (zig, без docker) | `none` | клиент 33 МБ, **рантайм не нужен** |
+| `minicpm-v47-native` (текст на нативном) | сборка `jkuepker/TensorFold@0b1fd2b` (zig, без docker) | `none` | клиент 33 МБ, **рантайм не нужен** |
+
+Про картинки у MiniCPM: они работают на **Python**-движке форка (`jkuepker/TensorFold@minicpmv47-066`,
+`--vision --parallel 1`), именно это описано в карточке модели и проверено здесь: `runtime/` этого движка даёт
+torch и transformers, отдельный venv не понадобился, картинка прочитана дословно. На **нативном Zig**-движке
+семейства нет (upstream #785), поэтому эта карточка честно текстовая.
+
 | `qwen38-27b-uncensored-native` (vision, сток-клиент) | — | `venv`, py3.12 + torch/transformers/numpy/pillow | ~2.4 ГБ |
 | `qwen38-flash-next-native` (vision + патчи) | сборка `jkuepker/TensorFold@db28187` (zig) | `venv` (тот же flavor) | клиент 74 МБ + общий рантайм 2.4 ГБ |
 
