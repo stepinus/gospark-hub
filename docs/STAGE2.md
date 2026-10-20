@@ -10,6 +10,7 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
 
 | # | Идея | Что есть | Цена | Приоритет |
 |---|------|----------|------|-----------|
+| 0 | Менеджер бинарей (`internal/tools`) | три разных загрузчика | 2–3 дня | фундамент |
 | 1 | Страница бенчмарков | точечный замер по рецепту | 2–3 дня | высокий |
 | 2 | Spark Doctor | — | 2 дня | высокий |
 | 3 | Провенанс рецептов и синк-отчёт | источники, копии, compose | 3 дня | высокий |
@@ -19,6 +20,142 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
 | 7 | Общий кеш медиамоделей | — | 2 дня | средний |
 | 8 | Реестр сопроводительных сервисов | — | 4–5 дней | низкий |
 | 9 | `sah` на Go | Python-скрипт на 3.4k строк | 3–4 дня | низкий |
+
+---
+
+## 0. Менеджер бинарей (`internal/tools`) — общий фундамент
+
+### Как движки устроены сейчас (это менять не надо)
+
+`internal/engines` — централизованная установка **одного** релиза движка, а не
+экземпляр на рецепт. На диске:
+
+```
+~/.config/gospark/engines/tensorfold/
+  1.1.1/            распакованный релиз ashhart/TensorFold (bin, lib, LICENSES)      86 МБ
+  current -> 1.1.1  символическая ссылка, единственная версия (старые удаляются)
+  builds/<slug>/    пропатченный клиент конкретного рецепта из его образа             ~106 МБ
+  runtime/          17 ГБ CUDA/torch/python, вынутые из builder-образа ОДИН раз
+  options.json      флаги serve на весь движок (--cortheon, --dashboard)
+```
+
+- Релиз качается с GitHub (`tensorfold-<ver>-linux-aarch64.tar.gz` + `.sha256`),
+  распаковывается в `<version>/`, ссылка `current` переключается одним `rename`.
+  Версия держится ровно одна: `removeOtherVersions` удаляет прежнюю, чтобы апгрейд не
+  копил гигабайты.
+- Что рецепт может менять — только `native.engine_build {image, artifacts, command}`:
+  образ **уже содержит** патченный движок (свой бранч/патчи — это знание репозитория
+  модели, хаб патчи не накладывает), из него `docker cp` вынимается клиент в
+  `builds/<slug>/`. Рецепт без `engine_build` идёт на релизе из `current`.
+  `native.runtime_image` даёт только CUDA-рантайм, клиент остаётся релизным.
+- `native` запускает один бинарь через `systemd --user` (транзиентный юнит
+  `gospark-native-<slug>`), аргументы — из рецепта плюс флаги движка.
+- Итог по трём локальным рецептам: `minicpm-v47-native` — build + runtime;
+  `qwen38-flash-next-native` — build + runtime; `qwen38-27b-uncensored-native` — только
+  runtime, клиент релизный.
+
+**Вывод по вопросу «централизованно или экземпляр на рецепт»:** централизованно и уже
+так. Дублировать релиз на каждый рецепт бессмысленно (86 МБ × N и 17 ГБ рантайма × N),
+а различаются рецепты не версией движка, а образом, из которого собран их клиент.
+Экземпляр на рецепт существует ровно там, где он нужен — `builds/<slug>/`.
+
+**Три реальных пробела (дёшево закрыть попутно):**
+
+1. **Версия не пинится.** Рецепт не может сказать `engine_version: 1.1.1`, все идут на
+   `current` — обновление движка двигает все рецепты сразу, и старая версия удаляется.
+   Лечение: необязательное поле `native.engine_version`, `PathFor(engine, version)` с
+   фолбэком на `current`, хранить 2 версии вместо одной.
+2. **Сборка не помнит, из чего собрана.** `build.json` знает `recipe/engine/image/built_at`,
+   но не версию движка и не дайджест образа. После апгрейда непонятно, клиент устарел
+   или нет. Лечение: писать `engine_version` + `image_id` (он уже есть локально —
+   `docker image inspect`), в UI бейдж «собран на 1.1.1, движок 1.1.2».
+3. **Нет уборки.** `builds/` живёт вечно, даже если рецепт удалён.
+
+### Собственно менеджер (то, ради чего раздел)
+
+Скачивание «релиза с GitHub» написано уже дважды и вот-вот понадобится в третий раз:
+
+| где | что качает | строк |
+| --- | --- | --- |
+| `internal/engines/engines.go` | TensorFold tarball + `.sha256` | ~250 (`downloadFile`, `fetchText`, `extractTarGz`, `latestVersion`, `assetURL`) |
+| `internal/llamaswap/manager.go` | llama-swap tarball + checksums | ~150 (`download`, `verify`, `unpack`) |
+| нужен | `vllm-bench` — одиночный бинарь `vllm-bench-aarch64-linux-musl`, не тарбол | — |
+| нужен | `spark-doctor` — git clone + venv | — |
+
+#### Дизайн
+
+Один пакет, каталог и один установщик. Три вида установки:
+
+```go
+type Kind string // "tarball" | "binary" | "venv"
+
+type Tool struct {
+    ID      string // "tensorfold", "llama-swap", "vllm-bench", "spark-doctor"
+    Name    string // как показывать
+    Kind    Kind
+    Repo    string // owner/name на GitHub (для tarball/binary)
+    Asset   string // шаблон имени ассета: "tensorfold-%s-%s.tar.gz", "vllm-bench-%s-linux-musl"
+    Binary  string // путь к исполняемому внутри распаковки: "bin/tensorfold-native"
+    Checks  string // ".sha256" | "SHA256SUMS" | "" (тогда sha256 пишем свой в installed.yaml)
+    GitURL  string // для venv: URL репозитория
+}
+```
+
+`tools.Manager` (поля `Home`, `HTTP`, `GitHubAPI`, `DownloadBase`, `Run` — как у
+`engines.Manager`, чтобы тесты подменяли httptest-сервером):
+
+- `Install(ctx, id, version)` — temp-каталог внутри `Home/<id>`, скачивание, сверка
+  sha256, распаковка/установка, `<version>/`, атомарная замена `current`, запись
+  `installed.yaml` (`version, asset, sha256, installed_at`), удаление версий сверх
+  лимита (по умолчанию 2 — пин рецепта должен во что-то попадать);
+- `Latest(ctx, id)` — GitHub `releases/latest`, кэш 5 минут, провал кэшируется;
+- `Installed(id) (version, ok)`, `Path(id) (string, error)`, `List() []Status`,
+  `Delete(id) error`;
+- `Update(ctx, id)` — как в `engines.Update`: `changed=false`, если уже последняя.
+
+Раскладка: `~/.config/gospark/tools/<id>/<version>/` + `current` + `installed.yaml`.
+`engines` переезжает на неё как есть (его `Home` = `tools/tensorfold`), поэтому
+миграция — `os.Rename` существующего каталога плюс `installed.yaml` в первом запуске.
+
+#### Что остаётся в `engines` после рефакторинга
+
+Только доменное: `Options` (флаги serve), `Builds` (`EnsureBuild`, `BuildPath`,
+`ListBuilds`), `EnsureRuntime`, `PathFor` с пином версии. Скачивание, `latestVersion`,
+распаковка, сверка контрольной суммы — удаляются (~250 строк минус). `internal/llamaswap`
+теряет `download/verify/unpack` (~150 строк), оставляет `config.yaml`, `measurements.json`,
+управление юнитом.
+
+#### API и UI
+
+- `GET /api/tools` → `[{id,name,kind,installed,version,latest,path,size}]` (admin);
+- `POST /api/tools/{id}/install`, `POST /api/tools/{id}/update`, `DELETE /api/tools/{id}` —
+  один job за раз, лог в тот же WS, что у установки движка;
+- UI: блок «Hub tools» на странице **Engines** (там уже живёт «скачать/обновить/удалить
+  бинарь», вторая ментальная модель не нужна): строки `Table` — имя, версия, размер,
+  кнопки Install/Update/Delete. Кнопки llama-swap со страницы LlamaSwap остаются на
+  месте, просто ходят в тот же менеджер; эндпоинты `/api/llamaswap/*` не меняются.
+
+#### Шаги
+
+1. `internal/tools/tools.go` + `catalog.go`: три вида установки, тесты на httptest
+   (tarball, одиночный бинарь, неверная сумма, кэш latest, замена `current`, лимит
+   версий).
+2. Перевести `internal/engines` на `tools`: удалить загрузчик, оставить обёртку
+   `Install/Update/Delete/Path` (API не меняется), добавить миграцию каталога.
+   Существующие тесты engines должны остаться зелёными без правок.
+3. Перевести `internal/llamaswap` на `tools` (id `llama-swap`).
+4. Добавить в каталог `vllm-bench` (п. 1) и `spark-doctor` (п. 2), `GET /api/tools` + UI.
+5. Пробелы движков: пин версии, `engine_version`/`image_id` в `build.json`, GC
+   `builds/` для исчезнувших рецептов.
+
+#### Проверка
+
+- `go test ./internal/tools/... ./internal/engines/... ./internal/llamaswap/...`;
+- на чистом `HOME` установка TensorFold через новый менеджер, затем запуск нативного
+  рецепта — стартует из `tools/tensorfold/current/bin/tensorfold-native`;
+- `GET /api/tools` показывает установленные бинари с версиями и размерами; повторная
+  установка той же версии → 409;
+- после `systemctl --user restart gospark-hub` состояние (`installed.yaml`) не теряется.
 
 ---
 
@@ -42,10 +179,7 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
 `guidellm` (pip, sweep по RPS). Свой раннер не пишем.
 
 **План.**
-1. `internal/tools/` — менеджер внешних бинарей по образцу `llamaswap.Manager`:
-   скачивание релиза с GitHub, сверка sha256, установка в
-   `~/.config/gospark/tools/vllm-bench`, версия в `tools.yaml`. Тот же механизм потом
-   переиспользуется для `spark-doctor` (п. 2).
+1. Установка бинаря — менеджером из п. 0 (id `vllm-bench`), своего загрузчика здесь нет.
 2. `internal/bench/run.go` — запуск `vllm-bench` как job'а: argv собирается из
    параметров страницы, stdout построчно уходит в WS-канал, по завершении читается
    JSON-файл результата. Явно: `--backend openai --base-url http://127.0.0.1:<port>
@@ -86,7 +220,7 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
 сотни строк разбора `nvidia-smi`/`/proc`/`dmesg`, которые апстрим уже поддерживает.
 
 **План.**
-1. Установка: `internal/tools` из п. 1 клонирует репозиторий в
+1. Установка: `internal/tools` из п. 0 клонирует репозиторий в
    `~/.config/gospark/tools/spark-doctor` и ставит его в venv рядом
    (`python3 -m venv .venv && .venv/bin/pip install -e .` — так велит README апстрима;
    в PyPI пакета нет). Путь к питону — в `tools.yaml`.
@@ -248,8 +382,8 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
    ключи, health-URL, шаги удаления. Начать с трёх: OpenViking, SearXNG, Open WebUI.
 2. `internal/services`: чтение манифестов, статус (`systemctl --user is-active`,
    `docker ps`, `curl health`), установка/удаление через те же примитивы, что уже есть:
-   `internal/tools` (скачивание бинарей), `internal/dockerx` (compose), шаблон unit'а из
-   `internal/engines`.
+   `internal/tools` (скачивание бинарей, п. 0), `internal/dockerx` (compose), шаблон
+   unit'а из `internal/engines`.
 3. API `internal/api/services`: `GET /api/services` (список + статус), `POST
    /api/services/{id}/install|remove|start|stop`, лог job'а в существующем WS.
 4. UI: страница `Services.jsx` — карточки с `Badge` статуса (нет / установлен / запущен /
@@ -287,7 +421,7 @@ llama-swap и идеи из `docs/IDEAS.md`. llama-swap сделан, остал
 
 ## Порядок и зависимости
 
-1. **Тул-менеджер** (`internal/tools`) — общий для п. 1, 2, 8; делать первым.
+1. **Тул-менеджер** (`internal/tools`, п. 0) — общий для п. 1, 2, 8; делать первым.
 2. **Бенчмарки** (1) и **Doctor** (2) — независимы друг от друга, обе дают страницы,
    обе проверяются на живой машине.
 3. **Провенанс и редактор рецептов** (3) — трогает `registry` и `RecipeDetail`,
