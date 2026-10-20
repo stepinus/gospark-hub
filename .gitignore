@@ -9,3 +9,5 @@ gospark-hub
 
 # Fetched by build-engine.sh; a 50 MB toolchain tarball is not a recipe.
 registry/recipes/*/zig.tar.xz
+/gospark-sahd
+/gospark-sahd.sha256
