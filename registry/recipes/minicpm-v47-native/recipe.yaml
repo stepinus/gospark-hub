@@ -54,10 +54,12 @@ native:
     - "MiniCPM-V 4.7 35B-A3B INT4 MTP vision (native)"
     - "--port"
     - "8892"
-    # The model card's own numbers: 49152 context keeps the vision tower and
-    # its workspace inside ~29 GiB. Thinking stays on (the template's default).
+    # The model's trained window, 262,144 tokens: only 10 of the 40 layers are
+    # full attention with 2 KV heads of 256, so a token costs ~20 KiB — about
+    # 5 GiB a stream on top of 20.56 GiB of weights and the 1 GiB tower.
+    # Thinking stays on (the chat template's default).
     - "--context"
-    - "49152"
+    - "262144"
     - "--max-tokens"
     - "16384"
     - "--vision"
@@ -85,9 +87,9 @@ speculative_method: "mtp"
 weights_gb: 20
 release_date: "2026-10-07"
 requires_hf_token: false
-context_tokens: 49152
+context_tokens: 262144
 integration:
   api_url: "<HUB>/v1"
   model_id: "MiniCPM-V 4.7 35B-A3B INT4 MTP vision (native)"
   api_key: "<API_KEY>"
-  max_context: "49152"
+  max_context: "262144"
