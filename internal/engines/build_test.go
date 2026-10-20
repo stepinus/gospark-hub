@@ -77,6 +77,17 @@ func (f *fakeDocker) run(_ context.Context, dir string, args ...string) (string,
 	return "", 0, nil
 }
 
+// imageRemoved reports whether the builder image was dropped after its
+// artifacts were copied out.
+func (f *fakeDocker) imageRemoved(image string) bool {
+	for _, c := range f.calls {
+		if len(c.args) >= 4 && c.args[0] == "docker" && c.args[1] == "image" && c.args[2] == "rm" && c.args[3] == image {
+			return true
+		}
+	}
+	return false
+}
+
 // counts reports how many calls matched a docker subcommand, e.g. "cp".
 func (f *fakeDocker) counts(sub string) int {
 	n := 0
@@ -195,6 +206,11 @@ func TestEnsureBuildCopiesArtifacts(t *testing.T) {
 	}
 	if got := f.counts("rm"); got != 1 {
 		t.Errorf("docker rm calls = %d, want 1", got)
+	}
+	// The image is a build environment, not an artifact: it must be gone once
+	// the client exists, or every recipe keeps tens of gigabytes around.
+	if !f.imageRemoved(buildImage) {
+		t.Error("builder image was not removed after a successful build")
 	}
 
 	if path, err := m.BuildPath(TensorFold, "qwen38-flash-next-native"); err != nil || path != bin {
@@ -327,6 +343,10 @@ func TestEnsureBuildCopyFailureLeavesNothing(t *testing.T) {
 	}
 	if got := f.counts("rm"); got != 1 {
 		t.Errorf("docker rm calls = %d, want 1", got)
+	}
+	// A failed build keeps its image: a retry must not rebuild it from zero.
+	if f.imageRemoved(buildImage) {
+		t.Error("builder image was removed after a failed copy")
 	}
 }
 

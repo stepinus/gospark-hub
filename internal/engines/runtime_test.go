@@ -11,6 +11,7 @@ import (
 // runtimeDocker answers the docker calls EnsureRuntime makes and materialises
 // each copied tree, so the runtime layout can be asserted without a daemon.
 type runtimeDocker struct {
+	removed int
 	image   string
 	missing bool
 	copies  int
@@ -46,6 +47,9 @@ func (f *runtimeDocker) run(_ context.Context, _ string, args ...string) (string
 			return "", -1, err
 		}
 		return "", 0, os.WriteFile(filepath.Join(args[3], "marker"), nil, 0o644)
+	case len(args) >= 4 && args[1] == "image" && args[2] == "rm":
+		f.removed++
+		return "", 0, nil
 	case len(args) >= 2 && args[1] == "rm":
 		return "", 0, nil
 	}
@@ -75,6 +79,12 @@ func TestEnsureRuntimeCopiesOnceAndFindsTheInterpreter(t *testing.T) {
 	}
 
 	// Second call is a no-op: the runtime is one copy per engine.
+	// The image carried the runtime; once it is on disk the image is dead
+	// weight measured in tens of gigabytes.
+	if fake.removed != 1 {
+		t.Fatalf("builder image removals = %d, want 1", fake.removed)
+	}
+
 	if _, err := m.EnsureRuntime(context.Background(), TensorFold, buildImage); err != nil {
 		t.Fatalf("EnsureRuntime again: %v", err)
 	}

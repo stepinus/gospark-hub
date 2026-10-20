@@ -112,6 +112,11 @@ func (m *Manager) EnsureRuntime(ctx context.Context, engine, image string) (stri
 	if err != nil {
 		return "", fmt.Errorf("engines: runtime extracted without %s", runtimeBin)
 	}
+	// Same rule as a client build: the runtime is on disk, the image that
+	// carried it is no longer needed and is worth tens of gigabytes. One
+	// runtime serves every vision recipe of the engine, so the second one
+	// pays nothing.
+	m.dropImage(ctx, image)
 	return path, nil
 }
 

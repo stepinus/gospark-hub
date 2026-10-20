@@ -298,7 +298,23 @@ func (m *Manager) EnsureBuild(ctx context.Context, spec BuildSpec) (Build, error
 		}
 		return Build{}, fmt.Errorf("place engine client: %w", err)
 	}
+	// The image was a build environment, not an artifact: everything worth
+	// keeping is in the client directory now, and a builder image costs tens
+	// of gigabytes per recipe. build.json keeps its name, so the client can
+	// still be traced back to what produced it.
+	m.dropImage(ctx, spec.Image)
 	return rec.build(dir), nil
+}
+
+// dropImage removes a builder image once its artifacts are on disk. A missing
+// image, or one another container still uses, is not an error: the caller
+// already has what it needs. It runs with a detached context so a cancelled
+// request cannot leave the image behind.
+func (m *Manager) dropImage(ctx context.Context, image string) {
+	if strings.TrimSpace(image) == "" {
+		return
+	}
+	_, _, _ = m.run()(context.WithoutCancel(ctx), "", "docker", "image", "rm", image)
 }
 
 // RemoveBuild deletes the client directory. Removing what is not there is a
