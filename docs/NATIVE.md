@@ -62,6 +62,7 @@ install:                        # стадия install
       toolchain: [zig@0.17.0]   # ставится менеджером бинарей, не системой
       build: "zig build -Dnvcc=/usr/local/cuda/bin/nvcc -Doptimize=fast --prefix {out} -j{nproc} fatbins install native"
     from_image: tensorfold-qwen38:zig-db28187   # 2) legacy-fallback: вынуть из образа
+    keep_image: false          # образ — сборочная среда; удаляем после копирования
     artifacts:                  # что копировать, если путь через образ
       bin:    /opt/tensorfold/native/bin
       share:  /opt/tensorfold/share
@@ -88,6 +89,33 @@ run:
 `engine_build.env`): `{engine}` — каталог релиза движка, `{client}` — каталог клиента,
 `{runtime}` — корень выбранного рантайма, `{libs}` — каталог сторонних библиотек,
 `{model}` — разрешённый путь к весам.
+
+### Пространство: образ — сборочная среда, а не артефакт
+
+Ради этого всё и затевается. Классический compose-рецепт тянет модель (30–50 ГБ) плюс
+свой runtime-образ (ещё 20–40 ГБ), причём runtime у всех почти одинаковый: драйверы,
+CUDA, python, а кода движка там сотни мегабайт. На этой машине это видно прямо:
+`llama.cpp:server-cuda13` — 7 ГБ, `spark-comfyui` — 13 ГБ, и так на каждый рецепт.
+
+Инвариант нативной карточки:
+
+| что | где живёт | размер |
+| --- | --- | --- |
+| инструкция сборки (Dockerfile, `build-engine.sh`, пиннутый ref, sha zig) | каталог рецепта в репозитории | килобайты |
+| собранный клиент | `engines/<engine>/builds/<slug>/` | 33–74 МБ |
+| рантайм (только если нужен vision) | `engines/<engine>/runtimes/<flavor>/`, общий | ~2.4 ГБ |
+| релиз движка | `tools/<engine>/<version>/` | 86 МБ |
+| **образ, из которого всё это вынули** | **удаляется сразу после `docker cp`** | 0 |
+
+Сейчас `EnsureBuild`/`EnsureRuntime` убирают только одноразовый контейнер
+(`docker rm -f`), а образ остаётся — и именно он занимает десятки гигабайт. Поэтому в
+`install.client` появляется `keep_image: false` (дефолт), и после копирования артефактов
+делается `docker image rm <image>`; в `build.json` остаются `image_id` и дайджест, чтобы
+было видно, из чего собран клиент, даже когда образа уже нет. Пересобрать — по инструкции
+из рецепта (или `zig build` на хосте, если `source` задан).
+
+Флажок `keep_image: true` — только для отладки сборки, и тогда UI показывает размер
+образа и кнопку «удалить».
 
 ### Почему вообще был docker и можно ли без него
 
@@ -236,6 +264,7 @@ PyPI. Поэтому у `runtime` есть `source`: `index` (pypi.nvidia.com / 
 | шаг | файлы | проверка |
 | --- | --- | --- |
 | 1. Схема v2 + конверсия v1 | `internal/registry/native_spec.go`, тесты | все вендоренные рецепты парсятся, старый блок даёт тот же `Spec`, что и сейчас |
+| 1b. удаление образа после сборки | `internal/engines/build.go` (`keep_image`), `build.json.image_id` | после `install` в `docker images` нет образа рецепта, `builds/<slug>/` работает, `build.json` помнит `image_id` |
 | 1a. сборка клиента на хосте | `internal/engines/clients.go`, `tools` (zig) | `zig build` из репозитория рецепта даёт рабочий `tensorfold-native --version`, `build.json` с ref и версиями zig/nvcc |
 | 2. flavor-рантаймы | `internal/engines/runtimes.go` | `go test ./internal/engines/...`; venv создаётся на пустом HOME (uv, lock), повторный вызов ничего не делает |
 | 3. install-стадии и API | `internal/api/containers`, `internal/store` | `GET/POST …/install`; `launch` без стадии → 409 с именем стадии |
