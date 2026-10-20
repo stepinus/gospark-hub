@@ -56,13 +56,17 @@ engine_version: "1.1.1"         # НОВОЕ, необязательное: пи
 
 install:                        # стадия install
   client:                       # опционально: пропатченный клиент рецепта
-    from_image: tensorfold-qwen38:zig-db28187   # образ — источник артефактов
-    artifacts:                  # путь в образе -> куда (имя каталога в клиенте)
+    source:                     # 1) собрать на хосте из исходников
+      repo: https://github.com/jkuepker/TensorFold
+      ref: 0b1fd2bcebd30d8bfc3e22e8b6e744676b5e4679
+      toolchain: [zig@0.17.0]   # ставится менеджером бинарей, не системой
+      build: "zig build -Dnvcc=/usr/local/cuda/bin/nvcc -Doptimize=fast --prefix {out} -j{nproc} fatbins install native"
+    from_image: tensorfold-qwen38:zig-db28187   # 2) legacy-fallback: вынуть из образа
+    artifacts:                  # что копировать, если путь через образ
       bin:    /opt/tensorfold/native/bin
       share:  /opt/tensorfold/share
       fatbin: /opt/tensorfold/fatbin
       python: /opt/tensorfold/python
-    build: build-engine.sh      # если образа нет — команда из каталога рецепта
   runtime:                      # опционально: python нужен только под vision
     kind: venv                  # venv | image-rootfs | none  (по умолчанию none)
     python: "3.12"
@@ -85,17 +89,62 @@ run:
 `{runtime}` — корень выбранного рантайма, `{libs}` — каталог сторонних библиотек,
 `{model}` — разрешённый путь к весам.
 
+### Почему вообще был docker и можно ли без него
+
+`Dockerfile` в каталоге рецепта — это не требование рантайма, а упаковка **сборки**:
+
+```
+FROM nvcr.io/nvidia/pytorch:26.07-py3
+RUN … распаковать zig 0.17.0 …
+RUN git fetch jkuepker/TensorFold@0b1fd2b
+RUN zig build -Dnvcc=/usr/local/cuda/bin/nvcc -Doptimize=fast --prefix /opt/tensorfold fatbins install native
+```
+
+Всё, что нужно этой сборке, — **zig 0.17, nvcc и git**. Образ `pytorch:26.07` нужен был
+только ради второго слоя — того самого python-рантайма, который мы теперь заменяем
+venv'ом. На этой машине уже есть `nvcc` 13.2 (`/usr/local/cuda/bin/nvcc`) и git;
+zig 0.17 — один статический архив с ziglang.org (`zig-aarch64-linux-0.17.0.tar.xz`,
+sha256 зафиксирован в `build-engine.sh` рецепта, ссылка отвечает 200).
+
+Поэтому порядок источников в `install.client` такой:
+
+1. **собрать на хосте** (`source`): zig ставит менеджер бинарей (п. 0 в `STAGE2.md`),
+   nvcc берётся из системного CUDA, репозиторий — по пиннутому `ref`. Docker не участвует.
+2. **вынуть из образа** (`from_image`) — legacy и аварийный путь, пока рецепт не переписан.
+3. опубликованный релиз движка (`engine_version`) — для рецептов без патчей, как сейчас.
+
+Итог: docker перестаёт быть обязательным вообще — ни для движка, ни для клиента, ни для
+рантайма. Образы остаются только как источник артефактов для старых рецептов; собирать их
+заново не нужно (на этой машине их уже нет — `tensorfold-minicpm:zig-0b1fd2b` не
+существует, а клиенты на диске живут).
+
 Старое `native:` **читается как есть**: загрузчик конвертирует
 `vision: true` → `install.runtime.kind: image-rootfs`, `engine_build` → `install.client`,
 `runtime_image` → образ для рантайма. Ни один из 148 вендоренных рецептов править не надо.
+
+### Что записано, а что нет (проверено)
+
+| рецепт | источник клиента записан? |
+| --- | --- |
+| `minicpm-v47-native` | да: `build-engine.sh` + `Dockerfile` — `jkuepker/TensorFold@0b1fd2bcebd3…`, zig 0.17.0 с sha256 |
+| `qwen38-flash-next-native` | нет: только тег образа `tensorfold-qwen38:zig-db28187` |
+| `qwen38-27b-uncensored-native` | клиент стоковый, сборки нет — вопрос не стоит |
+
+Образа на машине больше нет (`docker images` пуст по `tensorfold-*`), а репозиторий и
+ref форка qwen38 нигде не записаны ни в рецепте, ни в `~/.cache/tensorfold-qwen38`, ни в
+репозитории модели. Клиенты в `builds/` рабочие, но **пересобрать их сейчас не из чего** —
+это цена того, что источник жил в теге образа. Вывод для формата: `install.client`
+обязан объявлять `source` (repo+ref) или `from_image`; для новых рецептов — только
+`source`, иначе через полгода клиент не воспроизвести. Пока ref не восстановлен, у
+рецептов qwen38 остаётся `from_image: …` плюс пометка «собран ранее, источник утерян».
 
 ## 3. Как это описывает наши три модели
 
 | рецепт | install.client | install.runtime | что окажется на диске |
 | --- | --- | --- | --- |
-| `minicpm-v47-native` (текст) | из `tensorfold-minicpm:zig-0b1fd2b` | `none` | клиент 33 МБ, **рантайм не нужен** |
+| `minicpm-v47-native` (текст) | сборка `jkuepker/TensorFold@0b1fd2b` (zig, без docker) | `none` | клиент 33 МБ, **рантайм не нужен** |
 | `qwen38-27b-uncensored-native` (vision, сток-клиент) | — | `venv`, py3.12 + torch/transformers/numpy/pillow | ~2.4 ГБ |
-| `qwen38-flash-next-native` (vision + патчи) | из `tensorfold-qwen38:zig-db28187` + `python/` | `venv` (тот же flavor) | клиент 74 МБ + общий рантайм 2.4 ГБ |
+| `qwen38-flash-next-native` (vision + патчи) | сборка `jkuepker/TensorFold@db28187` (zig) | `venv` (тот же flavor) | клиент 74 МБ + общий рантайм 2.4 ГБ |
 
 Рантайм — **flavor на движок**, а не на рецепт: ключ = хеш (python + lock), каталог
 `engines/tensorfold/runtimes/<flavor>/`, рецепты с одинаковым lock делят его. Два qwen
@@ -151,20 +200,25 @@ PyPI. Поэтому у `runtime` есть `source`: `index` (pypi.nvidia.com / 
 
 1. `internal/registry` — схема v2 (`NativeInstall`, `NativeRun`) + конверсия старого блока
    в v2 (чистая функция, покрыть тестами на всех вендоренных рецептах).
-2. `internal/engines/runtimes.go` — вместо одного `runtime/` на движок:
+2. `internal/engines/clients.go` — сборка клиента на хосте: `git init/fetch --depth 1
+   <repo> <ref>` во временный каталог, `zig build … --prefix <tmp-out>`, перенос в
+   `builds/<slug>/`, `build.json` (repo, ref, zig version, nvcc version). Zig ставится
+   менеджером бинарей в `tools/zig/current`; nvcc берётся из системы и проверяется
+   (`nvcc --version` → ≥ 13). `from_image` остаётся как fallback, если `source` не задан.
+3. `internal/engines/runtimes.go` — вместо одного `runtime/` на движок:
    `RuntimeFlavor(engine, py, lock) (dir, env, error)`, `EnsureVenv(ctx, flavor, lock,
    source)` (вызовы `uv venv --python 3.12 <dir>` и `uv pip install --python
    <dir>/bin/python -r <lock>`, лог в job), `EnsureImageRootfs` — текущая логика как есть.
    `RuntimeEnv` собирает `PYTHONPATH`/`LD_LIBRARY_PATH` от выбранного flavor; `vlib` для
    venv-flavor не нужен — CUDA берётся из `torch/lib` и системы.
-3. Стадии: `internal/api/containers` (сейчас `install` для нативного рецепта делает
+4. Стадии: `internal/api/containers` (сейчас `install` для нативного рецепта делает
    `ensureRuntime` + `ensureEngineBuild`) → отдельные `GET /api/recipes/{slug}/install`
    (состояние стадий) и `POST …/install` с телом `{"stage":"runtime"|"client"|"all"}`;
    `launch` проверяет `installs/<slug>.json`.
-4. UI: в `RecipeDetail` — карточка «Install» со стадиями (client / runtime / libs), у
+5. UI: в `RecipeDetail` — карточка «Install» со стадиями (client / runtime / libs), у
    каждой версия, размер, кнопка и лог; на `Engines` — список flavor'ов рантайма с
    размером и удалением (сегодня там нечего удалять — 17 ГБ лежат молча).
-5. Уборка: flavor без потребителей помечается в UI («не используется ни одним
+6. Уборка: flavor без потребителей помечается в UI («не используется ни одним
    рецептом»), удаляется кнопкой. Автоматически не удаляем — как и с весами.
 
 ## 6. Миграция без простоя
@@ -182,6 +236,7 @@ PyPI. Поэтому у `runtime` есть `source`: `index` (pypi.nvidia.com / 
 | шаг | файлы | проверка |
 | --- | --- | --- |
 | 1. Схема v2 + конверсия v1 | `internal/registry/native_spec.go`, тесты | все вендоренные рецепты парсятся, старый блок даёт тот же `Spec`, что и сейчас |
+| 1a. сборка клиента на хосте | `internal/engines/clients.go`, `tools` (zig) | `zig build` из репозитория рецепта даёт рабочий `tensorfold-native --version`, `build.json` с ref и версиями zig/nvcc |
 | 2. flavor-рантаймы | `internal/engines/runtimes.go` | `go test ./internal/engines/...`; venv создаётся на пустом HOME (uv, lock), повторный вызов ничего не делает |
 | 3. install-стадии и API | `internal/api/containers`, `internal/store` | `GET/POST …/install`; `launch` без стадии → 409 с именем стадии |
 | 4. UI стадий | `RecipeDetail.jsx`, `Engines.jsx` | Install с логом, размеры, удаление flavor'а |
