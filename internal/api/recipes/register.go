@@ -180,6 +180,9 @@ func (h *handler) applyRuntime(ctx context.Context, rec registry.Recipe, install
 	if rec.IsNative() {
 		return h.applyNativeRuntime(ctx, rec)
 	}
+	if rec.IsScript() {
+		return h.applyScriptRuntime(ctx, rec)
+	}
 
 	rec.Error = nil
 	pending := ""

@@ -190,6 +190,12 @@ func (h *handler) install(w http.ResponseWriter, r *http.Request) {
 	// Without one the engine is installed once on the Engines page, and the
 	// response keeps the shape the UI expects so its install button does not
 	// change behaviour.
+	if rec.IsScript() {
+		// Nothing to install: the app's own script owns the image and the
+		// container. The card only starts and stops it.
+		writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
+		return
+	}
 	if rec.IsNative() {
 		if rec.Native == nil {
 			writeJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": "installed"})
@@ -437,6 +443,17 @@ func (h *handler) launch(w http.ResponseWriter, r *http.Request) {
 	}
 	if rec.IsNative() {
 		h.launchNative(w, r, rec)
+		return
+	}
+	if rec.IsScript() {
+		h.d.SetPending(slug, "launching")
+		defer h.d.ClearPending(slug)
+		if err := runScript(r.Context(), rec, rec.Script.Start); err != nil {
+			h.d.SetStartupError(slug, err.Error())
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "launched", "slug": slug})
 		return
 	}
 	h.d.SetPending(slug, "launching")
@@ -690,9 +707,12 @@ func (h *handler) benchmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	running := false
-	if rec.IsNative() && h.natives != nil {
+	switch {
+	case rec.IsNative() && h.natives != nil:
 		running, _ = h.natives.Running(r.Context(), slug)
-	} else {
+	case rec.IsScript():
+		running = scriptRunning(r.Context(), rec)
+	default:
 		running = h.d.IsRecipeRunning(r.Context(), slug)
 	}
 	if !running {
@@ -710,7 +730,11 @@ func (h *handler) benchmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	measurement.Target = slug
-	if rec.IsNative() {
+	if rec.IsScript() {
+		if rec.Script.Container != "" {
+			measurement.MemoryBytes, measurement.MemorySource = bench.ContainerMemory(r.Context(), rec.Script.Container)
+		}
+	} else if rec.IsNative() {
 		measurement.MemoryBytes, measurement.MemorySource = bench.ProcessMemory(bench.PIDForPort(port))
 	} else if name := h.d.AnyContainerName(r.Context(), slug); name != "" {
 		measurement.MemoryBytes, measurement.MemorySource = bench.ContainerMemory(r.Context(), name)
@@ -736,6 +760,14 @@ func (h *handler) stop(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "stopped", "slug": slug})
 		return
 	}
+	if rec.IsScript() {
+		if err := runScript(r.Context(), rec, rec.Script.Stop); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "stopped", "slug": slug})
+		return
+	}
 	h.d.SetPending(slug, "stopping")
 	h.d.ClearReady(slug)
 	h.d.ClearStartupError(slug)
@@ -749,6 +781,14 @@ func (h *handler) remove(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.reg.Get(slug)
 	if !ok {
 		notFound(w, "Recipe not found")
+		return
+	}
+	if rec.IsScript() {
+		if err := runScript(r.Context(), rec, rec.Script.Stop); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "removed"})
 		return
 	}
 	if rec.IsNative() {
@@ -777,6 +817,14 @@ func (h *handler) purge(w http.ResponseWriter, r *http.Request) {
 	}
 	if rec.IsNative() {
 		if err := h.stopNative(r.Context(), slug); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "removed"})
+		return
+	}
+	if rec.IsScript() {
+		if err := runScript(r.Context(), rec, rec.Script.Stop); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": err.Error()})
 			return
 		}

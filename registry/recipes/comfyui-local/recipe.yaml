@@ -1,7 +1,7 @@
 name: "ComfyUI (local build)"
 slug: comfyui-local
-version: "1.0.0"
-description: "The ComfyUI built on this Spark by Workspace/ComfyUI/spark-comfyui.sh (image spark-comfyui:latest, torch cu130 aarch64, SageAttention sm_121): the node graph, the custom nodes, the models on the external disk and everything the panel's agent talks to. The card starts and stops that same container — same name, same mounts, same GPU and 16 GB of shm — so the Hub is now the switchboard and the script keeps working for rebuilds and diagnostics."
+version: "2.0.0"
+description: "The ComfyUI built on this Spark by Workspace/ComfyUI/spark-comfyui.sh (image spark-comfyui:latest, torch cu130 aarch64, SageAttention sm_121): the node graph, the custom nodes, the models on the internal NVMe and the external disk, and everything the panel's agent talks to. The card runs that script itself — `./spark-comfyui.sh service` to start, `./spark-comfyui.sh stop` to stop — so the script stays the single source of truth for the image, the mounts and the flags: a rebuild or a new mount reaches the Hub with no second copy of the container spec to drift out of sync."
 author: "ComfyAnonymous"
 source: "local"
 category: image-gen
@@ -24,10 +24,23 @@ requirements:
   recommended_memory_gb: 40
   disk_gb: 0
   cuda_compute: "12.1"
+
+# No compose file on purpose: the app's own script owns the container, its
+# mounts (spark-mounts.conf, including data/models-local on the NVMe) and the
+# image. A transcribed docker-compose.yml drifts from it — that is exactly how
+# one rebuild lost the models-local mount and made ComfyUI blind to the models.
+kind: script
+script:
+  dir: /home/nvidia/Workspace/ComfyUI
+  start: "./spark-comfyui.sh service"
+  stop: "./spark-comfyui.sh stop"
+  container: spark-comfyui
+
 ui:
   type: web
   port: 8188
   path: "/"
+
 docker:
   # The image is built locally by the script; the card only runs it.
   build: false

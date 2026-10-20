@@ -53,9 +53,14 @@ type Recipe struct {
 	ContextTokens           *int                 `json:"context_tokens"`
 	ReservedGB              float64              `json:"reserved_gb"`
 
-	// Kind is "container" (the default) or "native". It is serialized only
-	// for native recipes so container recipes keep upstream's JSON.
+	// Kind is "container" (the default), "native" or "script". It is
+	// serialized only for the last two so container recipes keep upstream's
+	// JSON. A script recipe has no compose file: launch/stop run the commands
+	// its `script:` block names, so the app keeps its own launcher as the
+	// single source of truth for mounts, image and flags.
 	Kind string `json:"kind,omitempty"`
+	// Script is the `script:` block of a script recipe; nil otherwise.
+	Script *RecipeScript `json:"script,omitempty"`
 	// Native is the launch config for a native recipe; nil for containers.
 	Native *RecipeNative `json:"native,omitempty"`
 	// EngineBuild is runtime state for a native recipe that declares
@@ -88,6 +93,11 @@ func (r Recipe) IsLLM() bool {
 // container (no docker-compose.yml, a `native:` block).
 func (r Recipe) IsNative() bool { return r.Kind == "native" }
 
+// IsScript reports whether the recipe is started and stopped by the app's own
+// script instead of by docker compose. The Hub keeps only the switch: the
+// script stays the source of truth for the image, the mounts and the flags.
+func (r Recipe) IsScript() bool { return r.Kind == "script" }
+
 // MarshalJSON keeps the wire format byte-compatible with upstream: `kind` and
 // `native` are native-only fields, even though the Go value carries the
 // canonical "container" for ordinary recipes. The alias type is load-bearing —
@@ -96,11 +106,30 @@ func (r Recipe) MarshalJSON() ([]byte, error) {
 	type alias Recipe
 	a := alias(r)
 	if !r.IsNative() {
-		a.Kind = ""
 		a.Native = nil
 		a.EngineBuild = nil
+		if !r.IsScript() {
+			a.Kind = ""
+		}
+	}
+	if !r.IsScript() {
+		a.Script = nil
 	}
 	return json.Marshal(a)
+}
+
+// RecipeScript is the `script:` block: the commands that start and stop the
+// app, run through the user's shell. Dir is the working directory (the app's
+// own repository); Status, when set, is an optional shell test whose exit code
+// 0 means "running" — without it the daemon probes ui.port instead.
+type RecipeScript struct {
+	Dir    string `json:"dir,omitempty"`
+	Start  string `json:"start"`
+	Stop   string `json:"stop"`
+	Status string `json:"status,omitempty"`
+	// Container, when set, is the docker container the script owns; it is used
+	// for the memory reading in benchmarks and for a quick liveness check.
+	Container string `json:"container,omitempty"`
 }
 
 // RecipeNative is the `native:` block: which host engine serves the recipe,

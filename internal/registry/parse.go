@@ -79,6 +79,7 @@ func parseRecipe(data []byte, dir string) (Recipe, error) {
 		ContextTokens:           intPtrField(raw, "context_tokens"),
 		ReservedGB:              0.0,
 		Kind:                    stringField(raw, "kind", "container"),
+		Script:                  parseScript(raw["script"]),
 		Native:                  parseNative(raw["native"], intField(nestedMap(raw, "ui"), "port", 8080)),
 	}
 
@@ -100,6 +101,28 @@ func parseRecipe(data []byte, dir string) (Recipe, error) {
 	r.ReservedGB = reservedFromCompose(dir)
 	r.computeDerivedFields()
 	return r, nil
+}
+
+// parseScript reads the `script:` block. A script recipe without both a start
+// and a stop command is not usable as a switchboard card, so it is dropped and
+// the recipe falls back to "container" (which will then complain about the
+// missing compose file instead of pretending to work).
+func parseScript(v any) *RecipeScript {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil
+	}
+	s := &RecipeScript{
+		Dir:       stringField(m, "dir", ""),
+		Start:     stringField(m, "start", ""),
+		Stop:      stringField(m, "stop", ""),
+		Status:    stringField(m, "status", ""),
+		Container: stringField(m, "container", ""),
+	}
+	if s.Start == "" || s.Stop == "" {
+		return nil
+	}
+	return s
 }
 
 func parseCover(v any) RecipeCover {
