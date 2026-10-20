@@ -82,6 +82,46 @@ func TestStartBuildsSystemdRunArgs(t *testing.T) {
 	}
 }
 
+func TestStartRunsCommandInsteadOfBinary(t *testing.T) {
+	rec := &recorder{}
+	logPath := filepath.Join(t.TempDir(), "minicpm.log")
+	spec := Spec{
+		// A module engine names its argv prefix; the runner appends serve/model.
+		Command: []string{"/runtime/bin/python3.12", "-m", "tensorfold"},
+		Model:   "/models/minicpm",
+		Args:    []string{"--vision", "--parallel", "1"},
+		Env:     map[string]string{"PYTHONPATH": "/src:/pylibs"},
+		Port:    8892,
+		LogPath: logPath,
+	}
+	if err := rec.runner().Start(context.Background(), "minicpm-native", spec); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	want := []string{
+		"systemd-run",
+		"--user",
+		"--unit=gospark-native-minicpm-native",
+		"--collect",
+		"--quiet",
+		"--property=StandardOutput=append:" + logPath,
+		"--property=StandardError=append:" + logPath,
+		"--setenv=PYTHONPATH=/src:/pylibs",
+		"/runtime/bin/python3.12",
+		"-m",
+		"tensorfold",
+		"serve",
+		"/models/minicpm",
+		"--vision",
+		"--parallel",
+		"1",
+		"--port",
+		"8892",
+	}
+	if got := rec.last(); !slices.Equal(got, want) {
+		t.Fatalf("systemd-run args:\n got %q\nwant %q", got, want)
+	}
+}
+
 func TestStartDoesNotDuplicateRecipeFlags(t *testing.T) {
 	rec := &recorder{}
 	spec := Spec{

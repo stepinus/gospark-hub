@@ -500,7 +500,7 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 		for k, v := range engines.ExpandEnv(eb.Env, h.engines.BuildDir(rec.Native.Engine, rec.Slug)) {
 			env[k] = v
 		}
-	} else {
+	} else if len(rec.Native.Command) == 0 {
 		path, err := h.engines.Path(rec.Native.Engine)
 		if errors.Is(err, engines.ErrNotInstalled) || errors.Is(err, engines.ErrUnknownEngine) {
 			writeJSON(w, http.StatusConflict, map[string]string{
@@ -555,7 +555,7 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 	// launch with "unrecognized arguments".
 	args := slices.Clone(rec.Native.Args)
 	if h.engines != nil {
-		if opts, err := h.engines.Options(rec.Native.Engine); err == nil {
+		if opts, err := h.engines.Options(rec.Native.Engine); err == nil && enginePath != "" {
 			supported := h.serveFlags(r.Context(), enginePath)
 			for _, flag := range opts.Flags() {
 				if len(supported) > 0 && !supported[flag] {
@@ -567,8 +567,31 @@ func (h *handler) launchNative(w http.ResponseWriter, r *http.Request, rec regis
 			}
 		}
 	}
+	// A recipe may name its own argv prefix instead of the engine binary: the
+	// Python engine is a module, not one executable. The same three
+	// placeholders the engine_build env uses are resolved here.
+	command := rec.Native.Command
+	var env2 map[string]string
+	if len(command) > 0 {
+		rep := strings.NewReplacer(
+			"{engine}", filepath.Join(h.engines.Home, rec.Native.Engine),
+			"{client}", h.engines.BuildDir(rec.Native.Engine, rec.Slug),
+			"{runtime}", h.engines.RuntimeDir(rec.Native.Engine),
+		)
+		expanded := make([]string, len(command))
+		for i, word := range command {
+			expanded[i] = rep.Replace(word)
+		}
+		command = expanded
+		env2 = make(map[string]string, len(env))
+		for k, v := range env {
+			env2[k] = rep.Replace(v)
+		}
+		env = env2
+	}
 	spec := native.Spec{
 		EnginePath: enginePath,
+		Command:    command,
 		Model:      model,
 		Args:       args,
 		Env:        env,

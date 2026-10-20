@@ -208,6 +208,7 @@ func parseNative(v any, defaultPort int) *RecipeNative {
 	}
 	return &RecipeNative{
 		Engine:       stringField(m, "engine", ""),
+		Command:      stringSlice(m, "command"),
 		Model:        stringField(m, "model", ""),
 		Args:         stringSlice(m, "args"),
 		Env:          stringMap(m, "env"),

@@ -116,6 +116,12 @@ type RecipeNative struct {
 	// EngineBuild, when set, makes the recipe run on an engine client built
 	// for this model instead of the engine release installed on the host.
 	EngineBuild *RecipeEngineBuild `json:"engine_build,omitempty"`
+	// Command replaces the engine binary as the argv prefix, for recipes whose
+	// engine is not a single executable (the Python engine: `python -m
+	// tensorfold serve <model> ...`). The runner appends "serve", the model and
+	// Args to it. Placeholders {engine}, {client} and {runtime} are resolved by
+	// the daemon, the same three the env block accepts.
+	Command []string `json:"command,omitempty"`
 	// Vision says the recipe serves images, so the launch needs the engine's
 	// shared Python runtime for the helper. RuntimeImage names the image that
 	// runtime is extracted from when it is not there yet.

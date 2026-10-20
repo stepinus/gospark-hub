@@ -15,6 +15,7 @@ ui:
   port: 8888
 native:
   engine: tensorfold
+  command: ["{runtime}/bin/python3.12", "-m", "tensorfold"]
   model: "hf:nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6887e18c089fdea8509a33e63429a3300"
   args: ["--context", "262144", "--parallel", "4", "--vision"]
   env: {TF_FLASHNEXT_DRAFTS: "6"}
@@ -47,6 +48,11 @@ func TestParseNativeRecipe(t *testing.T) {
 	}
 	if !strings.HasPrefix(rec.Native.Model, "hf:nvidia/") {
 		t.Errorf("model = %q", rec.Native.Model)
+	}
+	// A module engine names its argv prefix; the daemon resolves the
+	// placeholders, the parser keeps them verbatim.
+	if got := rec.Native.Command; len(got) != 3 || got[0] != "{runtime}/bin/python3.12" || got[1] != "-m" {
+		t.Errorf("command = %q", got)
 	}
 	if len(rec.Native.Args) != 5 || rec.Native.Args[0] != "--context" {
 		t.Errorf("args = %v", rec.Native.Args)

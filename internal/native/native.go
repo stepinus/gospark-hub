@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,10 @@ var ErrAlreadyRunning = errors.New("native recipe is already running")
 // pass the flag"; the caller fills them from the recipe.
 type Spec struct {
 	EnginePath string
+	// Command, when set, is the argv prefix started instead of EnginePath:
+	// "serve", the model and Args are appended to it. It exists for engines
+	// that are a module rather than one executable (python -m tensorfold).
+	Command    []string
 	Model      string
 	Args       []string
 	Env        map[string]string
@@ -147,7 +152,7 @@ func (r *Runner) Start(ctx context.Context, slug string, spec Spec) error {
 	if slug == "" {
 		return errors.New("native: empty slug")
 	}
-	if spec.EnginePath == "" {
+	if spec.EnginePath == "" && len(spec.Command) == 0 {
 		return errors.New("native: empty engine path")
 	}
 	if running, err := r.Running(ctx, slug); err != nil {
@@ -155,8 +160,10 @@ func (r *Runner) Start(ctx context.Context, slug string, spec Spec) error {
 	} else if running {
 		return fmt.Errorf("%w: %s", ErrAlreadyRunning, slug)
 	}
-	if _, err := r.lookPath()(spec.EnginePath); err != nil {
-		return fmt.Errorf("native: engine executable %s: %w", spec.EnginePath, err)
+	if bin := spec.binary(); bin != "" {
+		if _, err := r.lookPath()(bin); err != nil {
+			return fmt.Errorf("native: engine executable %s: %w", bin, err)
+		}
 	}
 	logPath := spec.LogPath
 	if logPath == "" {
@@ -199,7 +206,8 @@ func (r *Runner) startArgs(slug string, spec Spec, logPath string) []string {
 	for _, k := range keys {
 		args = append(args, "--setenv="+k+"="+spec.Env[k])
 	}
-	args = append(args, spec.EnginePath, "serve", spec.Model)
+	args = append(args, spec.prefix()...)
+	args = append(args, "serve", spec.Model)
 	args = append(args, spec.Args...)
 	if spec.Port > 0 && !hasFlag(spec.Args, "--port") {
 		args = append(args, "--port", strconv.Itoa(spec.Port))
@@ -208,6 +216,24 @@ func (r *Runner) startArgs(slug string, spec Spec, logPath string) []string {
 		args = append(args, "--name", spec.ServedName)
 	}
 	return args
+}
+
+// prefix is argv[0:n] of the launched command: the recipe's Command when it
+// names one, the engine binary otherwise.
+func (s Spec) prefix() []string {
+	if len(s.Command) > 0 {
+		return slices.Clone(s.Command)
+	}
+	return []string{s.EnginePath}
+}
+
+// binary is the executable to resolve before starting: the first word of the
+// command, or the engine binary.
+func (s Spec) binary() string {
+	if len(s.Command) > 0 {
+		return s.Command[0]
+	}
+	return s.EnginePath
 }
 
 // hasFlag reports whether the recipe's own args already set flag, in either

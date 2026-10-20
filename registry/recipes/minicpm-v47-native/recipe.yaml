@@ -1,7 +1,7 @@
-name: "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+name: "MiniCPM-V 4.7 35B-A3B INT4 MTP vision (native, Python engine)"
 slug: minicpm-v47-native
-version: "1.0.0"
-description: "OpenBMB's MiniCPM-V 4.7 35B-A3B served by a TensorFold engine client built on the host, without a container: its language model is a fine-tune of Qwen3.6-35B-A3B (text_config.model_type qwen3_5_moe_text), so the Qwen3.6 MoE CUDA engine runs it unchanged — Gated DeltaNet, gated attention, 256 routed experts, MTP drafting with Qwen3.6's own 0.5 GB draft head. The checkpoint is the community MLX affine 4-bit conversion (20 GB, groups of 64, 8-bit routers), the format this engine reads. IMAGES: supported by this checkpoint, but NOT on the engine this card runs. This card launches the native Zig client (jkuepker/TensorFold @0b1fd2b, 1.0.10): its capabilities list minicpmv4_7, yet serve has no --vision flag, and upstream 1.1.1 has no minicpmv4_7 family at all (open request #785; the merged native image input #598 is request image parts plus GLM-5.3-Flash, and this branch is 594 commits behind). The model card's `tensorfold serve ... --vision` is the Python engine from jkuepker/TensorFold@minicpmv47-066 (v0.6.6): images work there, verified on this box (--vision --parallel 1, single stream, tower 27 layers x 1152 BF16); --parallel above 1 is refused. On vLLM use the FP8 recipe. Measured by the checkpoint's author on a GB10: 151 tok/s at 0.1k with drafts, 92 tok/s without, 5.4k tok/s prefill at 16k, 20.56 GiB of weights plus 5 GiB a stream at the model's full 262,144-token window."
+version: "1.1.0"
+description: "OpenBMB's MiniCPM-V 4.7 35B-A3B served on the host without a container, following the model card's own recipe: the Python engine from jkuepker/TensorFold@minicpmv47-066 (v0.6.6) with `serve <checkpoint> --context 49152 --vision`, which is the only TensorFold path that carries this family's image tower (27 layers x 1152 BF16 in vision-bf16.safetensors). Its language model is a fine-tune of Qwen3.6-35B-A3B (Gated DeltaNet, gated attention, 256 routed experts, 8 active, 262,144-token window), so drafts come from Qwen3.6's 0.5 GB MTP head; the checkpoint is the community MLX affine 4-bit conversion (20 GB, group 64, 8-bit routers). Images verified on this box: a 760x240 PNG is read verbatim, 64 visual tokens at 16x downsampling, 2.0 s for a one-word answer; text-only startup estimate 28.81 GiB. LIMITS, as the branch states them: --vision refuses --parallel above 1, so the server takes one request at a time (text-only serving keeps the engine's concurrency); CUDA/GB10 only; multi-image prompts and requests over 16,384 patches are CPU-tested. The native Zig engine cannot run this family yet (upstream request #785), so this card is the Python engine by design. Measured by the checkpoint's author on a GB10: 154.8 tok/s at 0.1k drafted, 92.1 tok/s without drafts, 5.4k tok/s prefill at 16k."
 author: "spark-ai-hub"
 source: "local"
 category: llm
@@ -9,6 +9,8 @@ logo: "/logos/openbmb.png"
 tags:
   - llm
   - moe
+  - vision
+  - ocr
   - tensorfold
   - native
   - no-container
@@ -19,8 +21,8 @@ tags:
   - speculative-decoding
   - mtp
 requirements:
-  min_memory_gb: 32
-  recommended_memory_gb: 48
+  min_memory_gb: 30
+  recommended_memory_gb: 40
   disk_gb: 0
   cuda_compute: "12.1"
 ui:
@@ -33,33 +35,45 @@ ui:
 kind: native
 native:
   engine: tensorfold
-  # The stock 1.1.1 release has no minicpmv4_7 family; the family lives on the
-  # jkuepker/TensorFold branch minicpmv47-native (builds 1.0.10). The Hub
-  # extracts that built client out of this image and runs it from the engine's
-  # builds/ directory — the release under tensorfold/current stays untouched.
-  engine_build:
-    image: "tensorfold-minicpm:zig-0b1fd2b"
-    artifacts: ["/opt/tensorfold/native/bin"]
-    # Rebuilds the image when it is missing: Zig + the fork's build inside
-    # the PyTorch container, run with bash -lc in this recipe directory.
-    command: "bash build-engine.sh"
-    # No env: TENSORFOLD_CUDA_KERNELS must stay unset (the client carries its
-    # sm_121 kernels; the block's env values are joined onto the client dir, so
-    # "native" would become a path and the engine refuses it).
+  # The Python engine is a module, not one executable, so the launch names its
+  # argv prefix; the runner appends `serve <model>` and the args below. The
+  # checkout lives in the engine home (engines/tensorfold/python-engine, pinned
+  # to jkuepker/TensorFold@93fcf31 = branch minicpmv47-066) and runs on the
+  # engine's shared Python runtime — no venv, no container.
+  command:
+    - "{runtime}/bin/python3.12"
+    - "-m"
+    - "tensorfold"
+  # The vision helper and the extension build need the shared runtime on both
+  # paths, so the launch declares images and therefore requires it on disk.
+  vision: true
   # Resolved by the daemon to the snapshot in the local Hugging Face cache.
   model: "hf:kuepker/MiniCPM-V-4.7-35B-A3B-MLX-4bit-TensorFold@0aee82655c3bdb7135099cd368af7e92235d066f"
   args:
     - "--name"
-    - "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+    - "MiniCPM-V 4.7 35B-A3B INT4 MTP vision (native)"
     - "--port"
     - "8892"
-    # The model's own trained window. Cheap here: only 10 of the 40 layers are
-    # full attention with 2 KV heads of 256, so a token costs 20 KiB in bf16 --
-    # 5 GiB a stream at 262,144 on top of 20.56 GiB of weights.
+    # The model card's own numbers: 49152 context keeps the vision tower and
+    # its workspace inside ~29 GiB. Thinking stays on (the template's default).
     - "--context"
-    - "262144"
+    - "49152"
+    - "--max-tokens"
+    - "16384"
+    - "--vision"
+    # --vision refuses anything above one stream, so this is one request at a
+    # time; text-only serving would take the engine's own concurrency.
     - "--parallel"
-    - "2"
+    - "1"
+  env:
+    PYTHONPATH: "{engine}/python-engine/src:{runtime}/pylibs/dist-packages:{runtime}/pylibs/system-dist-packages"
+    LD_LIBRARY_PATH: "{runtime}/vlib/sys:{runtime}/vlib/sys/nvshmem/13:{runtime}/vlib/cuda:{runtime}/vlib/locallib:{runtime}/vlib/hpcx/ompi5/lib:{runtime}/vlib/hpcx/ucc/lib:{runtime}/vlib/hpcx/sharp/lib:{runtime}/vlib/hpcx/hcoll/lib:{runtime}/vlib/hpcx/ucx/lib:{runtime}/pylibs/dist-packages/torch/lib"
+    # Triton compiles a small C shim at first use (needs cuda.h) and shells out
+    # to ptxas from TRITON_PTXAS_PATH, not from PATH; the extracted runtime has
+    # neither, the system CUDA toolkit has both.
+    CPATH: "/usr/local/cuda/include"
+    TRITON_PTXAS_PATH: "/usr/local/cuda/bin/ptxas"
+    HF_HUB_OFFLINE: "1"
   port: 8892
 status: experimental
 engine: "TensorFold"
@@ -71,9 +85,9 @@ speculative_method: "mtp"
 weights_gb: 20
 release_date: "2026-10-07"
 requires_hf_token: false
-context_tokens: 262144
+context_tokens: 49152
 integration:
   api_url: "<HUB>/v1"
-  model_id: "MiniCPM-V 4.7 35B-A3B INT4 MTP (native)"
+  model_id: "MiniCPM-V 4.7 35B-A3B INT4 MTP vision (native)"
   api_key: "<API_KEY>"
-  max_context: "262144"
+  max_context: "49152"
