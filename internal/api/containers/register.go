@@ -258,6 +258,12 @@ func (h *handler) ensureRuntime(ctx context.Context, rec registry.Recipe) error 
 	if h.engines == nil || rec.Native == nil || !rec.Native.Vision {
 		return nil
 	}
+	// The runtime being on disk is the whole requirement: which image it was
+	// extracted from only matters when there is nothing to run yet. A recipe
+	// that has its own runtime in place needs no runtime_image at all.
+	if _, err := h.engines.RuntimePath(rec.Native.Engine); err == nil {
+		return nil
+	}
 	image := rec.Native.RuntimeImage
 	if image == "" && rec.Native.EngineBuild != nil {
 		image = rec.Native.EngineBuild.Image
