@@ -148,6 +148,25 @@ under `/app/<slug>/`.
 Each variable is also accepted with the upstream prefix (`SPARK_AI_HUB_PORT`, …), so an
 existing deployment's environment keeps working.
 
+### Container
+
+```sh
+docker build -t gospark-hub .
+docker run -d --name gospark-hub -p 9106:9106 \
+  -v gospark-data:/data gospark-hub
+```
+
+The image builds the UI, embeds it into the binary and bakes the recipe catalogue at
+`/app/registry/recipes`. The volume at `/data` holds the database, agent files, logs,
+vendored recipe clones and downloaded engines, so it is the only thing to keep. Defaults
+inside the image: `PORT=PUBLIC_PORT=9106`, `PROXY_ENABLED=false` (the daemon serves the
+port itself, no Caddy sidecar), `DATA_DIR=/data`.
+
+Container and engine recipes are started with the `docker` CLI, which the image does not
+carry: such a deployment needs the CLI and the socket mounted in
+(`-v /usr/bin/docker:/usr/bin/docker:ro -v /var/run/docker.sock:/var/run/docker.sock`),
+or should stay with native recipes and the llama-swap sidecar over the network.
+
 ## Development
 
 ```sh
